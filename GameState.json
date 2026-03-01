@@ -1,0 +1,109 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "stage": 1,
+    "notes": "Shared contract for frontend/backend. All values are source of truth."
+  },
+  "time": {
+    "day": 1,
+    "totalDays": 180,
+    "tickSeconds": 10,
+    "isRunning": false
+  },
+  "team": {
+    "id": "TEAM_001",
+    "budgetHKD": 1000000,
+    "approvals": {
+      "requiresVoteThresholdPct": 20,
+      "votesNeeded": 2,
+      "votesCast": {
+        "municipality": false,
+        "mrf": false,
+        "broker": false
+      }
+    }
+  },
+  "metrics": {
+    "cityHealthPct": 100,
+    "carbonEmissionsKg": 0
+  },
+  "roles": {
+    "municipality": {
+      "inventory": {
+        "materialsTons": {
+          "paper": { "A": 0, "B": 0, "C": 0 },
+          "plastic": { "A": 0, "B": 0, "C": 0 },
+          "metal": { "A": 0, "B": 0, "C": 0 },
+          "glass": { "A": 0, "B": 0, "C": 0 },
+          "wood": { "A": 0, "B": 0, "C": 0 }
+        },
+        "wasteTons": {
+          "paper": { "B": 0, "C": 0, "F": 0 },
+          "plastic": { "B": 0, "C": 0, "F": 0 },
+          "metal": { "B": 0, "C": 0, "F": 0 },
+          "glass": { "B": 0, "C": 0, "F": 0 },
+          "wood": { "B": 0, "C": 0, "F": 0 }
+        },
+        "bufferCapacityTons": 150
+      },
+      "projects": {
+        "active": [],
+        "completed": []
+      }
+    },
+    "mrf": {
+      "inventory": {
+        "unprocessedWasteTons": {
+          "paper": { "B": 0, "C": 0, "F": 0 },
+          "plastic": { "B": 0, "C": 0, "F": 0 },
+          "metal": { "B": 0, "C": 0, "F": 0 },
+          "glass": { "B": 0, "C": 0, "F": 0 },
+          "wood": { "B": 0, "C": 0, "F": 0 }
+        },
+        "processedMaterialsTons": {
+          "paper": { "A": 0, "B": 0, "C": 0 },
+          "plastic": { "A": 0, "B": 0, "C": 0 },
+          "metal": { "A": 0, "B": 0, "C": 0 },
+          "glass": { "A": 0, "B": 0, "C": 0 },
+          "wood": { "A": 0, "B": 0, "C": 0 }
+        }
+      },
+      "wasteTreatment": {
+        "activeMethods": []
+      }
+    },
+    "broker": {
+      "inventory": {
+        "materialsTons": {
+          "paper": { "A": 0, "B": 0, "C": 0 },
+          "plastic": { "A": 0, "B": 0, "C": 0 },
+          "metal": { "A": 0, "B": 0, "C": 0 },
+          "glass": { "A": 0, "B": 0, "C": 0 },
+          "wood": { "A": 0, "B": 0, "C": 0 }
+        }
+      },
+      "transportation": {
+        "fleet": {
+          "truck": { "quantity": 5, "capacityTons": 10, "costHKD": 100, "co2Kg": 150, "deliveryDays": 3, "returnDays": 3 },
+          "airplane": { "quantity": 1, "capacityTons": 5, "costHKD": 400, "co2Kg": 500, "deliveryDays": 1, "returnDays": 1 },
+          "ship": { "quantity": 1, "capacityTons": 100, "costHKD": 25, "co2Kg": 75, "deliveryDays": 4, "returnDays": 4 }
+        },
+        "inTransit": []
+      }
+    }
+  },
+  "market": {
+    "vendorPricesHKD": {
+      "metalPerTonne": 4982,
+      "plasticPerTonne": 9700,
+      "paperPerTonne": 3032.7,
+      "glassPerTonne": 177,
+      "woodPerTonne": 6955
+    }
+  },
+  "biddingPlatform": {
+    "activeBids": [],
+    "tradeHistory": []
+  },
+  "eventLog": []
+}
