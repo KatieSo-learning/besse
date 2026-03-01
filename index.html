@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BESSE Task Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 24px;
+      }
+      button {
+        margin-right: 8px;
+        margin-bottom: 8px;
+      }
+      #log {
+        border: 1px solid #ccc;
+        padding: 12px;
+        min-height: 80px;
+        white-space: pre-wrap;
+      }
+      #status {
+        border: 1px solid #ccc;
+        padding: 12px;
+        margin-bottom: 12px;
+        background: #f8f8f8;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>BESSE Task Test</h1>
+    <div id="status"></div>
+    <p>Open the browser console to see logs.</p>
+    <div>
+      <button id="startClock">Start Clock</button>
+      <button id="stopClock">Stop Clock</button>
+      <button id="testBudget">Run Budget Tests</button>
+    </div>
+    <div>
+      <label>
+        Current Asset:
+        <input id="assetInput" type="number" value="1000000" />
+      </label>
+      <label>
+        Revenue:
+        <input id="revenueInput" type="number" value="50000" />
+      </label>
+      <label>
+        Expenses:
+        <input id="expensesInput" type="number" value="12500" />
+      </label>
+      <button id="calcBudget">Calculate Budget</button>
+    </div>
+    <div>
+      <label>
+        Waste A:
+        <input id="wasteAInput" type="number" value="40" />
+      </label>
+      <label>
+        Waste B:
+        <input id="wasteBInput" type="number" value="50" />
+      </label>
+      <label>
+        Waste C:
+        <input id="wasteCInput" type="number" value="10" />
+      </label>
+      <button id="calcWaste">Calculate Waste</button>
+    </div>
+    <div>
+      <label>
+        MRF Current Waste (tons):
+        <input id="mrfWasteInput" type="number" value="200" />
+      </label>
+      <label>
+        Buffer Capacity (tons):
+        <input id="mrfCapacityInput" type="number" value="150" />
+      </label>
+      <label>
+        Days Over Capacity:
+        <input id="mrfDaysInput" type="number" value="1" />
+      </label>
+      <button id="calcBuffer">Check Buffer Penalty</button>
+    </div>
+    <div id="log"></div>
+
+    <script src="./clientTest.js"></script>
+    <script>
+      let currentAsset = 1000000;
+      let cityHealthPct = 100;
+      let transportMultiplier = 1.0;
+
+      function updateStatus() {
+        const status = document.getElementById("status");
+        status.textContent =
+          "Current Asset (HKD): " +
+          currentAsset +
+          " | City Health: " +
+          cityHealthPct +
+          "% | Transport Multiplier: " +
+          transportMultiplier +
+          "x";
+      }
+
+      function log(message) {
+        const el = document.getElementById("log");
+        el.textContent += message + "\n";
+      }
+
+      function calculateNewBudget(currentAsset, revenue, expenses) {
+        if (!Number.isFinite(currentAsset) || !Number.isFinite(revenue) || !Number.isFinite(expenses)) {
+          throw new Error("calculateNewBudget expects finite numbers");
+        }
+        return currentAsset + revenue - expenses;
+      }
+
+      function startGameClock(options) {
+        const settings = options || {};
+        const totalDays = Number.isInteger(settings.totalDays) ? settings.totalDays : 180;
+        const startDay = Number.isInteger(settings.startDay) ? settings.startDay : 1;
+        const tickSeconds = Number.isFinite(settings.tickSeconds) ? settings.tickSeconds : 10;
+        const onTick = typeof settings.onTick === "function" ? settings.onTick : function () {};
+        const onComplete = typeof settings.onComplete === "function" ? settings.onComplete : function () {};
+
+        if (startDay < 1) {
+          throw new Error("startDay must be >= 1");
+        }
+        if (totalDays < startDay) {
+          throw new Error("totalDays must be >= startDay");
+        }
+        if (tickSeconds <= 0) {
+          throw new Error("tickSeconds must be > 0");
+        }
+
+        let day = startDay;
+        let timerId = null;
+        let running = false;
+
+        function stop() {
+          if (timerId !== null) {
+            clearInterval(timerId);
+            timerId = null;
+          }
+          running = false;
+        }
+
+        function getState() {
+          return { day, totalDays, tickSeconds, running };
+        }
+
+        function start() {
+          if (running) {
+            return getState();
+          }
+          running = true;
+          onTick({ day, totalDays });
+
+          timerId = setInterval(function () {
+            if (day >= totalDays) {
+              stop();
+              onComplete({ day, totalDays });
+              return;
+            }
+
+            day += 1;
+            onTick({ day, totalDays });
+
+            if (day >= totalDays) {
+              stop();
+              onComplete({ day, totalDays });
+            }
+          }, tickSeconds * 1000);
+
+          return getState();
+        }
+
+        return { start, stop, getState };
+      }
+
+      const degradationMatrix = {
+        paper: {
+          fromA: { B: 0.30, C: 0.40, F: 0.30 },
+          fromB: { B: 0.00, C: 0.60, F: 0.40 },
+          fromC: { B: 0.00, C: 0.00, F: 1.00 }
+        },
+        plastic: {
+          fromA: { B: 0.00, C: 0.00, F: 0.00 },
+          fromB: { B: 0.00, C: 0.00, F: 0.00 },
+          fromC: { B: 0.00, C: 0.00, F: 0.00 }
+        }
+      };
+
+      function calculateWaste(materialType, tonsA, tonsB, tonsC) {
+        if (typeof materialType !== "string" || materialType.length === 0) {
+          throw new Error("materialType must be a non-empty string");
+        }
+
+        const rates = degradationMatrix[materialType];
+        if (!rates) {
+          throw new Error("materialType not found in degradationMatrix");
+        }
+
+        const A = Number(tonsA || 0);
+        const B = Number(tonsB || 0);
+        const C = Number(tonsC || 0);
+
+        if (!Number.isFinite(A) || !Number.isFinite(B) || !Number.isFinite(C)) {
+          throw new Error("A, B, C must be finite numbers");
+        }
+        if (A < 0 || B < 0 || C < 0) {
+          throw new Error("A, B, C must be >= 0");
+        }
+
+        const finalB = A * rates.fromA.B + B * rates.fromB.B + C * rates.fromC.B;
+        const finalC = A * rates.fromA.C + B * rates.fromB.C + C * rates.fromC.C;
+        const finalF = A * rates.fromA.F + B * rates.fromB.F + C * rates.fromC.F;
+
+        return { materialType, B: finalB, C: finalC, F: finalF };
+      }
+
+      let consecutiveDaysOverloaded = 0;
+      let hasPaidDisasterFine = false;
+
+      function evaluateMrfBufferPenalty(currentWasteTons, capacityTons) {
+        const warningThreshold = capacityTons + 1;
+        const criticalThreshold = capacityTons + 31;
+        const disasterThreshold = capacityTons + 101;
+
+        if (!Number.isFinite(currentWasteTons) || !Number.isFinite(capacityTons)) {
+          throw new Error("All inputs must be finite numbers");
+        }
+        if (currentWasteTons < 0 || capacityTons <= 0) {
+          throw new Error("Waste must be non-negative and capacity > 0");
+        }
+
+        let zone = "normal";
+        let transportMultiplier = 1.0;
+        let healthDropRate = 0;
+        let fineToApply = 0;
+
+        if (currentWasteTons >= disasterThreshold) {
+          zone = "disaster";
+          transportMultiplier = 2.0;
+          healthDropRate = 4;
+          if (!hasPaidDisasterFine) {
+            fineToApply = 50000;
+            hasPaidDisasterFine = true;
+          }
+        } else if (currentWasteTons >= criticalThreshold) {
+          zone = "critical";
+          transportMultiplier = 2.0;
+          healthDropRate = 3;
+          hasPaidDisasterFine = false;
+        } else if (currentWasteTons >= warningThreshold) {
+          zone = "warning";
+          transportMultiplier = 1.0;
+          healthDropRate = 2;
+          hasPaidDisasterFine = false;
+        } else {
+          zone = "normal";
+          transportMultiplier = 1.0;
+          healthDropRate = 0;
+          hasPaidDisasterFine = false;
+          consecutiveDaysOverloaded = 0;
+        }
+
+        return { zone, transportMultiplier, healthDropRate, fineToApply };
+      }
+
+      function applyBufferPenalty(currentWasteTons, capacityTons) {
+        const result = evaluateMrfBufferPenalty(currentWasteTons, capacityTons);
+        let healthDropToApply = 0;
+
+        if (result.zone !== "normal") {
+          consecutiveDaysOverloaded += 1;
+          if (consecutiveDaysOverloaded > 0 && consecutiveDaysOverloaded % 10 === 0) {
+            healthDropToApply = result.healthDropRate;
+          }
+        }
+
+        return {
+          zone: result.zone,
+          transportMultiplier: result.transportMultiplier,
+          healthDropPct: healthDropToApply,
+          fineHKD: result.fineToApply
+        };
+      }
+
+      function applyBufferPenaltyForDays(currentWasteTons, capacityTons, days) {
+        if (days <= 0) {
+          return { zone: "normal", fineHKD: 0, healthDropPct: 0, isDisaster: false, transportMultiplier: 1.0 };
+        }
+
+        let totalHealthDrop = 0;
+        let totalFine = 0;
+        let finalZone = "normal";
+        let isDisaster = false;
+        let finalMultiplier = 1.0;
+
+        const savedCounter = consecutiveDaysOverloaded;
+
+        for (let i = 0; i < days; i += 1) {
+          const result = applyBufferPenalty(currentWasteTons, capacityTons);
+
+          finalZone = result.zone;
+          isDisaster = result.zone === "disaster";
+          finalMultiplier = result.transportMultiplier;
+
+          if (result.zone === "warning" || result.zone === "critical" || result.zone === "disaster") {
+            totalHealthDrop += result.healthDropPct;
+          }
+
+          if (result.zone === "disaster" && totalFine === 0 && result.fineHKD > 0) {
+            totalFine = result.fineHKD;
+          }
+        }
+
+        consecutiveDaysOverloaded = savedCounter;
+        return {
+          zone: finalZone,
+          fineHKD: totalFine,
+          healthDropPct: totalHealthDrop,
+          isDisaster,
+          transportMultiplier: finalMultiplier
+        };
+      }
+
+      let lastBufferZone = "normal";
+
+      const clock = startGameClock({
+        tickSeconds: 2,
+        onTick: function (state) {
+          const msg = "Day " + state.day + " / " + state.totalDays;
+          console.log(msg);
+          log(msg);
+
+          const currentWasteTons = Number(document.getElementById("mrfWasteInput").value);
+          const capacityTons = Number(document.getElementById("mrfCapacityInput").value);
+          const result = applyBufferPenalty(currentWasteTons, capacityTons);
+          transportMultiplier = result.transportMultiplier;
+
+          if (result.healthDropPct > 0) {
+            cityHealthPct = Math.max(0, cityHealthPct - result.healthDropPct);
+            log(
+              "City Health dropped " +
+                result.healthDropPct +
+                "% due to " +
+                result.zone +
+                " zone overload."
+            );
+          }
+          if (result.zone === "disaster" && lastBufferZone !== "disaster") {
+            currentAsset = calculateNewBudget(currentAsset, 0, 500000);
+          }
+
+          lastBufferZone = result.zone;
+          updateStatus();
+        },
+        onComplete: function () {
+          const msg = "Clock finished";
+          console.log(msg);
+          log(msg);
+        }
+      });
+
+      document.getElementById("startClock").addEventListener("click", function () {
+        log("Clock started");
+        clock.start();
+      });
+
+      document.getElementById("stopClock").addEventListener("click", function () {
+        log("Clock stopped");
+        clock.stop();
+      });
+
+      document.getElementById("testBudget").addEventListener("click", function () {
+        const cases = [
+          { currentAsset: 1000000, revenue: 50000, expenses: 12500 },
+          { currentAsset: 1000, revenue: 0, expenses: 0 },
+          { currentAsset: 500, revenue: 0, expenses: 750 }
+        ];
+
+        log("Budget tests:");
+        cases.forEach(function (testCase, index) {
+          const result = calculateNewBudget(
+            testCase.currentAsset,
+            testCase.revenue,
+            testCase.expenses
+          );
+          const msg =
+            "Case " +
+            (index + 1) +
+            ": " +
+            testCase.currentAsset +
+            " + " +
+            testCase.revenue +
+            " - " +
+            testCase.expenses +
+            " = " +
+            result;
+          console.log(msg);
+          log(msg);
+        });
+      });
+
+      document.getElementById("calcBudget").addEventListener("click", function () {
+        const asset = Number(document.getElementById("assetInput").value);
+        const revenue = Number(document.getElementById("revenueInput").value);
+        const expenses = Number(document.getElementById("expensesInput").value);
+        const result = calculateNewBudget(asset, revenue, expenses);
+        currentAsset = result;
+        updateStatus();
+        const msg = "Custom budget result: " + result;
+        console.log(msg);
+        log(msg);
+      });
+
+      document.getElementById("calcWaste").addEventListener("click", function () {
+        const A = Number(document.getElementById("wasteAInput").value);
+        const B = Number(document.getElementById("wasteBInput").value);
+        const C = Number(document.getElementById("wasteCInput").value);
+        const result = calculateWaste("paper", A, B, C);
+        const msg =
+          "Using " +
+          A +
+          " tons of A-grade, " +
+          B +
+          " tons of B-grade, and " +
+          C +
+          " tons of C-grade paper creates " +
+          result.B +
+          " tons of B-grade waste, " +
+          result.C +
+          " tons of C-grade waste, and " +
+          result.F +
+          " tons of F-grade waste.";
+        console.log(msg);
+        log(msg);
+      });
+
+      document.getElementById("calcBuffer").addEventListener("click", function () {
+        const currentWasteTons = Number(document.getElementById("mrfWasteInput").value);
+        const capacityTons = Number(document.getElementById("mrfCapacityInput").value);
+        const daysOverCapacity = Number(document.getElementById("mrfDaysInput").value);
+        const result = applyBufferPenaltyForDays(currentWasteTons, capacityTons, daysOverCapacity);
+        if (result.fineHKD > 0) {
+          currentAsset = calculateNewBudget(currentAsset, 0, result.fineHKD);
+        }
+        if (result.healthDropPct > 0) {
+          cityHealthPct = Math.max(0, cityHealthPct - result.healthDropPct);
+          log(
+            "City Health dropped " +
+              result.healthDropPct +
+              "% due to " +
+              result.zone +
+              " zone overload."
+          );
+        }
+        transportMultiplier = result.transportMultiplier;
+        updateStatus();
+        let msg =
+          "MRF buffer check (" +
+          result.zone +
+          "): fine HKD " +
+          result.fineHKD +
+          ", city health drop " +
+          result.healthDropPct +
+          "%, transport multiplier " +
+          result.transportMultiplier +
+          "x.";
+        if (result.isDisaster) {
+          msg += " Disaster threshold reached.";
+        }
+        console.log(msg);
+        log(msg);
+      });
+
+      updateStatus();
+    </script>
+  </body>
+</html>
