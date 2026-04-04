@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>City Waste Simulation – Live Statistics Dashboard</title>
+<script src="/socket.io/socket.io.js"></script>
+<link rel="stylesheet" href="player-menu.css">
+<link rel="stylesheet" href="ui-fonts.css">
+<style>
+/* ══════════════════════════════════════════
+ *  FIGMA DESIGN SYSTEM — GREEN EARTH PALETTE
+ * ══════════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+
+:root {
+  /* ── Greens (from Figma swatches) ── */
+  --green-900: #1a2f25;
+  --green-800: #244635;
+  --green-700: #2d5a3a;
+  --green-600: #3d6b45;
+  --green-500: #4e7d52;
+  --green-400: #6b9a6e;
+  --green-300: #8fb58e;
+  --green-200: #a8c8a3;
+  --green-100: #c8d9c0;
+  --green-50:  #dce8d5;
+
+  /* ── Sage / Olive accents ── */
+  --sage-700: #5a6d4e;
+  --sage-500: #7a8c6e;
+  --sage-300: #a3b38e;
+  --sage-200: #b5c4a3;
+  --sage-100: #c8d2bc;
+  --sage-50:  #e0e7d9;
+
+  /* ── Neutrals ── */
+  --paper:    #e3dfd2;
+  --paper-light: #eceade;
+  --cream:    #f5f3ed;
+  --white:    #ffffff;
+  --ink:      #1a2f25;
+  --ink-light:#2c3e30;
+  --text-on-dark: #e8f3ec;
+  --text-dim-dark: #9bb38f;
+  --text-body: #3a4a3c;
+  --text-muted: #6b7d6e;
+  --border-light: rgba(26,47,37,0.12);
+  --border-panel: rgba(168,200,163,0.25);
+
+  /* ── Functional ── */
+  --accent:   #3d6b45;
+  --success:  #4e7d52;
+  --warning:  #b8860b;
+  --danger:   #a94442;
+  --info:     #4a7a6e;
+  --teal:     #3a7a6a;
+
+  /* ── Shadows ── */
+  --shadow-sm: 0 2px 8px rgba(26,47,37,0.08);
+  --shadow-md: 0 4px 20px rgba(26,47,37,0.12);
+  --shadow-lg: 0 8px 32px rgba(26,47,37,0.16);
+  --shadow-glow: 0 0 20px rgba(77,125,82,0.15);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  font-family: 'DM Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  color: var(--text-body);
+  background: var(--paper);
+  overflow-x: hidden;
+}
+
+/* ── Subtle texture overlay ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 100% 60% at 50% 100%, rgba(200,217,192,0.3) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 20% 10%, rgba(168,200,163,0.12) 0%, transparent 50%);
+  pointer-events: none; z-index: 0;
+}
+
+/* ══════════════════════════════════════════
+ *  TOP BAR
+ * ══════════════════════════════════════════ */
+.topbar {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--green-900);
+  border-bottom: 2px solid var(--green-700);
+  box-shadow: 0 4px 24px rgba(26,47,37,0.35);
+}
+
+.topbar-main {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  gap: 12px;
+}
+
+.back-btn {
+  width: 34px; height: 34px;
+  border-radius: var(--radius-sm);
+  background: var(--green-800);
+  border: 1px solid var(--green-700);
+  color: var(--sage-200);
+  font-size: 18px; font-weight: 700;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: 0.2s;
+  text-decoration: none;
+}
+.back-btn:hover {
+  background: var(--green-700);
+  color: var(--text-on-dark);
+}
+
+.city-badge {
+  display: flex; align-items: center; gap: 10px;
+  flex: 1;
+}
+.city-icon {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--green-600), var(--green-400));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  border: 2px solid var(--green-500);
+  box-shadow: 0 0 12px rgba(78,125,82,0.3);
+}
+.city-name {
+  font-size: 17px; font-weight: 800;
+  color: var(--text-on-dark);
+  letter-spacing: 0.3px;
+}
+.city-subtitle {
+  font-size: 11px; font-weight: 500;
+  color: var(--text-dim-dark);
+}
+
+.day-pill {
+  background: var(--green-800);
+  border: 1px solid var(--green-700);
+  border-radius: var(--radius-md);
+  padding: 6px 16px;
+  text-align: center;
+}
+.day-pill .num {
+  font-size: 18px; font-weight: 800;
+  color: var(--sage-200);
+}
+
+/* ── Stat Strip ── */
+.stat-strip {
+  display: flex;
+  gap: 3px;
+  padding: 0 16px 10px;
+  overflow-x: auto;
+}
+.stat-chip {
+  flex: 1;
+  min-width: 90px;
+  background: var(--green-800);
+  border: 1px solid var(--green-700);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  display: flex; align-items: center; gap: 8px;
+  transition: 0.2s;
+}
+.stat-chip:hover {
+  background: var(--green-700);
+  border-color: var(--green-500);
+}
+.stat-chip .icon {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.stat-chip .info .val {
+  font-size: 13px; font-weight: 800;
+  color: var(--text-on-dark);
+}
+.stat-chip .info .lbl {
+  font-size: 9px; font-weight: 600;
+  color: var(--text-dim-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ic-budget .icon { background: rgba(78,125,82,0.25); color: #8fc98e; }
+.ic-health .icon { background: rgba(183,110,110,0.2); color: #d4918e; }
+.ic-waste  .icon { background: rgba(184,134,11,0.2); color: #d4b85c; }
+.ic-co2    .icon { background: rgba(74,122,110,0.25); color: #7abcac; }
+
+/* ══════════════════════════════════════════
+ *  CONTENT
+ * ══════════════════════════════════════════ */
+.content {
+  position: relative; z-index: 1;
+  padding: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-bottom: 60px;
+}
+
+/* ── Tab Navigation ── */
+.tab-nav {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  background: var(--white);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-sm);
+}
+.tab-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s;
+  letter-spacing: 0.2px;
+}
+.tab-btn:hover {
+  color: var(--green-700);
+  background: var(--sage-50);
+}
+.tab-btn.active {
+  background: var(--green-900);
+  color: var(--text-on-dark);
+  box-shadow: var(--shadow-md);
+}
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── Panel ── */
+.panel {
+  background: var(--white);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-md);
+  transition: 0.2s;
+}
+.panel:hover {
+  box-shadow: var(--shadow-lg);
+}
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--green-900);
+  border-bottom: 2px solid var(--green-700);
+}
+.panel-head .ph-icon {
+  width: 30px; height: 30px;
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px;
+  background: rgba(155,179,143,0.15);
+}
+.panel-head .ph-title {
+  font-size: 13px; font-weight: 700;
+  color: var(--text-on-dark);
+  flex: 1;
+  letter-spacing: 0.3px;
+}
+.panel-head .ph-badge {
+  font-size: 10px; font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: rgba(78,125,82,0.25);
+  color: var(--sage-200);
+  border: 1px solid var(--green-600);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ── Sankey ── */
+.sankey-container { padding: 14px; background: var(--cream); }
+.sankey-svg {
+  width: 100%; height: 340px; display: block;
+}
+
+/* ── Metric Cards ── */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.metric-card {
+  background: var(--white);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  text-align: center;
+  transition: 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+.metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.mc-icon { font-size: 20px; margin-bottom: 4px; }
+.mc-value {
+  font-size: 24px; font-weight: 800;
+  font-family: 'DM Sans', sans-serif;
+}
+.mc-label {
+  font-size: 10px; font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-top: 2px;
+}
+.mc-unit {
+  font-size: 10px; color: var(--text-muted); opacity: 0.7;
+}
+
+/* Card color variants */
+.mc-potential .mc-value { color: var(--green-800); }
+.mc-potential::before { background: var(--green-700); }
+
+.mc-standard .mc-value { color: var(--warning); }
+.mc-standard::before { background: var(--warning); }
+
+.mc-green .mc-value { color: var(--green-500); }
+.mc-green::before { background: var(--green-500); }
+
+.mc-avoided .mc-value { color: var(--teal); }
+.mc-avoided::before { background: var(--teal); }
+
+.mc-generated .mc-value { color: var(--sage-700); }
+.mc-generated::before { background: var(--sage-700); }
+
+.mc-collected .mc-value { color: var(--green-600); }
+.mc-collected::before { background: var(--green-600); }
+
+.mc-inventory .mc-value { color: var(--info); }
+.mc-inventory::before { background: var(--info); }
+
+.mc-uncollected .mc-value { color: var(--danger); }
+.mc-uncollected::before { background: var(--danger); }
+
+/* ── Achievement Panel ── */
+.achieve-panel {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  background: var(--cream);
+}
+.achieve-medal {
+  width: 58px; height: 58px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px;
+  flex-shrink: 0;
+  border: 3px solid;
+}
+.medal-gold {
+  border-color: #c9a227;
+  background: rgba(201,162,39,0.1);
+  box-shadow: 0 0 20px rgba(201,162,39,0.25);
+}
+.medal-silver {
+  border-color: #8a9a8e;
+  background: rgba(138,154,142,0.1);
+  box-shadow: 0 0 16px rgba(138,154,142,0.2);
+}
+.medal-bronze {
+  border-color: #a07850;
+  background: rgba(160,120,80,0.1);
+  box-shadow: 0 0 16px rgba(160,120,80,0.2);
+}
+.medal-none {
+  border-color: var(--sage-300);
+  background: rgba(163,179,142,0.08);
+  box-shadow: 0 0 10px rgba(163,179,142,0.1);
+}
+
+.achieve-info { flex: 1; }
+.achieve-tier {
+  font-size: 16px; font-weight: 800;
+  color: var(--green-900);
+}
+.achieve-desc {
+  font-size: 12px; font-weight: 500;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+.achieve-bar {
+  width: 100%; height: 6px;
+  background: var(--sage-50);
+  border-radius: 3px;
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+}
+.achieve-bar-fill {
+  height: 100%; border-radius: 3px;
+  transition: width 0.6s ease;
+}
+.abf-gold   { background: linear-gradient(90deg, #c9a227, #a68520); }
+.abf-silver { background: linear-gradient(90deg, #8a9a8e, #6b7d6e); }
+.abf-bronze { background: linear-gradient(90deg, #a07850, #8a6540); }
+.abf-none   { background: linear-gradient(90deg, var(--sage-300), var(--sage-500)); }
+
+.achieve-thresholds {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px; font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ── Legend ── */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--paper-light);
+  border-top: 1px solid var(--border-light);
+}
+.legend-item {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 500;
+  color: var(--text-muted);
+}
+.legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 3px;
+  border: 1px solid rgba(0,0,0,0.08);
+}
+
+/* ── Sankey node / link tooltip ── */
+.sankey-svg path { transition: opacity 0.2s; cursor: default; }
+.sankey-svg path:hover { opacity: 0.85; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--sage-300); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--sage-500); }
+</style>
+</head>
+<body>
+
+<!-- ═══ TOP BAR ═══ -->
+<div class="topbar">
+  <div class="topbar-main">
+    <a class="back-btn" id="dashboardBackBtn" href="game.html">◂</a>
+    <div class="city-badge">
+      <div class="city-icon">🏙️</div>
+      <div>
+        <div class="city-name">ABC City</div>
+        <div class="city-subtitle">Waste Management Dashboard</div>
+      </div>
+    </div>
+    <div class="day-pill">
+      <div class="num" id="headerDayChip">Day – / –</div>
+    </div>
+  </div>
+  <div class="stat-strip">
+    <div class="stat-chip ic-budget">
+      <div class="icon">💰</div>
+      <div class="info"><div class="val" id="sBudget">–</div><div class="lbl">Budget</div></div>
+    </div>
+    <div class="stat-chip ic-health">
+      <div class="icon">❤️</div>
+      <div class="info"><div class="val" id="sHealth">–</div><div class="lbl">Health</div></div>
+    </div>
+    <div class="stat-chip ic-waste">
+      <div class="icon">🗑️</div>
+      <div class="info"><div class="val" id="sWaste">–</div><div class="lbl">Waste</div></div>
+    </div>
+    <div class="stat-chip ic-co2">
+      <div class="icon">☁️</div>
+      <div class="info"><div class="val" id="sCarbon">–</div><div class="lbl">CO₂</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CONTENT ═══ -->
+<div class="content">
+
+  <!-- Tab Nav -->
+  <div class="tab-nav">
+    <button class="tab-btn active" data-tab="carbon">☁️ Carbon Emissions</button>
+    <button class="tab-btn" data-tab="material">♻️ Material Flow</button>
+  </div>
+
+  <!-- ═══ CARBON TAB ═══ -->
+  <div id="tab-carbon" class="tab-panel active">
+
+    <div class="metrics-grid">
+      <div class="metric-card mc-potential">
+        <div class="mc-icon">⚡</div>
+        <div class="mc-value" id="mPotential">–</div>
+        <div class="mc-label">Potential CO₂</div>
+        <div class="mc-unit">% units</div>
+      </div>
+      <div class="metric-card mc-standard">
+        <div class="mc-icon">🏭</div>
+        <div class="mc-value" id="mStandard">–</div>
+        <div class="mc-label">Standard Em.</div>
+        <div class="mc-unit">% baseline</div>
+      </div>
+      <div class="metric-card mc-green">
+        <div class="mc-icon">🌿</div>
+        <div class="mc-value" id="mGreen">–</div>
+        <div class="mc-label">Green Em.</div>
+        <div class="mc-unit">% actual</div>
+      </div>
+      <div class="metric-card mc-avoided">
+        <div class="mc-icon">🛡️</div>
+        <div class="mc-value" id="mAvoided">–</div>
+        <div class="mc-label">CO₂ Avoided</div>
+        <div class="mc-unit">% saved</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="ph-icon">☁️</div>
+        <div class="ph-title">Carbon Emissions Flow</div>
+        <div class="ph-badge" id="sankeyBadge">Live</div>
+      </div>
+      <div class="sankey-container">
+        <svg id="carbonSankey" class="sankey-svg" viewBox="0 0 760 330" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="legend" id="carbonLegend"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="ph-icon">🏅</div>
+        <div class="ph-title">Achievement Tier</div>
+      </div>
+      <div class="achieve-panel">
+        <div class="achieve-medal medal-none" id="achieveMedal">🏅</div>
+        <div class="achieve-info">
+          <div class="achieve-tier" id="achieveTier">No Badge Yet</div>
+          <div class="achieve-desc" id="achieveDesc">Reduce emissions to earn achievements</div>
+          <div class="achieve-bar"><div class="achieve-bar-fill abf-none" id="achieveBar" style="width:0%"></div></div>
+          <div class="achieve-thresholds">
+            <span>0%</span><span>🥉 15%</span><span>🥈 30%</span><span>🥇 40%</span><span>100%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MATERIAL TAB ═══ -->
+  <div id="tab-material" class="tab-panel">
+
+    <div class="metrics-grid">
+      <div class="metric-card mc-generated">
+        <div class="mc-icon">📦</div>
+        <div class="mc-value" id="mmGen">–</div>
+        <div class="mc-label">Generated</div>
+        <div class="mc-unit">tonnes</div>
+      </div>
+      <div class="metric-card mc-collected">
+        <div class="mc-icon">🚛</div>
+        <div class="mc-value" id="mmCol">–</div>
+        <div class="mc-label">Collected</div>
+        <div class="mc-unit">tonnes</div>
+      </div>
+      <div class="metric-card mc-inventory">
+        <div class="mc-icon">🏗️</div>
+        <div class="mc-value" id="mmInv">–</div>
+        <div class="mc-label">In Inventories</div>
+        <div class="mc-unit">tonnes</div>
+      </div>
+      <div class="metric-card mc-uncollected">
+        <div class="mc-icon">⚠️</div>
+        <div class="mc-value" id="mmUnc">–</div>
+        <div class="mc-label">Uncollected</div>
+        <div class="mc-unit">tonnes</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="ph-icon">♻️</div>
+        <div class="ph-title">Material Flow</div>
+        <div class="ph-badge">Live</div>
+      </div>
+      <div class="sankey-container">
+        <svg id="materialSankey" class="sankey-svg" viewBox="0 0 760 330" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="legend" id="materialLegend"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="player-menu.js"></script>
+<script>
+/* ══════════════════════════════════════════
+ *  SOCKET + STATE
+ * ══════════════════════════════════════════ */
+let gs = null;
+const socket = io();
+
+/* Preserve role when going back from dashboard */
+(function syncBackLinkRole() {
+  const back = document.getElementById('dashboardBackBtn');
+  if (!back) return;
+  try {
+    const p = new URLSearchParams(window.location.search);
+    let role = p.get('role');
+    if (!role) {
+      // Fallback 1: infer from referrer query (e.g. game.html?role=Broker)
+      try {
+        const ref = document.referrer ? new URL(document.referrer) : null;
+        role = ref ? new URLSearchParams(ref.search).get('role') : null;
+      } catch (_e) {}
+    }
+    if (!role) {
+      // Fallback 2: persisted role from prior pages
+      role = localStorage.getItem('besseLastRole') || null;
+    }
+    if (!role) return;
+    localStorage.setItem('besseLastRole', role);
+    const u = new URL('game.html', window.location.origin);
+    u.searchParams.set('role', role);
+    back.href = u.toString();
+  } catch (_e) {}
+})();
+
+socket.on('gameStateUpdate', s => { gs = s; refresh(); });
+socket.on('dayUpdate', d => {
+  if (window.BesseSyncHeaderDayChip) BesseSyncHeaderDayChip(d.day, d.maxDay);
+});
+
+/* ══════════════════════════════════════════
+ *  TABS
+ * ══════════════════════════════════════════ */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+/* ══════════════════════════════════════════
+ *  SANKEY RENDERER (Figma green palette)
+ * ══════════════════════════════════════════ */
+function renderSankey(svgId, nodes, links, legendId) {
+  const svg = document.getElementById(svgId);
+  if (!svg) return;
+  const W = 760, H = 330, PAD = 42, NODE_W = 14, GAP = 8;
+
+  const cols = {};
+  nodes.forEach(n => { (cols[n.col] = cols[n.col] || []).push({...n, _inOff:0, _outOff:0}); });
+  const colKeys = Object.keys(cols).map(Number).sort((a,b) => a-b);
+
+  const xMap = {};
+  colKeys.forEach((c,i) => {
+    xMap[c] = PAD + (colKeys.length > 1
+      ? i * (W - PAD*2 - NODE_W) / (colKeys.length - 1)
+      : (W - NODE_W) / 2);
+  });
+
+  const nodeMap = {};
+  colKeys.forEach(c => {
+    const arr = cols[c];
+    const total = arr.reduce((s,n) => s + Math.max(n.value, 0.5), 0);
+    const avail = H - PAD*2 - (arr.length - 1) * GAP;
+    const scale = avail / Math.max(total, 1);
+    let y = PAD;
+    arr.forEach(n => {
+      n._x = xMap[c]; n._y = y;
+      n._h = Math.max(4, Math.max(n.value, 0.5) * scale);
+      n._scale = scale;
+      nodeMap[n.id] = n;
+      y += n._h + GAP;
+    });
+  });
+
+  /* Defs: gradients per link */
+  let defs = '<defs>';
+  links.forEach((lk,i) => {
+    const src = nodeMap[lk.source];
+    const tgt = nodeMap[lk.target];
+    if (!src || !tgt) return;
+    defs += `<linearGradient id="lg${svgId}${i}" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="${src.color}" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="${tgt.color}" stop-opacity="0.5"/>
+    </linearGradient>`;
+  });
+  defs += '</defs>';
+
+  let html = defs;
+
+  /* Links */
+  links.forEach((lk,i) => {
+    const src = nodeMap[lk.source];
+    const tgt = nodeMap[lk.target];
+    if (!src || !tgt) return;
+    const val = Math.max(lk.value, 0.5);
+    const srcH = Math.max(2, val * src._scale);
+    const tgtH = Math.max(2, val * tgt._scale);
+    const x1 = src._x + NODE_W, y1 = src._y + src._outOff;
+    const x2 = tgt._x,          y2 = tgt._y + tgt._inOff;
+    const cx = (x1 + x2) / 2;
+
+    html += `<path d="M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}
+      L${x2},${y2+tgtH} C${cx},${y2+tgtH} ${cx},${y1+srcH} ${x1},${y1+srcH} Z"
+      fill="url(#lg${svgId}${i})" stroke="none">
+      <title>${src.label} → ${tgt.label}: ${r1(lk.value)}</title>
+    </path>`;
+    src._outOff += srcH;
+    tgt._inOff  += tgtH;
+  });
+
+  /* Nodes */
+  nodes.forEach(n => {
+    const nd = nodeMap[n.id]; if (!nd) return;
+
+    /* Subtle glow */
+    html += `<rect x="${nd._x-1}" y="${nd._y-1}" width="${NODE_W+2}" height="${nd._h+2}"
+      fill="none" stroke="${n.color}" stroke-opacity="0.2" rx="5"/>`;
+    /* Main bar */
+    html += `<rect x="${nd._x}" y="${nd._y}" width="${NODE_W}" height="${nd._h}"
+      fill="${n.color}" rx="4" opacity="0.88"/>`;
+
+    const isLeft  = nd._x < W/2 - 80;
+    const isRight = nd._x > W/2 + 80;
+    let lx, anch;
+    if (isLeft)       { lx = nd._x - 8;          anch = 'end'; }
+    else if (isRight) { lx = nd._x + NODE_W + 8;  anch = 'start'; }
+    else              { lx = nd._x + NODE_W / 2;   anch = 'middle'; }
+
+    const ly = nd._y + nd._h / 2 - 7;
+    html += `<text x="${lx}" y="${ly}" text-anchor="${anch}"
+      font-family="DM Sans,sans-serif" font-size="11" font-weight="700"
+      fill="#3a4a3c">${n.label}</text>`;
+    html += `<text x="${lx}" y="${ly+14}" text-anchor="${anch}"
+      font-family="DM Sans,sans-serif" font-size="10" font-weight="600"
+      fill="#6b7d6e">${r1(n.value)}</text>`;
+  });
+
+  svg.innerHTML = html;
+
+  /* Legend */
+  const leg = document.getElementById(legendId);
+  if (leg) {
+    leg.innerHTML = nodes.map(n =>
+      `<div class="legend-item"><div class="legend-dot" style="background:${n.color}"></div>${n.label}</div>`
+    ).join('');
+  }
+}
+
+/* ══════════════════════════════════════════
+ *  HELPERS
+ * ══════════════════════════════════════════ */
+const r1 = v => Math.round(v * 10) / 10;
+
+function parseCO2(eventLog) {
+  const c = {collection:0,transport:0,marketplace:0,projects:0,passive:0,upgrades:0,mrfOperations:0};
+  (eventLog||[]).forEach(e => {
+    const m = (e.message||'').match(/([+-]?\d+\.?\d*)%\s*CO[₂2]/i);
+    if (!m) return;
+    const v = parseFloat(m[1]), msg = e.message;
+    if (/collected.*from/i.test(msg))                   c.collection   += v;
+    else if (/dispatched|Transport.*return/i.test(msg)) c.transport    += v;
+    else if (/Vendor|Trader/i.test(msg))                c.marketplace  += v;
+    else if (/Project/i.test(msg))                      c.projects     += v;
+    else if (/District pressure/i.test(msg))            c.passive      += v;
+    else if (/upgrade/i.test(msg))                      c.upgrades     += v;
+  });
+  return c;
+}
+
+/** Prefer server-maintained `shared.carbonBreakdown`; fallback to regex scan for older sessions. */
+function getCarbonBreakdownForDashboard(shared) {
+  const b = shared && shared.carbonBreakdown;
+  if (b && typeof b.collection === 'number') {
+    return {
+      collection: b.collection || 0,
+      projects: b.projects || 0,
+      transport: b.transport || 0,
+      marketplace: b.marketplace || 0,
+      upgrades: b.upgrades || 0,
+      passive: b.passive || 0,
+      mrfOperations: b.mrfOperations || 0
+    };
+  }
+  return parseCO2(shared && shared.eventLog);
+}
+
+function sumWaste(w) {
+  if (!w) return 0; let t = 0;
+  Object.values(w).forEach(g => { Object.values(g).forEach(n => { t += (n||0); }); });
+  return t;
+}
+function sumInv(inv) {
+  if (!inv) return 0; let t = 0;
+  if (inv.waste)     Object.values(inv.waste).forEach(g => Object.values(g).forEach(n => { t += (n||0); }));
+  if (inv.materials) Object.values(inv.materials).forEach(g => Object.values(g).forEach(n => { t += (n||0); }));
+  t += (inv.unprocessedWaste || 0);
+  return t;
+}
+
+/* ══════════════════════════════════════════
+ *  REFRESH ALL
+ * ══════════════════════════════════════════ */
+function refresh() {
+  if (!gs) return;
+  const sh = gs.shared;
+
+  document.getElementById('sBudget').textContent = '$' + (sh.budgetHKD||0).toLocaleString();
+  document.getElementById('sHealth').textContent = r1(sh.cityHealth||0) + '%';
+  document.getElementById('sWaste').textContent  = r1(sh.waste.totalTonnes) + '/' + sh.waste.capacityTonnes + ' t';
+  document.getElementById('sCarbon').textContent = r1(sh.carbonEmissions.value) + '/' + sh.carbonEmissions.limit + '%';
+  if (window.BesseSyncHeaderDayChip) BesseSyncHeaderDayChip(sh.day, sh.maxDay);
+
+  refreshCarbon();
+  refreshMaterial();
+}
+
+/* ── Carbon Tab ── */
+function refreshCarbon() {
+  const sh = gs.shared;
+  const co2 = getCarbonBreakdownForDashboard(sh);
+  const actual = sh.carbonEmissions.value || 0;
+
+  const greenLv = gs.roles?.broker?.transportation?.upgrades?.green || 1;
+  const gMults = {1:0.75,2:0.5,3:0.3,4:0.15,5:0.05};
+  const gMult  = gMults[greenLv] || 0.75;
+
+  const collCO2    = Math.max(0, co2.collection) + Math.max(0, co2.mrfOperations || 0);
+  const transBase  = gMult > 0 ? Math.max(0, co2.transport) / gMult : Math.max(0, co2.transport);
+  const mktCO2     = Math.max(0, co2.marketplace) + Math.max(0, co2.upgrades);
+  const opCO2      = collCO2 + Math.max(0, co2.projects);
+  const passiveCO2 = Math.max(0, co2.passive);
+
+  const baseline   = Math.max(passiveCO2, 1);
+  const actionable = mktCO2 + opCO2 + transBase;
+  const potential  = baseline + actionable;
+  const greenEm    = Math.min(Math.max(0, actual - baseline), actionable);
+  const avoided    = Math.max(0, actionable - greenEm);
+
+  const safe = v => Math.max(v, 0.3);
+
+  /* ── Nodes: earthy Figma colors ── */
+  const nodes = [
+    {id:'mat',  label:'Materials',             col:0, value:safe(mktCO2),    color:'#8a6d50'},
+    {id:'op',   label:'Operational Energy',     col:0, value:safe(opCO2),     color:'#b8a44c'},
+    {id:'con',  label:'Construction/Transport', col:0, value:safe(transBase), color:'#a94442'},
+    {id:'base', label:'Standard Emissions',     col:0, value:safe(baseline),  color:'#c08850'},
+    {id:'pot',  label:'Potential CO₂',          col:1, value:safe(potential), color:'#7a8c6e'},
+    {id:'std',  label:'Standard Emissions',     col:2, value:safe(baseline),  color:'#c08850'},
+    {id:'grn',  label:'Green Emissions',        col:2, value:safe(greenEm),   color:'#4e7d52'},
+    {id:'avo',  label:'CO₂ Avoided',            col:2, value:safe(avoided),   color:'#3a7a6a'},
+  ];
+
+  const links = [
+    {source:'mat',  target:'pot', value:safe(mktCO2)},
+    {source:'op',   target:'pot', value:safe(opCO2)},
+    {source:'con',  target:'pot', value:safe(transBase)},
+    {source:'base', target:'pot', value:safe(baseline)},
+    {source:'pot',  target:'std', value:safe(baseline)},
+    {source:'pot',  target:'grn', value:safe(greenEm)},
+    {source:'pot',  target:'avo', value:safe(avoided)},
+  ];
+
+  renderSankey('carbonSankey', nodes, links, 'carbonLegend');
+
+  document.getElementById('mPotential').textContent = r1(potential);
+  document.getElementById('mStandard').textContent  = r1(baseline);
+  document.getElementById('mGreen').textContent     = r1(greenEm);
+  document.getElementById('mAvoided').textContent   = r1(avoided);
+
+  /* Achievement */
+  const stdR  = baseline + greenEm;
+  const ratio = stdR > 0 ? avoided / stdR : 0;
+  const pct   = Math.min(ratio / 0.40, 1) * 100;
+
+  let tier, emoji, mCls, bCls;
+  if      (ratio >= 0.40) { tier='Gold';   emoji='🥇'; mCls='medal-gold';   bCls='abf-gold'; }
+  else if (ratio >= 0.30) { tier='Silver'; emoji='🥈'; mCls='medal-silver'; bCls='abf-silver'; }
+  else if (ratio >= 0.15) { tier='Bronze'; emoji='🥉'; mCls='medal-bronze'; bCls='abf-bronze'; }
+  else                    { tier='None';   emoji='🏅'; mCls='medal-none';   bCls='abf-none'; }
+
+  const med = document.getElementById('achieveMedal');
+  med.textContent = emoji;
+  med.className = 'achieve-medal ' + mCls;
+
+  document.getElementById('achieveTier').textContent =
+    tier === 'None' ? 'No Badge Yet' : tier + ' Achievement';
+  document.getElementById('achieveDesc').textContent =
+    `CO₂ Avoided: ${r1(ratio*100)}% of Standard. ${
+      tier==='Gold'   ? 'Outstanding!' :
+      tier==='Silver' ? 'Great work!'  :
+      tier==='Bronze' ? 'Good start!'  :
+      'Reach 15% to earn Bronze.'}`;
+
+  const bar = document.getElementById('achieveBar');
+  bar.style.width = pct + '%';
+  bar.className = 'achieve-bar-fill ' + bCls;
+
+  document.getElementById('sankeyBadge').textContent =
+    tier !== 'None' ? tier.toUpperCase() : 'LIVE';
+}
+
+/* ── Material Tab ── */
+function refreshMaterial() {
+  const sh = gs.shared, ro = gs.roles;
+  const day = sh.day || 1;
+
+  const res = sumWaste(sh.districts?.residential?.waste);
+  const com = sumWaste(sh.districts?.commercial?.waste);
+  const ind = sumWaste(sh.districts?.industrial?.waste);
+  const uncollected = res + com + ind;
+
+  const muniInv   = sumInv(ro?.municipality?.inventory);
+  const mrfInv    = sumInv(ro?.mrf?.inventory);
+  const brokerInv = sumInv(ro?.broker?.inventory);
+  const totalInv  = muniInv + mrfInv + brokerInv;
+  const transit   = (sh.pendingDeliveries||[]).reduce((s,d) =>
+    s + (d.items||[]).reduce((ss,it) => ss + it.tonnes, 0), 0);
+
+  const genPerDay = 13;
+  const totalGen  = day * genPerDay;
+  const collected = Math.max(0, totalGen - uncollected);
+
+  const safe = v => Math.max(v, 0.5);
+
+  const nodes = [
+    {id:'res', label:'Residential',     col:0, value:safe(day*3),       color:'#6b9a6e'},
+    {id:'com', label:'Commercial',       col:0, value:safe(day*4),       color:'#7a8c6e'},
+    {id:'ind', label:'Industrial',       col:0, value:safe(day*6),       color:'#5a6d4e'},
+    {id:'tot', label:'Total Generated',  col:1, value:safe(totalGen),    color:'#8a9a7b'},
+    {id:'mun', label:'Municipality',     col:2, value:safe(muniInv),     color:'#4e7d52'},
+    {id:'mrf', label:'MRF',              col:2, value:safe(mrfInv),      color:'#3d6b45'},
+    {id:'brk', label:'Broker',           col:2, value:safe(brokerInv),   color:'#b8a44c'},
+    {id:'unc', label:'Uncollected',      col:2, value:safe(uncollected), color:'#a94442'},
+    {id:'trn', label:'In Transit',       col:2, value:safe(transit),     color:'#4a7a6e'},
+  ];
+
+  const links = [
+    {source:'res', target:'tot', value:safe(day*3)},
+    {source:'com', target:'tot', value:safe(day*4)},
+    {source:'ind', target:'tot', value:safe(day*6)},
+    {source:'tot', target:'mun', value:safe(muniInv)},
+    {source:'tot', target:'mrf', value:safe(mrfInv)},
+    {source:'tot', target:'brk', value:safe(brokerInv)},
+    {source:'tot', target:'unc', value:safe(uncollected)},
+    {source:'tot', target:'trn', value:safe(transit)},
+  ];
+
+  renderSankey('materialSankey', nodes, links, 'materialLegend');
+
+  document.getElementById('mmGen').textContent = r1(totalGen);
+  document.getElementById('mmCol').textContent = r1(collected);
+  document.getElementById('mmInv').textContent = r1(totalInv);
+  document.getElementById('mmUnc').textContent = r1(uncollected);
+}
+</script>
+</body>
+</html>

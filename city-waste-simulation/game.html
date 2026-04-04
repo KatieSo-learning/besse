@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>City Waste Simulation – Main Game &amp; Role Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <link rel="stylesheet" href="player-menu.css" />
+
+  <style>
+    :root{
+      --ink:#1a2f25;          /* deep green for headers/buttons */
+      --ink-2:#244635;        /* darker green header bar */
+      --panel:#9bb38f;        /* soft green container bg */
+      --paper:#e3dfd2;        /* warm paper background */
+      --card:#ffffff;         /* white cards */
+      --muted:#6b7280;
+      --accent:#2f6f43;       /* green accent */
+      --accent-2:#3e7d51;     /* hover */
+      --radius-xl: 22px;
+      --radius-lg: 18px;
+      --shadow-1: 0 12px 24px rgba(0,0,0,.12);
+      --shadow-2: 0 18px 36px rgba(0,0,0,.16);
+    }
+
+    html, body { height: 100%; }
+    body{
+      background: var(--paper);
+      color:#1f2937;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+
+    /* App header */
+    .app-header{
+      background: var(--ink-2);
+      color:#fff;
+      box-shadow: var(--shadow-1);
+    }
+
+    /* Main stage container */
+    .stage{
+      background: var(--panel);
+      border-radius: 28px;
+      box-shadow: var(--shadow-1);
+      border: 2px solid rgba(0,0,0,.06);
+    }
+    .stage-head{
+      background: var(--ink);
+      color:#e8f3ec;
+      border-top-left-radius: 22px;
+      border-top-right-radius: 22px;
+      padding: 22px 18px;
+      text-align: center;
+    }
+
+    /* Card look to match reference */
+    .card{
+      background: var(--card);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-1);
+      border: 2px solid #e9e5d6;
+    }
+
+    /* Small pills/buttons */
+    .pill{ border-radius: 999px; }
+    .btn{
+      transition: background .2s ease, transform .12s ease, box-shadow .2s ease;
+      box-shadow: var(--shadow-1);
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn-ink{ background: var(--ink); color:#fff; }
+    .btn-ink:hover{ background:#1b3a2d; }
+    .btn-main{ background:#fff; color:#111827; border:2px solid #e9e5d6; }
+    .btn-main:hover{ background:#f9f7f1; }
+
+    /* Mono log box */
+    .log{
+      background:#fff;
+      border-radius: var(--radius-xl);
+      border:2px solid #e9e5d6;
+    }
+
+    /* Section headings to echo image */
+    .subhead{
+      font-weight: 800;
+      letter-spacing:.05em;
+      color: var(--ink);
+    }
+
+    /* Municipality action row look (dark chips inside green panel) */
+    .dark-chip{
+      background: rgba(17,24,39,.85);
+      color: #e5e7eb;
+      border: 1px solid rgba(148,163,184,.3);
+    }
+
+    .kv{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      background: rgba(255,255,255,.8);
+      border:1px solid #e9e5d6;
+      border-radius: 14px;
+      padding: .5rem .75rem;
+    }
+    .modal-backdrop{
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, .55);
+      z-index: 220;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+  </style>
+    <style>
+      :root {
+        --ink:#1a2f25;
+        --ink-2:#244635;
+        --panel:#9bb38f;
+        --paper:#e3dfd2;
+        --card:#ffffff;
+        --muted:#6b7280;
+        --accent:#2f6f43;
+        --accent-2:#3e7d51;
+        --radius-xl: 20px;
+        --shadow-1: 0 12px 24px rgba(0,0,0,.12);
+      }
+      html, body { height: 100%; }
+      body { background: var(--paper) !important; color: #1f2937 !important; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji" !important; }
+      .app-header { background: var(--ink-2) !important; color: #fff !important; box-shadow: var(--shadow-1) !important; }
+      .stage { background: var(--panel) !important; border-radius: 26px !important; box-shadow: var(--shadow-1) !important; border: 2px solid rgba(0,0,0,.06) !important; }
+      .stage-head { background: var(--ink) !important; color: #e8f3ec !important; }
+      /* Avoid overriding generic rounding utility classes (buttons/modals also use rounded-*) */
+      .card, .role-card { background: var(--card) !important; }
+      .btn-ink { background: var(--ink) !important; color:#fff !important; }
+      .btn-main { background:#fff !important; color:#111827 !important; border: 2px solid #e9e5d6 !important; }
+      .record-bar { background: linear-gradient(90deg, #16a34a 0%, #047857 100%) !important; }
+      .status-normal { background: linear-gradient(135deg, #059669 0%, #047857 100%) !important; }
+      .status-full { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; }
+      .status-overflowing { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important; }
+    </style>
+    <!-- GREEN-THEME-OVERRIDE -->
+</head>
+<body class="min-h-screen">
+  <!-- Municipality: same UI/logic as municipality-hub.html (isolated iframe avoids duplicate element IDs) -->
+  <div id="muniHubFrameWrap" class="hidden fixed inset-0 z-[100] bg-[#e3dfd2]">
+    <iframe
+      id="muniHubFrame"
+      class="w-full h-full min-h-[100vh] border-0"
+      title="Municipality Hub"
+      src=""
+    ></iframe>
+  </div>
+
+  <div id="gameDefaultRoot">
+  <!-- Header -->
+  <header class="app-header w-full">
+    <div class="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2 min-w-0 shrink-0">
+        <button onclick="window.location.href='index.html'"
+                class="btn btn-main pill w-10 h-10 p-0 flex items-center justify-center text-lg font-bold shrink-0">
+          <span>←</span>
+        </button>
+        <span id="headerDayChip" class="text-xs md:text-sm text-emerald-100 font-bold whitespace-nowrap" title="游戏日进度">Day – / –</span>
+      </div>
+
+      <div class="text-center">
+        <h1 id="gameTitle" class="text-2xl md:text-3xl font-extrabold tracking-widest">ABC City – Game View</h1>
+        <p id="myRoleBadge" class="text-xs md:text-sm text-emerald-100/80 mt-0.5">
+          Role: <span class="font-semibold">—</span>
+        </p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <span id="playerCountBadge"
+              class="text-xs md:text-sm bg-emerald-600 text-white px-3 py-1 rounded-full">
+          Players: ?/3
+        </span>
+        <button
+          id="playerBadgeBtn"
+          data-player-menu-trigger="Municipality"
+          type="button"
+          class="bg-white rounded-full px-5 py-2 text-sm hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-300/60 text-slate-800"
+        >
+          <span id="headerPlayerName" class="font-semibold">Jesse, MRF</span>
+          <span class="ml-2">🧳</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <button
+    id="restartGameBtn"
+    type="button"
+    class="hidden fixed right-4 bottom-4 z-50 btn btn-ink pill px-5 py-3 text-sm font-semibold"
+  >
+    Restart Game
+  </button>
+
+  <!-- Main stage -->
+  <main class="mx-auto max-w-6xl px-4 md:px-6 py-8 md:py-10">
+    <section class="stage p-3 md:p-6">
+      <!-- Stage header band -->
+      <div class="stage-head">
+        <h2 class="text-2xl md:text-3xl font-extrabold tracking-widest">GAME PANEL</h2>
+        <p class="text-emerald-100 mt-1 text-sm md:text-base">Team state, your inventory and actions</p>
+      </div>
+
+      <div class="p-4 md:p-6 space-y-6">
+
+        <!-- Municipality: Collect Waste (only for Municipality) -->
+        <section id="municipalityActions" class="hidden">
+          <div class="card p-5 md:p-6">
+            <h3 class="subhead text-lg md:text-xl mb-2">Municipality – Collect Waste from Districts</h3>
+            <p class="text-xs text-slate-600 mb-2">
+              Waste comes from Residential, Commercial & Industrial. More urgent (Full/Overflowing) = higher cost but higher health gain.
+              Cost = tons × $/ton. Health = Health gain × (Tons ÷ 5). CO₂ = tons × material CO₂.
+            </p>
+            <p class="text-[11px] text-slate-500 mb-4">
+              Normal: $30/t, +1% health per 5t · Full: $40/t, +2% per 5t · Overflowing: $60/t, +4% per 5t
+            </p>
+            <div id="districtCollectList" class="space-y-3">
+              <!-- Filled by script -->
+            </div>
+          </div>
+        </section>
+
+        <!-- Upper stats row -->
+        <section id="summaryPanel" class="relative z-[200] grid gap-6 md:grid-cols-2">
+          <!-- Shared State -->
+          <div class="card p-6 space-y-4">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="subhead text-lg">Team Shared State</h3>
+              <a
+                id="dashboardNavBtn"
+                href="dashboard.html"
+                class="inline-flex items-center justify-center cursor-pointer text-xs font-bold px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 no-underline"
+              >
+                Dashboard
+              </a>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-sm">
+              <div class="kv"><span class="font-semibold">Budget (HKD)</span><span id="budgetHKD">–</span></div>
+              <div class="kv"><span class="font-semibold">City Health</span><span id="cityHealth">–</span>%</div>
+              <div class="kv"><span class="font-semibold">Buffer Level</span><span id="bufferLevel">–</span></div>
+              <div class="kv"><span class="font-semibold">Transport Time</span><span>x<span id="transportMultiplier">–</span></span></div>
+              <div class="kv"><span class="font-semibold">Waste</span><span><span id="wasteTotal">–</span> t / <span id="wasteLimit">–</span> t</span></div>
+              <div class="kv"><span class="font-semibold">Carbon</span><span><span id="carbonValue">–</span>% / <span id="carbonLimit">–</span>%</span></div>
+              <div class="kv col-span-2"><span class="font-semibold">Day</span><span><span id="currentDay">–</span> / <span id="maxDay">–</span></span></div>
+            </div>
+
+            <div id="processedMaterialsSection" class="mt-2">
+              <h4 class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Processed Materials (t)</h4>
+              <div id="processedMaterials" class="grid grid-cols-2 gap-2 text-sm">
+                <!-- Filled by script -->
+              </div>
+            </div>
+          </div>
+
+          <!-- My Inventory -->
+          <section id="myInventoryPanel" class="hidden">
+            <div class="card p-6 space-y-3">
+              <h3 class="subhead text-lg">My Inventory – <span id="myInventoryRoleName"></span></h3>
+              <div class="overflow-x-auto">
+                <table class="text-xs w-full" id="myInventoryTable">
+                  <thead class="text-slate-500">
+                  <tr class="border-b border-slate-200/60">
+                    <th class="text-left py-1 pr-3">Material</th>
+                    <th class="text-right py-1 pr-3">Total (t)</th>
+                    <th class="text-left py-1">Details</th>
+                  </tr>
+                  </thead>
+                  <tbody>
+                  <tr>
+                    <td colspan="3" class="text-slate-500 py-2">Empty</td>
+                  </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <!-- Role quick actions -->
+        <section id="roleActions" class="hidden">
+          <div class="card p-4 flex flex-wrap items-center justify-between gap-3">
+            <div class="text-sm text-slate-600">Quick actions for your role.</div>
+            <div class="flex items-center gap-3">
+              <button id="inventoryBtn" class="btn btn-ink pill px-4 py-2 text-sm font-semibold">Inventory</button>
+              <button id="marketplaceBtn" class="btn btn-main pill px-4 py-2 text-sm font-semibold">Markerplace</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Broker quick links -->
+        <section id="brokerLinksPanel" class="hidden">
+          <div class="grid gap-4 md:grid-cols-2">
+            <button class="w-full bg-white hover:bg-slate-50 rounded-2xl p-5 text-left shadow-sm border border-slate-200" onclick="goBrokerView('broker-inventory.html')">
+              <h2 class="text-xl font-bold mb-2">Inventory</h2>
+              <p class="text-sm text-slate-600">Inspect and track broker inventory.</p>
+            </button>
+            <button class="w-full bg-white hover:bg-slate-50 rounded-2xl p-5 text-left shadow-sm border border-slate-200" onclick="goBrokerView('broker-marketplace.html')">
+              <h2 class="text-xl font-bold mb-2">Marketplace</h2>
+              <p class="text-sm text-slate-600">Buy and sell materials in the market.</p>
+            </button>
+            <button class="w-full bg-white hover:bg-slate-50 rounded-2xl p-5 text-left shadow-sm border border-slate-200" onclick="goBrokerView('broker-airport.html')">
+              <h2 class="text-xl font-bold mb-2">Airport</h2>
+              <p class="text-sm text-slate-600">Manage air-route logistics and transfers.</p>
+            </button>
+            <button class="w-full bg-white hover:bg-slate-50 rounded-2xl p-5 text-left shadow-sm border border-slate-200" onclick="goBrokerView('broker-transportation.html')">
+              <h2 class="text-xl font-bold mb-2">Truck Park</h2>
+              <p class="text-sm text-slate-600">Manage fleet capacity and transport upgrades.</p>
+            </button>
+            <button class="w-full bg-white hover:bg-slate-50 rounded-2xl p-5 text-left shadow-sm border border-slate-200 md:col-span-2" onclick="goBrokerView('broker-port.html')">
+              <h2 class="text-xl font-bold mb-2">Port</h2>
+              <p class="text-sm text-slate-600">Manage sea-route logistics and shipping plans.</p>
+            </button>
+          </div>
+        </section>
+
+        <section id="mrfLinksPanel" class="hidden">
+          <div class="grid gap-4 md:grid-cols-2">
+            <button class="w-full bg-white hover:bg-slate-50 rounded-2xl p-5 text-left shadow-sm border border-slate-200" onclick="goRoleView('mrf-inventory.html')">
+              <h2 class="text-xl font-bold mb-2">Inventory</h2>
+              <p class="text-sm text-slate-600">Inspect and track MRF inventory.</p>
+            </button>
+            <button class="w-full bg-white hover:bg-slate-50 rounded-2xl p-5 text-left shadow-sm border border-slate-200" onclick="goRoleView('mrf-marketplace.html')">
+              <h2 class="text-xl font-bold mb-2">Marketplace</h2>
+              <p class="text-sm text-slate-600">Buy and sell materials in the market.</p>
+            </button>
+            <button id="sortingCentreBtn" class="w-full bg-white hover:bg-slate-50 rounded-2xl p-5 text-left shadow-sm border border-slate-200">
+              <h2 class="text-xl font-bold mb-2">Sorting Centre</h2>
+              <p class="text-sm text-slate-600">Same inventory view as MRF Inventory (no transport controls).</p>
+            </button>
+            <button id="recyclingCentreBtn" type="button" class="w-full bg-white hover:bg-slate-50 rounded-2xl p-5 text-left shadow-sm border border-slate-200">
+              <h2 class="text-xl font-bold mb-2">Recycling Centre</h2>
+              <p class="text-sm text-slate-600">Materials &amp; waste lists; send to Broker — no transportation panel.</p>
+            </button>
+            <button id="wasteTreatmentBtn" class="w-full bg-white hover:bg-slate-50 rounded-2xl p-5 text-left shadow-sm border border-slate-200 md:col-span-2">
+              <h2 class="text-xl font-bold mb-2">Waste Treatment Facilities</h2>
+              <p class="text-sm text-slate-600">Inventory overview; open Game Panel for F-grade disposal options.</p>
+            </button>
+          </div>
+        </section>
+
+        <!-- Event Log -->
+        <section>
+          <h3 class="subhead text-base mb-2">Event Log</h3>
+          <div id="eventLog" class="bg-white rounded-2xl border border-slate-200 p-4 text-[12px] font-mono max-h-64 overflow-y-auto shadow-sm">
+            <!-- Filled by script -->
+          </div>
+        </section>
+
+        <!-- City Projects (Municipality only; hidden for MRF & Broker) -->
+        <section id="cityProjectsSection" class="card p-6 space-y-3">
+          <h3 class="subhead text-lg">Current City Projects</h3>
+          <div id="cityProjectsSummary" class="text-sm text-slate-700">
+            <div class="text-slate-500">Loading…</div>
+          </div>
+        </section>
+
+      </div>
+    </section>
+  </main>
+  </div><!-- /#gameDefaultRoot -->
+
+  <script src="player-menu.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const myRole = params.get('role') || '';
+
+    if (myRole === 'Municipality') {
+      document.getElementById('gameDefaultRoot').classList.add('hidden');
+      document.getElementById('muniHubFrameWrap').classList.remove('hidden');
+      document.getElementById('muniHubFrame').src =
+        'municipality-hub.html?role=' + encodeURIComponent('Municipality');
+      document.title = 'ABC City – Municipality Hub';
+    } else {
+
+    (function setupDashboardNav() {
+      const el = document.getElementById('dashboardNavBtn');
+      if (!el) return;
+      const u = new URL('dashboard.html', window.location.href);
+      const r = new URLSearchParams(window.location.search).get('role');
+      if (r) {
+        u.searchParams.set('role', r);
+        try { localStorage.setItem('besseLastRole', r); } catch (_e) {}
+      }
+      el.setAttribute('href', u.toString());
+    })();
+
+    if (myRole === 'Broker' || myRole === 'MRF') {
+      document.getElementById('processedMaterialsSection')?.classList.add('hidden');
+    }
+
+    let currentGameState = null;
+    let gameOver = false;
+    let wasteTreatmentPlans = [];
+    const socket = io();
+    const WASTE_TREATMENT_CATEGORIES = [
+      { key: 'incineration', name: 'Incineration', costCompare: '★★★', co2: '★★★ (400-1700; offsets via energy recovery)', envImpact: 'Air pollution (NOx, dioxins); ash residue (10-25% volume)', socialImpact: 'Energy jobs; health risks near facilities (respiratory issues)' },
+      { key: 'landfill', name: 'Landfill', costCompare: '★★', co2: '★★★★ (300-700+; methane dominant)', envImpact: 'Leachate/groundwater pollution; odor', socialImpact: 'Low jobs; community opposition (property value drop)' },
+      { key: 'open-dump', name: 'Open Dump', costCompare: '★', co2: '★★★★★ (700-1000+; uncontrolled methane/CO2)', envImpact: 'Severe (fires, vectors, soil/water toxics)', socialImpact: 'High health risks (diseases, informal scavenging injuries)' }
+    ];
+    const WASTE_TREATMENT_OPTIONS = [
+      { category: 'Incineration', option: 'Mass-burn', initialCostPerTon: 1000, upkeepPerMin: 10, cityHealthPerMin: -5, co2PerMin: 500 },
+      { category: 'Incineration', option: 'WtE', initialCostPerTon: 1000, upkeepPerMin: 10, cityHealthPerMin: -5, co2PerMin: 500 },
+      { category: 'Incineration', option: 'Pyrolysis', initialCostPerTon: 1000, upkeepPerMin: 10, cityHealthPerMin: -5, co2PerMin: 500 },
+      { category: 'Landfill', option: 'Sanitary', initialCostPerTon: 1000, upkeepPerMin: 10, cityHealthPerMin: -5, co2PerMin: 500 },
+      { category: 'Landfill', option: 'Bioreactor', initialCostPerTon: 1000, upkeepPerMin: 10, cityHealthPerMin: -5, co2PerMin: 500 },
+      { category: 'Landfill', option: 'Controlled', initialCostPerTon: 1000, upkeepPerMin: 10, cityHealthPerMin: -5, co2PerMin: 500 },
+      { category: 'Open Dump', option: 'Informal', initialCostPerTon: 1000, upkeepPerMin: 10, cityHealthPerMin: -5, co2PerMin: 500 },
+      { category: 'Open Dump', option: 'Semi-controlled', initialCostPerTon: 1000, upkeepPerMin: 10, cityHealthPerMin: -5, co2PerMin: 500 }
+    ];
+
+    // Header role + title
+    (function updatePageTitleForRole() {
+      const titleEl = document.getElementById('gameTitle');
+      if (titleEl && myRole) titleEl.textContent = `${myRole} – Game View`;
+      const roleBadge = document.getElementById('myRoleBadge');
+      if (roleBadge) {
+        roleBadge.querySelector('span').textContent = myRole || 'Unknown';
+      }
+      const playerBadgeBtn = document.getElementById('playerBadgeBtn');
+      const headerPlayerName = document.getElementById('headerPlayerName');
+      if (playerBadgeBtn) playerBadgeBtn.setAttribute('data-player-menu-trigger', myRole || 'Municipality');
+      if (headerPlayerName && myRole) headerPlayerName.textContent = `Jesse, ${myRole}`;
+      if ((myRole === 'Broker' || myRole === 'MRF') && roleBadge) roleBadge.classList.add('hidden');
+      if (myRole === 'Broker' || myRole === 'MRF') {
+        const pc = document.getElementById('playerCountBadge');
+        if (pc) pc.classList.add('hidden');
+      }
+    })();
+
+    // Inventory button target per role
+    (function setupInventoryButton() {
+      const btn = document.getElementById('inventoryBtn');
+      const wrap = document.getElementById('roleActions');
+      if (!btn || !wrap || !myRole) return;
+      if (myRole === 'Broker' || myRole === 'MRF') return;
+      let target = null;
+      if (myRole === 'Municipality') target = 'municipality-inventory.html';
+      else if (myRole === 'MRF') target = 'mrf-inventory.html';
+      else if (myRole === 'Broker') target = 'broker-inventory.html';
+      if (!target) return;
+      wrap.classList.remove('hidden');
+      btn.onclick = () => {
+        const url = new URL(target, window.location.origin);
+        url.searchParams.set('role', myRole);
+        window.location.href = url.toString();
+      };
+    })();
+
+    // Marketplace button target per role
+    (function setupMarketplaceButton() {
+      const btn = document.getElementById('marketplaceBtn');
+      const wrap = document.getElementById('roleActions');
+      if (!btn || !wrap || !myRole) return;
+      if (myRole === 'Broker' || myRole === 'MRF') return;
+      let target = null;
+      if (myRole === 'Municipality') target = 'municipality-marketplace.html';
+      else if (myRole === 'MRF') target = 'mrf-marketplace.html';
+      else if (myRole === 'Broker') target = 'broker-marketplace.html';
+      if (!target) return;
+      wrap.classList.remove('hidden');
+      btn.onclick = () => {
+        const url = new URL(target, window.location.origin);
+        url.searchParams.set('role', myRole);
+        window.location.href = url.toString();
+      };
+    })();
+
+    // Show Municipality actions only for Municipality role
+    if (myRole === 'Municipality') {
+      document.getElementById('municipalityActions').classList.remove('hidden');
+    }
+    if (myRole === 'Broker') {
+      document.getElementById('brokerLinksPanel').classList.remove('hidden');
+      document.getElementById('cityProjectsSection')?.classList.add('hidden');
+    }
+    if (myRole === 'MRF') {
+      document.getElementById('mrfLinksPanel').classList.remove('hidden');
+      document.getElementById('cityProjectsSection')?.classList.add('hidden');
+      const rcBtn = document.getElementById('recyclingCentreBtn');
+      if (rcBtn) rcBtn.onclick = () => goMrfFacility('recycling');
+      const wtBtn = document.getElementById('wasteTreatmentBtn');
+      if (wtBtn) wtBtn.onclick = () => goMrfFacility('waste-treatment');
+      const sortBtn = document.getElementById('sortingCentreBtn');
+      if (sortBtn) sortBtn.onclick = () => goMrfFacility('sorting');
+    }
+
+    function goBrokerView(target) {
+      const url = new URL(target, window.location.origin);
+      url.searchParams.set('role', myRole || 'Broker');
+      window.location.href = url.toString();
+    }
+
+    function goRoleView(target) {
+      const url = new URL(target, window.location.origin);
+      url.searchParams.set('role', myRole || 'MRF');
+      window.location.href = url.toString();
+    }
+
+    function goMrfFacility(facilityKey) {
+      const url = new URL('mrf-inventory.html', window.location.origin);
+      url.searchParams.set('role', myRole || 'MRF');
+      url.searchParams.set('facility', facilityKey);
+      window.location.href = url.toString();
+    }
+
+    function renderWasteTreatmentSelectedPlans() {
+      const wrap = document.getElementById('wasteTreatmentSelectedList');
+      if (!wrap) return;
+      if (!wasteTreatmentPlans.length) {
+        wrap.textContent = 'No treatment plan selected.';
+        return;
+      }
+      wrap.innerHTML = wasteTreatmentPlans.map((p) => {
+        return `<div class="rounded-xl border border-slate-200 bg-white px-3 py-2 mb-2">
+          <div class="font-semibold text-slate-900">${p.category} - ${p.option}</div>
+          <div class="text-xs text-slate-600">F-grade qty: ${p.tons} t · Initial Cost: HKD ${(p.tons * p.initialCostPerTon).toLocaleString('en-HK')} · Upkeep: $${p.upkeepPerMin}/min · Health: ${p.cityHealthPerMin}%/min · CO2: ${p.co2PerMin} ton/min</div>
+        </div>`;
+      }).join('');
+    }
+
+    function openWasteTreatmentModal() {
+      if (document.getElementById('wasteTreatmentModal')) return;
+      const categoryRows = WASTE_TREATMENT_CATEGORIES.map((c) => `
+        <tr class="border-b border-slate-100">
+          <td class="py-2 pr-3 font-semibold">${c.name}</td>
+          <td class="py-2 pr-3">${c.costCompare}</td>
+          <td class="py-2 pr-3">${c.co2}</td>
+          <td class="py-2 pr-3">${c.envImpact}</td>
+          <td class="py-2">${c.socialImpact}</td>
+        </tr>
+      `).join('');
+      const optionsRows = WASTE_TREATMENT_OPTIONS.map((o, idx) => `
+        <tr class="border-b border-slate-100">
+          <td class="py-2 pr-3">
+            <label class="inline-flex items-center gap-2">
+              <input type="checkbox" class="wt-select" data-idx="${idx}"/>
+              <span>${o.category} - ${o.option}</span>
+            </label>
+          </td>
+          <td class="py-2 pr-3 text-right">$${o.initialCostPerTon}</td>
+          <td class="py-2 pr-3 text-right">$${o.upkeepPerMin}</td>
+          <td class="py-2 pr-3 text-right">${o.cityHealthPerMin}%</td>
+          <td class="py-2 pr-3 text-right">${o.co2PerMin}</td>
+          <td class="py-2 text-right">
+            <input type="number" min="1" step="1" value="1" class="wt-tons w-20 rounded-lg border border-slate-300 px-2 py-1 text-right text-sm" data-idx="${idx}"/>
+          </td>
+        </tr>
+      `).join('');
+
+      const modal = document.createElement('div');
+      modal.id = 'wasteTreatmentModal';
+      modal.className = 'modal-backdrop';
+      modal.innerHTML = `
+        <div class="card w-full max-w-5xl max-h-[90vh] overflow-y-auto p-5 md:p-6">
+          <div class="flex items-start justify-between gap-3 mb-4">
+            <div>
+              <h3 class="subhead text-lg">Waste Treatment Facilities (MRF)</h3>
+              <p class="text-xs text-slate-600 mt-1">Stage 1: choose category/sub-options for F-grade waste disposal. You can select multiple options.</p>
+            </div>
+            <button id="wtCloseBtn" type="button" class="btn btn-main pill px-3 py-1.5 text-sm font-semibold">Close</button>
+          </div>
+
+          <div class="mb-4">
+            <h4 class="font-semibold text-slate-800 mb-2">Category Summary</h4>
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+              <table class="w-full text-xs md:text-sm bg-white">
+                <thead class="bg-slate-50 text-slate-600">
+                  <tr>
+                    <th class="text-left py-2 px-2">Category</th>
+                    <th class="text-left py-2 px-2">Cost Compare</th>
+                    <th class="text-left py-2 px-2">Carbon Emissions (kg CO2e/ton)</th>
+                    <th class="text-left py-2 px-2">Environmental Impact</th>
+                    <th class="text-left py-2 px-2">Social Impact</th>
+                  </tr>
+                </thead>
+                <tbody class="align-top px-2">${categoryRows}</tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <h4 class="font-semibold text-slate-800 mb-2">Sub-options and Costs</h4>
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+              <table class="w-full text-xs md:text-sm bg-white">
+                <thead class="bg-slate-50 text-slate-600">
+                  <tr>
+                    <th class="text-left py-2 px-2">Method</th>
+                    <th class="text-right py-2 px-2">Initial Cost ($/ton)</th>
+                    <th class="text-right py-2 px-2">Upkeep ($/min)</th>
+                    <th class="text-right py-2 px-2">City Health (%/min)</th>
+                    <th class="text-right py-2 px-2">CO2 (ton/min)</th>
+                    <th class="text-right py-2 px-2">F-grade Qty (t)</th>
+                  </tr>
+                </thead>
+                <tbody>${optionsRows}</tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-2">
+            <button id="wtApplyBtn" type="button" class="btn btn-ink pill px-4 py-2 text-sm font-semibold">Save Selection</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      const close = () => modal.remove();
+      modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+      document.getElementById('wtCloseBtn').onclick = close;
+      document.getElementById('wtApplyBtn').onclick = () => {
+        const selected = [];
+        modal.querySelectorAll('.wt-select').forEach((cb) => {
+          if (!cb.checked) return;
+          const idx = Number(cb.dataset.idx);
+          const opt = WASTE_TREATMENT_OPTIONS[idx];
+          const qtyInput = modal.querySelector(`.wt-tons[data-idx="${idx}"]`);
+          const tons = Math.max(1, Math.floor(Number(qtyInput && qtyInput.value) || 1));
+          selected.push({ ...opt, tons });
+        });
+        if (!selected.length) {
+          alert('Please choose at least one treatment method.');
+          return;
+        }
+        wasteTreatmentPlans = selected;
+        renderWasteTreatmentSelectedPlans();
+        close();
+      };
+    }
+
+    // Deep-link from mrf-sorting-centre.html — same modal UI as the "Waste Treatment Facilities" card
+    (function openWasteTreatmentIfQuery() {
+      try {
+        const p = new URLSearchParams(window.location.search);
+        if (p.get('openWasteTreatment') !== '1' || myRole !== 'MRF') return;
+        setTimeout(() => {
+          try {
+            openWasteTreatmentModal();
+          } catch (_e) {}
+        }, 120);
+      } catch (_e) {}
+    })();
+
+    // Socket lobby count (if server also broadcasts here)
+    socket.on('lobbyUpdate', (data) => {
+      const el = document.getElementById('playerCountBadge');
+      if (el && data?.playerCount != null) {
+        el.textContent = `Players: ${data.playerCount}/${data.maxPlayers}`;
+      }
+    });
+
+    function updateDayDisplay(payload) {
+      document.getElementById('currentDay').textContent = payload.day;
+      document.getElementById('maxDay').textContent = payload.maxDay;
+      if (window.BesseGameCalendar && payload) {
+        window.BesseGameCalendar.updateDom({ day: payload.day, maxDay: payload.maxDay });
+      }
+      if (window.BesseSyncHeaderDayChip) window.BesseSyncHeaderDayChip(payload.day, payload.maxDay);
+    }
+
+    function getInventoryTotal(inv) {
+      if (!inv) return 0;
+      let total = Math.max(0, Number(inv.unprocessedWaste || 0));
+      const mats = inv.materials || {};
+      const waste = inv.waste || {};
+      Object.values(mats).forEach((g) => {
+        total += (g.A || 0) + (g.B || 0) + (g.C || 0);
+      });
+      Object.values(waste).forEach((g) => {
+        total += (g.B || 0) + (g.C || 0) + (g.F || 0);
+      });
+      return Math.round(total * 10) / 10;
+    }
+
+    function getAllRolesInventoryStats(roles) {
+      if (!roles) return { total: 0, capacity: 0 };
+      const roleKeys = ['municipality', 'mrf', 'broker'];
+      let total = 0;
+      let capacity = 0;
+      roleKeys.forEach((k) => {
+        const inv = roles[k] && roles[k].inventory ? roles[k].inventory : null;
+        total += getInventoryTotal(inv);
+        capacity += Number(inv && inv.capacityTonnes ? inv.capacityTonnes : 150);
+      });
+      return { total: Math.round(total * 10) / 10, capacity };
+    }
+
+    function applyGameOverUi() {
+      document.querySelectorAll('.district-collect-btn').forEach((btn) => {
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+      });
+    }
+
+    function renderMyInventory(roles) {
+      const panel = document.getElementById('myInventoryPanel');
+      const nameSpan = document.getElementById('myInventoryRoleName');
+      const tbody = document.querySelector('#myInventoryTable tbody');
+
+      if (!myRole || !roles || !panel || !tbody || !nameSpan) {
+        if (panel) panel.classList.add('hidden');
+        return;
+      }
+
+      const keyMap = { Municipality: 'municipality', MRF: 'mrf', Broker: 'broker' };
+      const roleKey = keyMap[myRole];
+      const role = roles[roleKey];
+      if (!role || !role.inventory) {
+        panel.classList.add('hidden');
+        return;
+      }
+
+      panel.classList.remove('hidden');
+      nameSpan.textContent = role.roleName || myRole;
+
+      const inv = role.inventory;
+      let rows = '';
+      if (inv.unprocessedWaste > 0) {
+        rows += `
+          <tr class="border-b border-slate-200/50">
+            <td class="pr-4 py-1">Unprocessed</td>
+            <td class="pr-4 py-1 text-right">${inv.unprocessedWaste}</td>
+            <td class="py-1 text-xs text-slate-600">Waiting for processing</td>
+          </tr>
+        `;
+      }
+      const mats = inv.materials || {};
+      const waste = inv.waste || {};
+      const allKeys = new Set([...Object.keys(mats), ...Object.keys(waste)]);
+      Array.from(allKeys).forEach((material) => {
+        const mg = mats[material] || {};
+        const wg = waste[material] || {};
+        const total = (mg.A || 0) + (mg.B || 0) + (mg.C || 0) + (wg.B || 0) + (wg.C || 0) + (wg.F || 0);
+        if (total > 0) {
+          rows += `
+            <tr class="border-b border-slate-200/50">
+              <td class="pr-4 py-1 capitalize">${material}</td>
+              <td class="pr-4 py-1 text-right">${total}</td>
+              <td class="py-1 text-xs text-slate-600">
+                Mat A:${mg.A ?? 0}, B:${mg.B ?? 0}, C:${mg.C ?? 0} · Waste B:${wg.B ?? 0}, C:${wg.C ?? 0}, F:${wg.F ?? 0}
+              </td>
+            </tr>
+          `;
+        }
+      });
+      if (!rows) {
+        rows = '<tr><td colspan="3" class="text-slate-600 py-2">Empty</td></tr>';
+      }
+      tbody.innerHTML = rows;
+    }
+
+    function gameHubDistrictWasteTotal(w) {
+      if (!w) return 0;
+      let t = 0;
+      Object.values(w).forEach((g) => { Object.values(g).forEach((n) => { t += n; }); });
+      return t;
+    }
+
+    function gameHubDistrictStatus(total) {
+      if (total <= 20) return 'Normal';
+      if (total <= 40) return 'Full';
+      return 'Overflowing';
+    }
+
+    function isEditingGameHubDistrictCollect() {
+      const ae = document.activeElement;
+      if (!ae || ae.tagName !== 'INPUT') return false;
+      const id = ae.id || '';
+      if (!id.startsWith('collect_')) return false;
+      return !!(ae.closest && ae.closest('#districtCollectList'));
+    }
+
+    function syncGameHubDistrictCollectList(data) {
+      const list = document.getElementById('districtCollectList');
+      if (!list || !data.shared?.districts) return;
+      const districts = data.shared.districts;
+      const labels = { residential: 'Residential', commercial: 'Commercial', industrial: 'Industrial' };
+      ['residential', 'commercial', 'industrial'].forEach((district) => {
+        const chip = list.querySelector(`[data-district-chip="${district}"]`);
+        if (!chip) return;
+        const waste = districts[district] && districts[district].waste;
+        const total = gameHubDistrictWasteTotal(waste);
+        const status = gameHubDistrictStatus(total);
+        const statusColor =
+          status === 'Overflowing' ? 'text-red-300' :
+          status === 'Full' ? 'text-emerald-300' :
+          'text-emerald-300';
+        const totalEl = chip.querySelector('.district-chip-total');
+        if (totalEl) totalEl.textContent = `${total} t`;
+        const stEl = chip.querySelector('.district-chip-status');
+        if (stEl) {
+          stEl.textContent = status;
+          stEl.className = `text-sm ${statusColor} district-chip-status`;
+        }
+        const input = chip.querySelector('.district-collect-input');
+        if (input) {
+          input.max = total || 1;
+          if (total <= 0) {
+            input.value = '0';
+          } else {
+            let v = Math.floor(Number(input.value) || 1);
+            if (v < 1) v = 1;
+            if (v > total) v = total;
+            input.value = String(v);
+          }
+        }
+        const btn = chip.querySelector('.district-collect-btn');
+        if (btn) btn.disabled = gameOver || total <= 0;
+      });
+    }
+
+    function attachDistrictCollectHandlers() {
+      document.querySelectorAll('#districtCollectList .district-collect-btn').forEach((btn) => {
+        btn.onclick = function () {
+          if (gameOver) return;
+          const district = this.dataset.district;
+          const chip = this.closest('[data-district-chip]');
+          const input = chip ? chip.querySelector('.district-collect-input') : document.getElementById('collect_' + district);
+          const tons = Math.max(1, Math.floor(Number(input && input.value) || 1));
+          socket.emit('collectWasteFromDistrict', { role: 'Municipality', district, tons });
+        };
+      });
+    }
+
+    function renderGameState(data) {
+      if (!data) return;
+      currentGameState = data;
+      const shared = data.shared;
+      const roles = data.roles;
+
+      // Shared metrics
+      document.getElementById('budgetHKD').textContent = shared.budgetHKD.toLocaleString('en-HK');
+      document.getElementById('cityHealth').textContent = shared.cityHealth;
+      {
+        const rk = myRole === 'Municipality' ? 'municipality' : myRole === 'MRF' ? 'mrf' : myRole === 'Broker' ? 'broker' : null;
+        const bl = rk && roles && roles[rk] && roles[rk].bufferLevel ? roles[rk].bufferLevel : 'Normal';
+        document.getElementById('bufferLevel').textContent = bl;
+      }
+      document.getElementById('transportMultiplier').textContent = shared.transportTimeMultiplier ?? 1;
+      const inventoryWaste = getAllRolesInventoryStats(roles);
+      document.getElementById('wasteTotal').textContent = inventoryWaste.total;
+      document.getElementById('wasteLimit').textContent = inventoryWaste.capacity;
+      if (!gameOver && inventoryWaste.capacity > 0 && inventoryWaste.total > inventoryWaste.capacity) {
+        gameOver = true;
+        applyGameOverUi();
+        alert(`Game Over: total waste ${inventoryWaste.total}t exceeded max capacity ${inventoryWaste.capacity}t.`);
+      }
+      document.getElementById('carbonValue').textContent = shared.carbonEmissions.value;
+      document.getElementById('carbonLimit').textContent = shared.carbonEmissions.limit;
+      updateDayDisplay({ day: shared.day, maxDay: shared.maxDay });
+
+      // Processed materials grid (hidden for Broker & MRF)
+      if (myRole !== 'Broker' && myRole !== 'MRF') {
+        const pmContainer = document.getElementById('processedMaterials');
+        if (pmContainer) {
+          pmContainer.innerHTML = '';
+          Object.entries(shared.waste.processedMaterials || {}).forEach(([material, value]) => {
+            const div = document.createElement('div');
+            div.className = 'kv';
+            div.innerHTML = `<span class="capitalize">${material}</span><span class="font-semibold text-slate-800">${value}</span>`;
+            pmContainer.appendChild(div);
+          });
+        }
+      }
+
+      // Event log
+      const logEl = document.getElementById('eventLog');
+      logEl.innerHTML = '';
+      if (!shared.eventLog.length) {
+        logEl.textContent = 'No events yet. Actions during the game will be recorded here.';
+      } else {
+        shared.eventLog.slice(-10).reverse().forEach((entry) => {
+          const line = document.createElement('div');
+          line.textContent = `[Day ${entry.day}] ${entry.message}`;
+          logEl.appendChild(line);
+        });
+      }
+
+      // Personal inventory
+      renderMyInventory(roles);
+
+      // City Projects summary (shared.projects)
+      (function renderCityProjectsSummary() {
+        const wrap = document.getElementById('cityProjectsSummary');
+        if (!wrap) return;
+        const projects = shared && shared.projects ? shared.projects : null;
+        if (!projects) {
+          wrap.innerHTML = '<div class="text-slate-500">No project data yet.</div>';
+          return;
+        }
+        const entries = Object.entries(projects);
+        if (!entries.length) {
+          wrap.innerHTML = '<div class="text-slate-500">No projects.</div>';
+          return;
+        }
+        const day = Number(shared.day || 1);
+        const title = (s) => (s ? String(s).charAt(0).toUpperCase() + String(s).slice(1) : '');
+        const statusText = (p) => {
+          if (!p) return 'Not started';
+          if (p.completedDay) return `Completed (Day ${p.completedDay})`;
+          if (!p.startedDay || !p.deadlineDay) return 'Not started';
+          const late = Math.max(0, day - Number(p.deadlineDay || day));
+          if (late <= 0) return `On Track (D-${Number(p.deadlineDay) - day})`;
+          if (late <= 2) return `Warning (+${late}d)`;
+          if (late <= 4) return `Delayed (+${late}d)`;
+          return `Stalled (+${late}d)`;
+        };
+        const html = entries
+          .map(([key, p]) => {
+            const required = Array.isArray(p?.requiredTypes) ? p.requiredTypes : [];
+            const submitted = new Set(Array.isArray(p?.submittedTypes) ? p.submittedTypes : []);
+            const remaining = required.filter((m) => !submitted.has(m));
+            const inst = p?.instance || 1;
+            const line1 = `<div class="font-semibold text-slate-900">${title(p?.name || key)} <span class="text-slate-500 text-xs">#${inst}</span></div>`;
+            const line2 = `<div class="text-xs text-slate-600">Status: ${statusText(p)}${p?.deadlineDay ? ` · Deadline Day ${p.deadlineDay}` : ''}</div>`;
+            const line3 = `<div class="text-xs text-slate-600">Remaining: ${remaining.length ? remaining.map(title).join(', ') : 'None'}</div>`;
+            return `<div class="rounded-xl border border-slate-200 bg-white px-4 py-3">${line1}${line2}${line3}</div>`;
+          })
+          .join('');
+        wrap.innerHTML = `<div class="grid gap-3 md:grid-cols-2">${html}</div>`;
+      })();
+
+      // Municipality district UI (avoid rebuilding while typing in Collect amount — same issue as inventory Send rows)
+      if (myRole === 'Municipality' && data.shared.districts) {
+        const list = document.getElementById('districtCollectList');
+        if (list) {
+          const labels = { residential: 'Residential', commercial: 'Commercial', industrial: 'Industrial' };
+          if (isEditingGameHubDistrictCollect() && list.querySelector('[data-district-chip]')) {
+            syncGameHubDistrictCollectList(data);
+          } else {
+            list.innerHTML = ['residential', 'commercial', 'industrial'].map((district) => {
+              const waste = data.shared.districts[district].waste;
+              const total = gameHubDistrictWasteTotal(waste);
+              const status = gameHubDistrictStatus(total);
+              const statusColor =
+                status === 'Overflowing' ? 'text-red-300' :
+                status === 'Full' ? 'text-emerald-300' :
+                'text-emerald-300';
+              return `
+              <div class="dark-chip rounded-xl p-3 flex flex-wrap items-center gap-3" data-district-chip="${district}">
+                <span class="font-semibold">${labels[district]}</span>
+                <span class="text-sm text-slate-300 district-chip-total">${total} t</span>
+                <span class="text-sm ${statusColor} district-chip-status">${status}</span>
+                <input
+                  type="number"
+                  inputmode="numeric"
+                  id="collect_${district}"
+                  min="1"
+                  max="${total || 1}"
+                  value="${Math.min(5, total) || 0}"
+                  step="1"
+                  class="district-collect-input w-20 rounded-lg bg-slate-900/60 px-2 py-1 text-center border border-slate-600 text-sm text-slate-100"
+                />
+                <button
+                  type="button"
+                  class="btn btn-ink pill px-4 py-1.5 text-sm font-semibold district-collect-btn"
+                  data-district="${district}"
+                  ${gameOver || total <= 0 ? 'disabled' : ''}>
+                  Collect
+                </button>
+              </div>
+            `;
+            }).join('');
+            attachDistrictCollectHandlers();
+          }
+        }
+      }
+    }
+
+    if (typeof besseAttachRestartUI === 'function') {
+      besseAttachRestartUI(socket);
+    }
+    window.addEventListener('besseGameRestarted', () => {
+      gameOver = false;
+    });
+
+    // Socket events
+    socket.on('collectWasteError', (data) => alert(data.message || 'Error collecting waste.'));
+    socket.on('projectSubmitError', (data) => {
+      if (data && data.message) console.warn('[projectSubmit]', data.message);
+      alert((data && data.message) || '城市專案提交失敗。');
+    });
+    socket.on('dayUpdate', updateDayDisplay);
+    socket.on('gameStateUpdate', renderGameState);
+    socket.on('roomFull', (data) => {
+      alert(data?.message || 'Game is full. Only 3 players allowed.');
+    });
+    socket.on('gameOver', (payload) => {
+      gameOver = true;
+      if (payload && payload.state) renderGameState(payload.state);
+      applyGameOverUi();
+    });
+    function normalizeRoleCapacities(data) {
+      if (!data || !data.roles) return data;
+      ['municipality', 'mrf', 'broker'].forEach((k) => {
+        const inv = data.roles[k] && data.roles[k].inventory ? data.roles[k].inventory : null;
+        if (inv && (inv.capacityTonnes == null || Number.isNaN(Number(inv.capacityTonnes)))) {
+          inv.capacityTonnes = 150;
+        }
+      });
+      return data;
+    }
+
+    // Initial load: prefer live server state, avoid stale snapshot drift
+    (async function init() {
+      async function pollState() {
+        const res = await fetch(`/state?t=${Date.now()}`, { cache: 'no-store' }).catch(() => null);
+        if (res && res.ok) {
+          const data = await res.json().catch(() => null);
+          if (data && data.shared && data.roles) {
+            renderGameState(normalizeRoleCapacities(data));
+            return true;
+          }
+        }
+        return false;
+      }
+
+      try {
+        const ok = await pollState();
+        if (ok) {
+          setInterval(pollState, 1000);
+          return;
+        }
+      } catch (_e) {}
+
+      // Last resort: local static snapshot (only when live server is unavailable)
+      try {
+        const res = await fetch(`gameState.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          const team = data.teams?.[0];
+          if (team) {
+            renderGameState(normalizeRoleCapacities({ shared: team.shared, roles: team.roles }));
+          }
+        }
+      } catch (_e) {}
+    })();
+
+    } /* end non-Municipality game panel */
+  </script>
+</body>
+</html>

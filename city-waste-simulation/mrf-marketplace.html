@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MRF – Trader Marketplace &amp; List for Sale</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+  :root{--ink:#1a2f25;--ink-2:#244635;--panel:#9bb38f;--paper:#e3dfd2;--card:#fff;--muted:#6b7280;--accent:#2f6f43;--accent-2:#3e7d51;--radius-xl:20px;--shadow-1:0 12px 24px rgba(0,0,0,.12)}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--paper);color:#1f2937;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  .cork{position:relative;width:100%;min-height:100vh;background:var(--panel);padding:16px 16px 80px}
+  .err-banner{background:#c62828;color:#fff;padding:14px 20px;border-radius:10px;text-align:center;font-weight:700;margin-bottom:16px}
+  .err-banner a{color:#ffcdd2}
+  /* ── Top bar ── */
+  .top{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+  .badge{display:flex;align-items:center;gap:8px}
+  .badge-circle{width:44px;height:44px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;cursor:pointer}
+  .badge-label{background:var(--accent);color:#fff;padding:4px 12px;border-radius:4px;font-size:12px;font-weight:700}
+  .city{font-size:28px;font-weight:800;color:var(--ink);text-align:center;flex:1}
+  .inv-box{display:flex;align-items:center;gap:6px;background:var(--card);border:2px solid #bbb;border-radius:6px;padding:3px 10px;font-size:13px;font-weight:600;color:#555;margin-top:4px}
+  .cal{background:var(--card);border:2px solid var(--accent);border-radius:8px;padding:6px 14px;font-size:13px;line-height:1.5;box-shadow:var(--shadow-1)}
+  .cal .dots{display:flex;gap:3px;justify-content:flex-end;margin-bottom:2px}.cal .dots span{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+  .cal .row{display:flex;align-items:center;gap:5px;font-weight:600}
+  .hub-link{display:inline-block;margin-bottom:6px;color:var(--accent);font-weight:600;text-decoration:none;font-size:13px}.hub-link:hover{text-decoration:underline}
+  /* ── Photo cards (Figma Frame 80) ── */
+  .cards{display:flex;justify-content:center;gap:40px;margin-top:24px;flex-wrap:wrap}
+  .pcard{cursor:pointer;text-align:center;transition:transform .15s}.pcard:hover{transform:scale(1.03)}
+  .frame{width:200px;height:180px;background:var(--card);border:3px solid #bbb;box-shadow:var(--shadow-1);display:flex;align-items:center;justify-content:center;position:relative}
+  .frame .mp-art{position:relative;z-index:1;width:136px;height:124px;display:flex;align-items:center;justify-content:center}
+  .frame .mp-art svg{width:100%;height:100%;display:block;filter:drop-shadow(0 2px 3px rgba(26,47,37,.12))}
+  .tape{width:44px;height:18px;background:rgba(180,170,140,.8);position:absolute;top:-9px;left:50%;transform:translateX(-50%);border-radius:2px;z-index:2}
+  .plabel{margin-top:8px;font-size:16px;font-weight:700;color:var(--ink)}
+  /* ── Overlay base ── */
+  .ov{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;display:none;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto}.ov.open{display:flex}
+  .ov-box{background:var(--panel);border-radius:14px;width:100%;max-width:940px;min-height:420px;padding:18px;position:relative;box-shadow:0 8px 30px rgba(0,0,0,.3)}
+  .ov-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .ov-title{font-size:20px;font-weight:800;color:var(--ink);background:var(--card);padding:5px 24px;border-radius:6px;border:2px solid #bbb}
+  .ov-x{width:32px;height:32px;border-radius:6px;border:2px solid #bbb;background:var(--card);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--ink)}.ov-x:hover{background:#eee}
+  /* ── Vendor (Figma Frame 83) ── */
+  .v-lay{display:flex;gap:14px;flex-wrap:wrap}
+  .v-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;flex:1;min-width:280px}
+  .mc{background:var(--card);border:2px dashed #bbb;border-radius:8px;padding:10px;text-align:center;cursor:pointer;transition:.15s}.mc:hover{border-color:var(--accent);transform:translateY(-2px)}.mc.sel{border-color:var(--accent);border-style:solid;background:#e8f3ec}
+  .mc .mi{width:64px;height:64px;margin:0 auto 6px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:30px}
+  .mi.paper{background:#E8D5B7}.mi.plastic{background:#B3E5FC}.mi.metal{background:#CFD8DC}.mi.glass{background:#C8E6C9}.mi.wood{background:#D7CCC8}
+  .mc .mn{font-weight:700;font-size:14px;color:var(--ink)}.mc .mp{font-size:12px;color:var(--muted);margin-top:2px}
+  /* ── Vendor detail panel ── */
+  .vd{width:310px;min-width:260px;background:var(--ink);border-radius:10px;padding:14px;color:#fff}
+  .vd-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .vd-img{width:56px;height:56px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:28px;background:#344}
+  .vd-name{font-size:18px;font-weight:700}
+  .vd-ct{font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+  .vd-chart{width:100%;height:100px;background:#1a2f25;border-radius:6px;margin-bottom:6px;overflow:hidden}
+  .vd-chart canvas{width:100%;height:100%}
+  .vd-pr{display:flex;justify-content:space-between;font-size:12px;margin-bottom:10px}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px}.dot.rising{background:#4caf50}.dot.falling{background:#f44}.dot.stable{background:#ff9800}
+  .vd-ctrls{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+  .vd-row{display:flex;align-items:center;justify-content:space-between}.vd-row label{font-size:12px;font-weight:600;color:#ccc}
+  .cg{display:flex;align-items:center;gap:3px}
+  .cb{width:26px;height:26px;border:1px solid #555;background:#344;color:#fff;border-radius:4px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center}.cb:hover{background:#455}
+  .cv{width:48px;text-align:center;font-size:13px;font-weight:700;color:#fff;background:#1a2f25;border:1px solid #444;border-radius:4px;padding:2px}
+  .cl{font-size:10px;color:#999;margin-left:3px;cursor:pointer}.cl:hover{color:#fff}
+  .vd-total{text-align:center;font-size:11px;color:#aaa;margin-bottom:8px;border:1px solid #444;padding:3px;border-radius:4px}
+  .vd-buy{width:100%;padding:9px;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;transition:.15s}.vd-buy:hover{background:var(--accent-2)}.vd-buy:disabled{background:#555;color:#999;cursor:not-allowed}
+  /* ── Trader cards (Figma Frame 84) ── */
+  .t-scroll{display:flex;gap:14px;overflow-x:auto;padding:6px 2px 14px}
+  .tc{min-width:210px;max-width:230px;background:linear-gradient(180deg,var(--ink-2),var(--ink));border-radius:10px;overflow:hidden;flex-shrink:0;box-shadow:var(--shadow-1)}
+  .tc-top{position:relative;padding:6px 8px 2px}.tc-id{font-size:11px;color:#aaa;font-weight:600}
+  .tc-badge{position:absolute;top:6px;right:6px;background:#e53935;color:#fff;font-size:9px;padding:2px 7px;border-radius:3px;font-weight:700}.tc-badge.player{background:var(--accent)}
+  .tc-img{width:100%;height:110px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:42px;margin:4px 0;position:relative}
+  .tc-img .tl{position:absolute;top:3px;left:5px;background:rgba(0,0,0,.5);color:#fff;font-size:9px;padding:1px 5px;border-radius:3px}
+  .tc-img .tr{position:absolute;top:3px;right:5px;background:rgba(0,0,0,.5);color:#fff;font-size:9px;padding:1px 5px;border-radius:3px}
+  .tc-info{background:rgba(255,255,255,.08);margin:0 8px;border-radius:6px;padding:6px 10px;display:grid;grid-template-columns:1fr 1fr;gap:3px;font-size:12px;color:#ccc}.tc-info .lb{font-weight:600;color:#fff}
+  .tc-bot{padding:8px;text-align:center}
+  .tc-time{color:#e53935;font-size:11px;font-weight:700;margin-bottom:3px}.tc-time .tb{display:inline-block;background:#e53935;color:#fff;padding:1px 7px;border-radius:3px;font-size:10px}
+  .tc-prices{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:6px}.tc-prices .dl{font-size:16px;font-weight:800;color:#fff}
+  .tc-btn{width:88%;padding:7px;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;transition:.15s}.tc-btn:hover{background:var(--accent-2)}
+  .tc-cancel{background:#e53935;margin-top:4px}.tc-cancel:hover{background:#c62828}
+  /* ── List-for-sale overlay ── */
+  .list-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .list-left{display:flex;flex-direction:column;gap:8px;max-height:380px;overflow-y:auto}
+  .list-right{background:var(--card);border-radius:10px;padding:14px}
+  .inv-item{background:var(--card);border:2px solid #ddd;border-radius:8px;padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:.15s}.inv-item:hover{border-color:var(--accent)}.inv-item.sel{border-color:var(--accent);background:#e8f3ec}
+  .inv-item .ii-icon{font-size:24px}.inv-item .ii-info{flex:1}
+  .inv-item .ii-name{font-weight:700;font-size:13px;color:var(--ink)}.inv-item .ii-detail{font-size:11px;color:var(--muted)}
+  .lf-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.lf-row label{font-weight:600;font-size:13px;color:var(--ink)}
+  .lf-input{width:90px;padding:4px 6px;border:2px solid #ccc;border-radius:4px;font-size:13px;text-align:center}
+  .lf-btn{width:100%;padding:10px;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;margin-top:12px}.lf-btn:hover{background:var(--accent-2)}.lf-btn:disabled{background:#999;cursor:not-allowed}
+  /* ── Purchase confirm (Figma Frame 85) ── */
+  .cf{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;align-items:center;justify-content:center;padding:16px}.cf.open{display:flex}
+  .cf-box{background:var(--panel);border-radius:14px;max-width:640px;width:100%;display:flex;gap:0;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+  .cf-left{flex:0 0 230px;padding:14px}.cf-card{background:var(--card);border-radius:8px;overflow:hidden;box-shadow:var(--shadow-1)}
+  .cf-card-img{height:130px;display:flex;align-items:center;justify-content:center;font-size:42px}
+  .cf-card-body{padding:8px;font-size:12px;color:#333}
+  .cf-row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(0,0,0,.08)}.cf-row:last-child{border-bottom:none}.cf-row .cfl{font-weight:700}
+  .cf-right{flex:1;background:rgba(255,255,255,.93);padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .cf-bal{align-self:flex-start;background:var(--card);border:2px solid #bbb;border-radius:6px;padding:3px 12px;font-size:12px;font-weight:600;margin-bottom:12px}
+  .cf-title{font-size:20px;font-weight:800;color:var(--ink);margin-bottom:12px}
+  .cf-price{font-size:32px;font-weight:800;color:#c62828;margin-bottom:12px}.cf-price .ds{font-size:16px;vertical-align:super;color:var(--muted)}
+  .cf-tl{margin-bottom:12px;text-align:center}.cf-tl .tll{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:3px}.cf-tl .tlb{background:#e53935;color:#fff;padding:2px 10px;border-radius:4px;font-size:12px;font-weight:600;display:inline-block}
+  .cf-owner{font-size:10px;color:#888;margin-bottom:16px;display:flex;align-items:center;gap:5px}.cf-owner .od{width:18px;height:18px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px}
+  .cf-approve{padding:10px 40px;border:none;border-radius:8px;font-size:16px;font-weight:800;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;box-shadow:0 4px 12px rgba(47,111,67,.3);transition:.1s}.cf-approve:hover{transform:scale(1.03)}.cf-approve:disabled{background:#999;box-shadow:none;cursor:not-allowed}
+  .cf-cancel{margin-top:8px;background:none;border:none;color:#888;cursor:pointer;font-size:12px;text-decoration:underline}
+  /* ── Record panel ── */
+  .rec{position:fixed;bottom:66px;left:10px;width:250px;z-index:40}.rec-h{background:var(--accent);color:#fff;padding:3px 14px;border-radius:6px 6px 0 0;font-weight:700;font-size:14px;display:flex;align-items:center;gap:5px}
+  .rec-b{background:rgba(255,255,255,.93);max-height:140px;overflow-y:auto;padding:5px 8px;font-size:10px;color:#333;border-radius:0 0 6px 6px;line-height:1.4;border:1px solid #ddd;border-top:none}.rec-b .e{margin-bottom:3px}.rec-b .et{font-weight:700;color:#555}
+  /* ── Status bar ── */
+  .sb{position:fixed;bottom:0;left:0;right:0;height:56px;background:var(--ink);display:flex;align-items:center;justify-content:center;gap:24px;padding:0 16px;z-index:45}
+  .st{display:flex;align-items:center;gap:5px;color:#fff;font-size:13px;font-weight:600}
+  .st .bar{width:72px;height:12px;border-radius:6px;background:#344;overflow:hidden}.st .fill{height:100%;border-radius:6px;transition:width .3s}
+  .fill.hp{background:linear-gradient(90deg,#e53935,#ff9800)}.fill.co{background:linear-gradient(90deg,#4caf50,#e53935)}
+  /* ── Hub summary panel ── */
+  .hs{position:fixed;top:10px;right:50px;background:rgba(255,255,255,.96);border-radius:8px;padding:8px 12px;font-size:10px;width:180px;box-shadow:var(--shadow-1);z-index:30;max-height:88vh;overflow-y:auto;display:none}.hs.vis{display:block}
+  .hs h4{font-size:12px;margin-bottom:4px;color:var(--ink);border-bottom:1px solid #ddd;padding-bottom:3px}.hs .hr{display:flex;justify-content:space-between;margin-bottom:2px;color:#555}.hs .hl{font-weight:600}
+  .ht{position:fixed;top:10px;right:12px;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:700;cursor:pointer;z-index:31}
+  .help{position:fixed;right:12px;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;font-size:20px;font-weight:800;border:none;cursor:pointer;box-shadow:var(--shadow-1);z-index:50}
+  .hidden{display:none!important}
+  .bg-paper{background:linear-gradient(135deg,#E8D5B7,#D7C4A6)}.bg-plastic{background:linear-gradient(135deg,#B3E5FC,#81D4FA)}.bg-metal{background:linear-gradient(135deg,#CFD8DC,#B0BEC5)}.bg-glass{background:linear-gradient(135deg,#a8e6cf,#88d8b0)}.bg-wood{background:linear-gradient(135deg,#D7CCC8,#BCAAA4)}
+</style>
+</head>
+<body>
+
+<!-- ═══════ MAIN CORK VIEW (Figma Frame 80) ═══════ -->
+<div class="cork" id="mainView">
+  <div id="errBanner"></div>
+  <div class="top">
+    <div>
+      <div class="badge">
+        <div class="badge-circle" onclick="location='game.html?role=MRF'">✕</div>
+        <span class="badge-label">MRF<br>@<span id="pid">ID</span></span>
+      </div>
+      <div class="inv-box">📦 <span id="invL">0/150 tons</span></div>
+    </div>
+    <div class="city">CityName</div>
+    <div class="cal">
+      <div class="dots"><span></span><span></span><span></span><span></span><span></span></div>
+      <div class="row">📅 <span id="calD">01 Nov 2025</span></div>
+      <div class="row">🕙 <span id="calT">10:00 am</span></div>
+      <div class="row">📆 <span id="headerDayChip">Day – / –</span></div>
+    </div>
+  </div>
+  <a href="game.html?role=MRF" class="hub-link">← Hub</a>
+
+  <div class="cards">
+    <div class="pcard" onclick="openOv('vendor')" title="View-only: only Municipality may purchase from the vendor"><div class="frame"><div class="tape"></div><div class="mp-art" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><ellipse cx="60" cy="108" rx="48" ry="8" fill="rgba(47,111,67,.15)"/><rect x="22" y="48" width="76" height="52" rx="4" fill="#a8c090" stroke="#2f6f43" stroke-width="2.5"/><path d="M22 48 L60 22 L98 48" fill="#c8d9b8" stroke="#2f6f43" stroke-width="2.5" stroke-linejoin="round"/><rect x="24" y="50" width="14" height="12" rx="1" fill="#e8f4ea" stroke="#5a8a5e" stroke-width="1"/><rect x="42" y="50" width="14" height="12" rx="1" fill="#e8f4ea" stroke="#5a8a5e" stroke-width="1"/><rect x="60" y="50" width="14" height="12" rx="1" fill="#e8f4ea" stroke="#5a8a5e" stroke-width="1"/><rect x="78" y="50" width="14" height="12" rx="1" fill="#e8f4ea" stroke="#5a8a5e" stroke-width="1"/><rect x="48" y="72" width="24" height="28" rx="2" fill="#e3dfd2" stroke="#2f6f43" stroke-width="2"/><circle cx="60" cy="86" r="3" fill="#2f6f43"/><rect x="52" y="38" width="16" height="14" rx="1" fill="#8b7355" stroke="#5d4e37" stroke-width="1"/></svg></div></div><div class="plabel">Vendor <span style="font-size:10px;color:#c62828">(Muni only)</span></div></div>
+    <div class="pcard" onclick="openOv('trader')"><div class="frame"><div class="tape"></div><div class="mp-art" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><ellipse cx="60" cy="108" rx="48" ry="8" fill="rgba(47,111,67,.15)"/><rect x="18" y="52" width="28" height="20" rx="3" fill="#c8e6c9" stroke="#2f6f43" stroke-width="2.5"/><rect x="74" y="52" width="28" height="20" rx="3" fill="#c8e6c9" stroke="#2f6f43" stroke-width="2.5"/><path d="M46 62H74" stroke="#2f6f43" stroke-width="3" stroke-linecap="round"/><path d="M55 52 L68 40 L81 52 M55 72 L68 84 L81 72" fill="none" stroke="#3e7d51" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="34" cy="86" r="12" fill="#ffd54f" stroke="#f9a825" stroke-width="2"/><circle cx="86" cy="86" r="12" fill="#ffd54f" stroke="#f9a825" stroke-width="2"/><text x="34" y="91" text-anchor="middle" font-size="14" font-weight="700" fill="#5d4037">$</text><text x="86" y="91" text-anchor="middle" font-size="14" font-weight="700" fill="#5d4037">$</text></svg></div></div><div class="plabel">Trader</div></div>
+    <div class="pcard" onclick="openOv('list')"><div class="frame"><div class="tape"></div><div class="mp-art" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><ellipse cx="60" cy="108" rx="48" ry="8" fill="rgba(47,111,67,.15)"/><path d="M38 28 L88 38 L78 92 L28 82 Z" fill="#ffecb3" stroke="#f57f17" stroke-width="2.5" stroke-linejoin="round"/><circle cx="42" cy="34" r="5" fill="#e3dfd2" stroke="#8d6e63" stroke-width="2"/><path d="M42 39 L42 56" stroke="#8d6e63" stroke-width="2.5" stroke-linecap="round"/><rect x="44" y="52" width="36" height="28" rx="2" fill="#fff" stroke="#2f6f43" stroke-width="2"/><path d="M50 60h24M50 68h18M50 76h22" stroke="#7cb342" stroke-width="2.5" stroke-linecap="round"/><path d="M72 44 L82 30" stroke="#c62828" stroke-width="2" stroke-linecap="round"/></svg></div></div><div class="plabel">List Item</div></div>
+  </div>
+</div>
+
+<!-- ═══════ VENDOR OVERLAY (Figma Frame 83) ═══════ -->
+<div class="ov" id="ov-vendor">
+  <div class="ov-box">
+    <div class="ov-head"><div></div><div class="ov-title">Vendor</div><button class="ov-x" onclick="closeOv('vendor')">X</button></div>
+    <p style="background:#fff3e0;border:1px solid #ff9800;border-radius:8px;padding:10px 12px;font-size:12px;color:#5d4037;margin-bottom:12px;line-height:1.45">
+      <strong>MRF cannot buy raw materials from the commodity vendor.</strong> That channel is only for <strong>Municipality</strong>. As MRF, use <strong>Trader</strong> (player listings / offers).
+    </p>
+    <div class="v-lay">
+      <div class="v-grid" id="vGrid"></div>
+      <div class="vd hidden" id="vDetail">
+        <div class="vd-top"><div class="vd-img" id="vdI">📄</div><div class="vd-name" id="vdN">Paper</div></div>
+        <div class="vd-ct" id="vdCT">MARKET PRICE: Wood Pulp ($/ton)</div>
+        <div class="vd-chart"><canvas id="priceC" width="288" height="100"></canvas></div>
+        <div class="vd-pr"><span>Current: <b id="vdP">$180</b>/ton</span><span>(Trend: <span class="dot" id="vdD"></span><span id="vdTr">Stable</span>)</span></div>
+        <div class="vd-ctrls">
+          <div class="vd-row"><label>Grade</label><div class="cg"><select class="cv" id="vG"><option value="A">A</option><option value="B" selected>B</option><option value="C">C</option></select></div></div>
+          <div class="vd-row"><label>Quantity</label><div class="cg"><button class="cb" onclick="adj('q',-1)">◂</button><input class="cv" id="vQ" type="number" value="1" min="1"><button class="cb" onclick="adj('q',1)">▸</button><span class="cl" onclick="mxQ()">Max</span></div></div>
+          <div class="vd-row"><label>Slippage</label><div class="cg"><button class="cb" onclick="adj('s',-10)">◂</button><input class="cv" id="vS" type="number" value="200" min="0"><button class="cb" onclick="adj('s',10)">▸</button><span class="cl" onclick="mnS()">Min</span></div></div>
+        </div>
+        <div class="vd-total">Max Total : <b id="vdMT">0</b></div>
+        <button class="vd-buy" id="vdBuy" type="button" disabled title="MRF cannot purchase from the vendor">Municipality only</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ TRADER OVERLAY (Figma Frame 84) ═══════ -->
+<div class="ov" id="ov-trader">
+  <div class="ov-box">
+    <div class="ov-head"><div></div><div class="ov-title">Trader</div><button class="ov-x" onclick="closeOv('trader')">X</button></div>
+    <div class="t-scroll" id="tScroll"></div>
+  </div>
+</div>
+
+<!-- ═══════ LIST-FOR-SALE OVERLAY ═══════ -->
+<div class="ov" id="ov-list">
+  <div class="ov-box">
+    <div class="ov-head"><div></div><div class="ov-title">List Item for Sale</div><button class="ov-x" onclick="closeOv('list')">X</button></div>
+    <div class="list-grid">
+      <div class="list-left" id="listInv"></div>
+      <div class="list-right" id="listForm"><p style="color:var(--muted);text-align:center;padding:40px 0">Select an item from your inventory to list.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ PURCHASE CONFIRM (Figma Frame 85) ═══════ -->
+<div class="cf" id="cfOv">
+  <div class="cf-box">
+    <div class="cf-left">
+      <div class="cf-card">
+        <div class="cf-card-img" id="cfI">⚙️</div>
+        <div class="cf-card-body">
+          <div class="cf-row"><span id="cfProd">Product</span><span class="cfl" id="cfML">Material</span></div>
+          <div class="cf-row"><span class="cfl">Quantity</span><span id="cfQty">2 tons</span></div>
+          <div class="cf-row"><span class="cfl">Grade</span><span id="cfGr">A</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="cf-right">
+      <div class="cf-bal">Bal: <span id="cfBal">0</span> HKD</div>
+      <div class="cf-title">Purchase Material</div>
+      <div class="cf-price"><span class="ds">$</span> <span id="cfPr">77.35</span></div>
+      <div class="cf-tl"><div class="tll">Time Left</div><div class="tlb" id="cfTL">--:--:--</div></div>
+      <div class="cf-owner"><span class="od">🔗</span> Owned By <span id="cfSel">NPC</span></div>
+      <button class="cf-approve" id="cfApp" onclick="confirmBuy()">Approve</button>
+      <button class="cf-cancel" onclick="closeCf()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ RECORD + STATUS BAR ═══════ -->
+<div class="rec"><div class="rec-h">📋 Event Log</div><div class="rec-b" id="recB">No events yet.</div></div>
+<div class="sb">
+  <div class="st">💰 <span id="sbB">–</span></div>
+  <div class="st">❤️ <div class="bar"><div class="fill hp" id="sbHB" style="width:40%"></div></div> <span id="sbH">–%</span></div>
+  <div class="st">🗑️ <span id="sbW">–/– t</span></div>
+  <div class="st">🏭 <div class="bar"><div class="fill co" id="sbCB" style="width:0%"></div></div> <span id="sbC">–%</span></div>
+</div>
+<button class="ht" onclick="document.getElementById('hs').classList.toggle('vis')">📊</button>
+<div class="hs" id="hs">
+  <h4>Game Hub Summary</h4>
+  <div class="hr"><span class="hl">Budget</span><span id="hsB">–</span></div>
+  <div class="hr"><span class="hl">Health</span><span id="hsH">–%</span></div>
+  <div class="hr"><span class="hl">Buffer</span><span id="hsBf">–</span></div>
+  <div class="hr"><span class="hl">Transport</span><span>x<span id="hsT">–</span></span></div>
+  <div class="hr"><span class="hl">Waste</span><span id="hsW">–/– t</span></div>
+  <div class="hr"><span class="hl">Carbon</span><span id="hsCo">–/– %</span></div>
+  <div class="hr"><span class="hl">Day</span><span id="hsD">–/–</span></div>
+  <hr style="margin:4px 0">
+  <div class="hr"><span class="hl">Inventory</span><span id="hsI">–/– t</span></div>
+</div>
+<button class="help" title="Help">?</button>
+
+<script src="player-menu.js"></script>
+<script>
+/* ══════════════════════════════════════════════════════
+ * ██  FIX #1 + #2: Declare ALL variables BEFORE io()
+ * ══════════════════════════════════════════════════════ */
+const ROLE     = 'MRF';
+const ROLE_KEY = 'mrf';
+// ── All state vars declared FIRST (prevents TDZ) ──
+var gs          = null;
+var selMat      = null;
+var selListing  = null;
+var selListItem = null;
+var socket      = null;
+
+const ICONS = { paper:'📄', plastic:'♻️', metal:'⚙️', glass:'🪟', wood:'🪵' };
+const COMM  = { paper:'Wood Pulp', plastic:'Crude Polymer', metal:'Scrap Metal', glass:'Silica Sand', wood:'Timber' };
+const BGCLS = { paper:'bg-paper', plastic:'bg-plastic', metal:'bg-metal', glass:'bg-glass', wood:'bg-wood' };
+// Backend-doc base prices (for reference display & list-price suggestions)
+const BASE_PRICES = { paper:180, plastic:350, metal:600, glass:120, wood:100 };
+const GRADE_MULT = { A: 1.2, B: 1.0, C: 0.8 };
+
+/* ══ FIX #1: Safe Socket.IO connection ══ */
+if (typeof io === 'undefined') {
+  document.getElementById('errBanner').innerHTML =
+    '<div class="err-banner">⚠️ Socket.IO not loaded. Open this page via ' +
+    '<a href="http://localhost:3000/municipality-marketplace.html">http://localhost:3000</a></div>';
+  // Provide a no-op socket so the rest of the code doesn't crash
+  socket = { on: function(){}, emit: function(){}, connected: false };
+} else {
+  socket = io();
+  if (typeof besseAttachRestartUI === 'function') besseAttachRestartUI(socket);
+}
+
+// ── Helper ──
+function $(id) { return document.getElementById(id); }
+function invTotal(inv) {
+  if (!inv) return 0;
+  var t = Math.max(0, Number(inv.unprocessedWaste || 0));
+  var mats = inv.materials;
+  if (mats) {
+    for (var mk in mats) {
+      if (!Object.prototype.hasOwnProperty.call(mats, mk)) continue;
+      var gm = mats[mk];
+      t += (gm.A || 0) + (gm.B || 0) + (gm.C || 0);
+    }
+  }
+  var wast = inv.waste;
+  if (wast) {
+    for (var wk in wast) {
+      if (!Object.prototype.hasOwnProperty.call(wast, wk)) continue;
+      var gw = wast[wk];
+      t += (gw.B || 0) + (gw.C || 0) + (gw.F || 0);
+    }
+  }
+  return Math.round(t * 10) / 10;
+}
+function allRolesInvStats(roles) {
+  var ks = ['municipality', 'mrf', 'broker'];
+  var total = 0;
+  var cap = 0;
+  ks.forEach(function(k) {
+    var inv = roles && roles[k] ? roles[k].inventory : null;
+    total += invTotal(inv);
+    cap += Number(inv && inv.capacityTonnes ? inv.capacityTonnes : 0);
+  });
+  return { total: Math.round(total * 10) / 10, cap: cap };
+}
+
+/* ══════════════════════════════════════════════════════
+ * ██  Socket listeners
+ * ══════════════════════════════════════════════════════ */
+socket.on('gameStateUpdate', function(s) { gs = s; render(); });
+socket.on('dayUpdate', function(d) {
+  if (gs && gs.shared) {
+    gs.shared.day = d.day;
+    if (d.maxDay != null) gs.shared.maxDay = d.maxDay;
+  }
+  updateCal(d.day, d.maxDay);
+});
+
+// Listen on BOTH old and new event names (backwards-compat)
+socket.on('marketplaceResult',    handleMpResult);
+socket.on('marketplaceBuyResult', handleMpResult);
+
+function handleMpResult(d) {
+  if (d.error) alert('❌ ' + d.error);
+  else         alert('✅ ' + (d.message || 'Success!'));
+  closeCf();
+}
+
+/* ══════════════════════════════════════════════════════
+ * ██  Overlay open/close
+ * ══════════════════════════════════════════════════════ */
+function openOv(k) {
+  $('ov-' + k).classList.add('open');
+  if (k === 'vendor') { selMat = null; $('vDetail').classList.add('hidden'); renderVGrid(); }
+  if (k === 'trader') renderTrader();
+  if (k === 'list')   renderListInv();
+}
+function closeOv(k) { $('ov-' + k).classList.remove('open'); }
+function closeCf()  { $('cfOv').classList.remove('open'); selListing = null; }
+
+/* ══════════════════════════════════════════════════════
+ * ██  Render (shared state → UI)
+ * ══════════════════════════════════════════════════════ */
+function render() {
+  if (!gs || !gs.shared) return;
+  var s   = gs.shared;
+  var inv = gs.roles && gs.roles[ROLE_KEY] ? gs.roles[ROLE_KEY].inventory : null;
+  var it  = invTotal(inv);
+  var ic  = inv ? (inv.capacityTonnes || 150) : 150;
+  var wi  = allRolesInvStats(gs.roles);
+  var hp  = Number(s.cityHealth || 0);
+  var co  = Number(s.carbonEmissions ? s.carbonEmissions.value : 0);
+
+  $('invL').textContent = it + '/' + ic + ' tons';
+  $('sbB').textContent  = (s.budgetHKD || 0).toLocaleString('en-HK');
+  $('sbH').textContent  = hp + '%';
+  $('sbHB').style.width = hp + '%';
+  $('sbW').textContent  = wi.total + '/' + wi.cap + ' t';
+  $('sbC').textContent  = co + '%';
+  $('sbCB').style.width = co + '%';
+
+  $('hsB').textContent  = (s.budgetHKD || 0).toLocaleString('en-HK') + ' HKD';
+  $('hsH').textContent  = hp + '%';
+  $('hsBf').textContent = (gs.roles && gs.roles[ROLE_KEY] && gs.roles[ROLE_KEY].bufferLevel) ? gs.roles[ROLE_KEY].bufferLevel : 'Normal';
+  $('hsT').textContent  = s.transportTimeMultiplier || 1;
+  $('hsW').textContent  = wi.total + '/' + wi.cap + ' t';
+  $('hsCo').textContent = co + '/' + s.carbonEmissions.limit + ' %';
+  $('hsD').textContent  = s.day + '/' + s.maxDay;
+  $('hsI').textContent  = it + '/' + ic + ' t';
+
+  updateCal(s.day, s.maxDay);
+  renderRec(s.eventLog);
+
+  // Re-render open overlays
+  if ($('ov-vendor').classList.contains('open')) { renderVGrid(); if (selMat) updateVD(); }
+  if ($('ov-trader').classList.contains('open')) renderTrader();
+  if ($('ov-list').classList.contains('open'))   renderListInv();
+  $('cfBal').textContent = (s.budgetHKD || 0).toLocaleString('en-HK');
+}
+
+function updateCal(day, maxDay) {
+  var d = day != null ? day : 1;
+  var m = maxDay != null ? maxDay : 180;
+  if (window.BesseGameCalendar) {
+    BesseGameCalendar.updateDom({ day: d, maxDay: m });
+  }
+  if (window.BesseSyncHeaderDayChip) BesseSyncHeaderDayChip(d, m);
+}
+
+function renderRec(log) {
+  var el = $('recB');
+  if (!log || !log.length) { el.innerHTML = 'No events yet.'; return; }
+  el.innerHTML = log.slice(-12).reverse().map(function(e) {
+    return '<div class="e"><span class="et">[Day ' + e.day + ']</span> ' + e.message + '</div>';
+  }).join('');
+}
+
+/* ══════════════════════════════════════════════════════
+ * ██  VENDOR  (Figma Frame 83)
+ * ══════════════════════════════════════════════════════ */
+function renderVGrid() {
+  var g = $('vGrid');
+  var v = gs && gs.shared && gs.shared.marketplace ? gs.shared.marketplace.vendor : null;
+  if (!v) { g.innerHTML = '<p style="color:var(--muted);grid-column:1/-1;text-align:center">Marketplace not available yet.</p>'; return; }
+
+  var mats = ['paper','plastic','metal','glass','wood'];
+  g.innerHTML = mats.map(function(m) {
+    var p = v[m] ? '$' + Math.round(v[m].current) : '–';
+    return '<div class="mc' + (selMat === m ? ' sel' : '') + '" onclick="pickMat(\'' + m + '\')">'
+      + '<div class="mi ' + m + '">' + ICONS[m] + '</div>'
+      + '<div class="mn">' + m.charAt(0).toUpperCase() + m.slice(1) + '</div>'
+      + '<div class="mp">' + p + '/ton</div></div>';
+  }).join('');
+}
+
+function pickMat(m) {
+  selMat = m;
+  $('vDetail').classList.remove('hidden');
+  $('vG').value = 'B';
+  $('vQ').value = 1;
+  $('vS').value = 200;
+  updateVD();
+  renderVGrid();
+}
+
+function updateVD() {
+  if (!selMat || !gs || !gs.shared || !gs.shared.marketplace || !gs.shared.marketplace.vendor) return;
+  var v = gs.shared.marketplace.vendor[selMat];
+  if (!v) return;
+
+  $('vdI').textContent  = ICONS[selMat];
+  $('vdN').textContent  = selMat.charAt(0).toUpperCase() + selMat.slice(1);
+  $('vdCT').textContent = 'MARKET PRICE: ' + COMM[selMat] + ' ($/ton)';
+  var g = $('vG').value || 'B';
+  var gp = Math.round(v.current * (GRADE_MULT[g] || 1) * 100) / 100;
+  $('vdP').textContent  = '$' + gp + ' (Grade ' + g + ')';
+
+  $('vdD').className    = 'dot ' + (v.trend || 'stable');
+  var tr = v.trend || 'stable';
+  $('vdTr').textContent = tr.charAt(0).toUpperCase() + tr.slice(1);
+
+  var q = Math.max(1, parseInt($('vQ').value) || 1);
+  var s = Math.max(0, parseInt($('vS').value) || 0);
+  $('vdMT').textContent = (q * (gp + s)).toLocaleString();
+
+  drawChart(v.history, v.current);
+}
+
+function adj(t, d) {
+  if (t === 'q') {
+    $('vQ').value = Math.max(1, Math.min(50, (parseInt($('vQ').value) || 1) + d));
+  } else {
+    $('vS').value = Math.max(0, (parseInt($('vS').value) || 0) + d);
+  }
+  updateVD();
+}
+
+function mxQ() {
+  if (!gs || !gs.shared || !gs.shared.marketplace || !gs.shared.marketplace.vendor || !selMat) return;
+  var v = gs.shared.marketplace.vendor[selMat];
+  var b = gs.shared.budgetHKD || 0;
+  var g = $('vG').value || 'B';
+  var p = Math.round(v.current * (GRADE_MULT[g] || 1) * 100) / 100;
+  if (p <= 0) return;
+  var inv = gs.roles && gs.roles[ROLE_KEY] ? gs.roles[ROLE_KEY].inventory : null;
+  var cap = inv ? ((inv.capacityTonnes || 150) - invTotal(inv)) : 0;
+  $('vQ').value = Math.max(1, Math.min(50, Math.floor(b / p), Math.floor(cap)));
+  updateVD();
+}
+
+function mnS() { $('vS').value = 0; updateVD(); }
+
+$('vQ').addEventListener('input', updateVD);
+$('vS').addEventListener('input', updateVD);
+$('vG').addEventListener('change', updateVD);
+
+function buyVendor() {
+  alert('MRF cannot purchase from the commodity vendor. Use Trader instead.');
+}
+
+function drawChart(hist, cur) {
+  var c = $('priceC');
+  if (!c) return;
+  var ctx = c.getContext('2d');
+  var W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#1a2f25';
+  ctx.fillRect(0, 0, W, H);
+  if (!hist || hist.length < 2) return;
+
+  var pad = { t:10, b:14, l:6, r:6 };
+  var gW = W - pad.l - pad.r, gH = H - pad.t - pad.b;
+  var hi = hist.length;
+  var first = hist[0];
+  var mn = first, mx = first, sum = first;
+  for (var hiIdx = 1; hiIdx < hi; hiIdx++) {
+    var hv = hist[hiIdx];
+    if (hv < mn) mn = hv;
+    if (hv > mx) mx = hv;
+    sum += hv;
+  }
+  mn *= 0.9;
+  mx *= 1.1;
+  var rng = mx - mn || 1;
+  var avg = sum / hi;
+
+  // Grid
+  ctx.strokeStyle = '#344'; ctx.lineWidth = 0.5;
+  for (var i = 0; i <= 4; i++) {
+    var y = pad.t + (gH / 4) * i;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+  }
+  // Avg line
+  var aY = pad.t + gH - ((avg - mn) / rng) * gH;
+  ctx.strokeStyle = '#667'; ctx.setLineDash([3, 2]);
+  ctx.beginPath(); ctx.moveTo(pad.l, aY); ctx.lineTo(W - pad.r, aY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#667'; ctx.font = '8px sans-serif';
+  ctx.fillText('Avg', W - pad.r - 16, aY - 2);
+  // Price line
+  ctx.strokeStyle = '#81D4FA'; ctx.lineWidth = 2; ctx.beginPath();
+  var denom = hi - 1;
+  for (var li = 0; li < hi; li++) {
+    var v = hist[li];
+    var x = pad.l + (li / denom) * gW;
+    var y2 = pad.t + gH - ((v - mn) / rng) * gH;
+    if (li === 0) ctx.moveTo(x, y2); else ctx.lineTo(x, y2);
+  }
+  ctx.stroke();
+  // Current dot
+  var lx = pad.l + gW;
+  var ly = pad.t + gH - ((cur - mn) / rng) * gH;
+  ctx.fillStyle = '#e53935'; ctx.beginPath(); ctx.arc(lx, ly, 3.5, 0, Math.PI * 2); ctx.fill();
+}
+
+/* ══════════════════════════════════════════════════════
+ * ██  TRADER  (Figma Frame 84)
+ * ══════════════════════════════════════════════════════ */
+function renderTrader() {
+  var c = $('tScroll');
+  var ls = gs && gs.shared && gs.shared.marketplace ? gs.shared.marketplace.trader : null;
+  var day = gs && gs.shared ? gs.shared.day : 1;
+
+  if (!ls || !ls.length) {
+    c.innerHTML = '<p style="color:var(--muted);padding:30px;width:100%;text-align:center">No listings available.</p>';
+    return;
+  }
+
+  var n = ls.length;
+  var parts = [];
+  var activeCount = 0;
+  for (var ti = 0; ti < n; ti++) {
+    var l = ls[ti];
+    if (l.sold || l.expiresDay <= day) continue;
+    activeCount++;
+    var dl = l.expiresDay - day;
+    var hh = Math.floor(dl * 24);
+    var mm = Math.floor((dl * 24 % 1) * 60);
+    var ts = String(Math.min(hh, 99)).padStart(2, '0') + ':' + String(mm).padStart(2, '0') + ':00';
+    var mc = l.material.charAt(0).toUpperCase() + l.material.slice(1);
+    var isMine = l.isPlayerListing && l.sellerRoleKey === ROLE_KEY;
+    var badgeCls = l.isPlayerListing ? 'player' : '';
+    var badgeText = l.isPlayerListing ? l.seller : 'For sale';
+    var btn = isMine
+      ? '<button class="tc-btn tc-cancel" onclick="cancelList(' + l.id + ')">Cancel Listing</button>'
+      : '<button class="tc-btn" onclick="openCf(' + l.id + ')">Buy Material</button>';
+
+    parts.push(
+      '<div class="tc">'
+      + '<div class="tc-top"><div class="tc-id">#' + l.id + '</div><div class="tc-badge ' + badgeCls + '">' + badgeText + '</div></div>'
+      + '<div class="tc-img ' + (BGCLS[l.material] || '') + '"><span style="font-size:42px">' + ICONS[l.material] + '</span>'
+      + '<span class="tl">' + mc + '</span><span class="tr">Grade ' + l.grade + '</span></div>'
+      + '<div class="tc-info"><span class="lb">Quantity</span><span>' + l.quantity + ' t</span>'
+      + '<span class="lb">Material</span><span>' + mc + '</span></div>'
+      + '<div class="tc-bot"><div class="tc-time">Time left <span class="tb">' + ts + '</span></div>'
+      + '<div class="tc-prices"><span class="dl">$ ' + l.price.toFixed(2) + '</span></div>'
+      + btn + '</div></div>'
+    );
+  }
+  if (!activeCount) {
+    c.innerHTML = '<p style="color:var(--muted);padding:30px;width:100%;text-align:center">All listings expired or sold.</p>';
+    return;
+  }
+  c.innerHTML = parts.join('');
+}
+
+/* ══════════════════════════════════════════════════════
+ * ██  CONFIRM PURCHASE (Figma Frame 85)
+ * ══════════════════════════════════════════════════════ */
+function openCf(id) {
+  var ls = gs && gs.shared && gs.shared.marketplace ? gs.shared.marketplace.trader : null;
+  if (!ls) return;
+  var l = ls.find(function(x) { return x.id === id; });
+  if (!l) return;
+  selListing = l;
+
+  var mc  = l.material.charAt(0).toUpperCase() + l.material.slice(1);
+  var day = gs.shared.day || 1;
+  var dl  = l.expiresDay - day;
+  var hh  = Math.floor(dl * 24);
+  var mm  = Math.floor((dl * 24 % 1) * 60);
+
+  $('cfI').textContent = ICONS[l.material];
+  $('cfI').className   = 'cf-card-img ' + (BGCLS[l.material] || '');
+  $('cfProd').textContent = l.product;
+  $('cfML').textContent   = mc;
+  $('cfQty').textContent  = l.quantity + ' tons';
+  $('cfGr').textContent   = l.grade;
+  $('cfPr').textContent   = l.price.toFixed(2);
+  $('cfTL').textContent   = String(Math.min(hh, 99)).padStart(2, '0') + ':' + String(mm).padStart(2, '0') + ':00';
+  $('cfSel').textContent  = l.seller || 'NPC';
+  $('cfBal').textContent  = (gs.shared.budgetHKD || 0).toLocaleString();
+  $('cfOv').classList.add('open');
+}
+
+function confirmBuy() {
+  if (!selListing) return;
+  var btn = $('cfApp');
+  btn.disabled = true;
+  btn.textContent = 'Processing…';
+  socket.emit('buyFromTrader', { role: ROLE, listingId: selListing.id });
+  setTimeout(function() { btn.disabled = false; btn.textContent = 'Approve'; }, 2000);
+}
+
+function cancelList(id) {
+  if (!confirm('Cancel this listing? Materials will be returned to your inventory.')) return;
+  socket.emit('cancelListing', { role: ROLE, listingId: id });
+}
+
+/* ══════════════════════════════════════════════════════
+ * ██  LIST FOR SALE
+ * ══════════════════════════════════════════════════════ */
+function renderListInv() {
+  var inv = gs && gs.roles && gs.roles[ROLE_KEY] ? gs.roles[ROLE_KEY].inventory : null;
+  var el  = $('listInv');
+
+  if (!inv) {
+    el.innerHTML = '<p style="color:var(--muted);padding:20px">No inventory data.</p>';
+    $('listForm').innerHTML = '<p style="color:var(--muted);text-align:center;padding:40px 0">Waiting for game state…</p>';
+    return;
+  }
+
+  var items = [];
+  if (inv.materials) {
+    Object.keys(inv.materials).forEach(function(m) {
+      var g = inv.materials[m];
+      ['A','B','C'].forEach(function(gr) {
+        if ((g[gr] || 0) > 0) items.push({ material: m, grade: gr, qty: g[gr], type: 'material' });
+      });
+    });
+  }
+  if (inv.waste) {
+    Object.keys(inv.waste).forEach(function(m) {
+      var g = inv.waste[m];
+      ['B','C','F'].forEach(function(gr) {
+        if ((g[gr] || 0) > 0) items.push({ material: m, grade: gr, qty: g[gr], type: 'waste' });
+      });
+    });
+  }
+
+  if (!items.length) {
+    el.innerHTML = '<p style="color:var(--muted);padding:20px;text-align:center">No materials to list. Collect or buy first.</p>';
+    $('listForm').innerHTML = '<p style="color:var(--muted);text-align:center;padding:40px 0">Your inventory is empty.</p>';
+    return;
+  }
+
+  el.innerHTML = items.map(function(it, i) {
+    var mc  = it.material.charAt(0).toUpperCase() + it.material.slice(1);
+    var sel = selListItem && selListItem.material === it.material && selListItem.grade === it.grade ? ' sel' : '';
+    return '<div class="inv-item' + sel + '" onclick="pickListItem(' + i + ')">'
+      + '<div class="ii-icon">' + ICONS[it.material] + '</div>'
+      + '<div class="ii-info"><div class="ii-name">' + mc + ' (Grade ' + it.grade + ')</div>'
+      + '<div class="ii-detail">' + it.qty + ' t · ' + it.type + '</div></div></div>';
+  }).join('');
+
+  // Store for later reference
+  el._items = items;
+}
+
+function pickListItem(idx) {
+  var el = $('listInv');
+  var items = el._items;
+  if (!items || !items[idx]) return;
+  selListItem = items[idx];
+  renderListInv();
+
+  var it = selListItem;
+  var mc = it.material.charAt(0).toUpperCase() + it.material.slice(1);
+  // Use backend-doc base price for suggestion; fall back to vendor current
+  var base = BASE_PRICES[it.material] || 100;
+  var vendorCur = gs && gs.shared && gs.shared.marketplace && gs.shared.marketplace.vendor && gs.shared.marketplace.vendor[it.material]
+    ? gs.shared.marketplace.vendor[it.material].current : base;
+  // Quality multiplier from doc
+  var qMult = { A: 1.2, B: 1.0, C: 0.8, F: 0.5 }[it.grade] || 1.0;
+  var suggestedPrice = Math.round(vendorCur * qMult);
+
+  $('listForm').innerHTML =
+    '<h3 style="margin-bottom:12px;color:var(--ink)">List ' + mc + ' (Grade ' + it.grade + ')</h3>' +
+    '<div class="lf-row"><label>Available</label><span>' + it.qty + ' t</span></div>' +
+    '<div class="lf-row"><label>Quality Mult</label><span>×' + qMult + ' (' + it.grade + ')</span></div>' +
+    '<div class="lf-row"><label>Quantity (t)</label><input class="lf-input" id="lfQ" type="number" value="1" min="1" max="' + it.qty + '"></div>' +
+    '<div class="lf-row"><label>Ask Price (HKD)</label><input class="lf-input" id="lfP" type="number" value="' + suggestedPrice + '" min="1"></div>' +
+    '<div class="lf-row"><label>Duration</label><span>10 days</span></div>' +
+    '<div class="lf-row" style="color:var(--muted);font-size:11px">5% marketplace fee charged to buyer on player listings.</div>' +
+    '<button class="lf-btn" onclick="submitList()">List for Sale</button>';
+}
+
+function submitList() {
+  if (!selListItem) return;
+  var q = Math.max(1, parseInt($('lfQ').value) || 1);
+  var p = Math.max(1, parseInt($('lfP').value) || 1);
+  socket.emit('listForSale', {
+    role: ROLE,
+    material: selListItem.material,
+    grade: selListItem.grade,
+    quantity: q,
+    price: p
+  });
+  selListItem = null;
+}
+
+// Initial render
+render();
+</script>
+</body>
+</html>

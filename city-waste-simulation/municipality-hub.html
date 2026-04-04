@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Municipality – City Hub &amp; Navigation | City Waste Simulation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <link rel="stylesheet" href="ui-fonts.css" />
+  <link rel="stylesheet" href="player-menu.css" />
+  <style>
+      body { background: var(--paper); min-height: 100vh; }
+      .topbar { background: var(--ink-2); }
+      .panel { background: #a8b995; }
+      .panel-head { background: var(--ink); }
+      .record-bar { background: linear-gradient(90deg, #16a34a 0%, #047857 100%); }
+      .cardShadow { box-shadow: var(--shadow-1); }
+  </style>
+  <style>
+      :root {
+        --ink:#0a1410;
+        --ink-2:#244635;
+        --panel:#9bb38f;
+        --paper:#e3dfd2;
+        --card:#ffffff;
+        --muted:#6b7280;
+        --accent:#2f6f43;
+        --accent-2:#3e7d51;
+        --radius-xl: 20px;
+        --shadow-1: 0 12px 24px rgba(0,0,0,.12);
+      }
+      html, body { height: 100%; }
+      body { background: var(--paper) !important; color: #1f2937 !important; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji" !important; }
+      .app-header { background: var(--ink-2) !important; color: #fff !important; box-shadow: var(--shadow-1) !important; }
+      .stage { background: var(--panel) !important; border-radius: 26px !important; box-shadow: var(--shadow-1) !important; border: 2px solid rgba(0,0,0,.06) !important; }
+      .stage-head { background: var(--ink) !important; color: #e8f3ec !important; }
+      /* Avoid overriding generic rounding utility classes (buttons/modals also use rounded-*) */
+      .card, .role-card { background: var(--card) !important; }
+      .btn-ink { background: var(--ink) !important; color:#fff !important; }
+      .btn-main { background:#fff !important; color:#111827 !important; border: 2px solid #e9e5d6 !important; }
+      .record-bar { background: linear-gradient(90deg, #16a34a 0%, #047857 100%) !important; }
+      .status-normal { background: linear-gradient(135deg, #059669 0%, #047857 100%) !important; }
+      .status-full { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; }
+      .status-overflowing { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important; }
+
+      /* Match event log title style with game.html */
+      .subhead{
+        font-weight:800;
+        letter-spacing:.05em;
+        color: var(--ink);
+      }
+    </style>
+    <!-- GREEN-THEME-OVERRIDE -->
+</head>
+<body class="min-h-screen text-slate-800">
+  <div class="max-w-7xl mx-auto py-3 px-0">
+    <header class="app-header w-full">
+      <div class="topbar px-6 py-3 text-white shadow mb-4 flex items-center justify-between">
+      <div class="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+        <button onclick="window.location.href='index.html'" class="bg-white text-slate-800 hover:bg-slate-100 rounded-full w-10 h-10 text-lg font-bold leading-none shrink-0">←</button>
+        <div class="hidden sm:flex items-center rounded-full bg-[#f1f1ea] text-slate-800 border border-black/10 px-3 py-1 text-xs font-extrabold tracking-wide">
+          <span id="clockText">10:00 a.m.</span><span class="mx-1.5 opacity-50">|</span><span id="dateText" class="truncate max-w-[9rem]">01 November 2025</span>
+        </div>
+        <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="游戏日进度">Day – / –</span>
+      </div>
+      <div class="text-center">
+        <h1 class="text-3xl md:text-5xl font-extrabold tracking-wide">Municipality - Game View</h1>
+      </div>
+      <div class="flex items-center gap-2">
+        <button
+          id="playerBadgeBtn"
+          data-player-menu-trigger="Municipality"
+          type="button"
+          class="bg-white rounded-full px-5 py-2 text-sm hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-300/60 text-slate-800"
+        >
+          <span id="headerPlayerName" class="font-semibold">Jesse, Municipality</span>
+          <span class="ml-2">🧳</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="px-4 md:px-6">
+      <div class="panel rounded-[22px] p-4 md:p-6 cardShadow">
+        <div class="panel-head rounded-2xl px-6 py-6 text-white text-center mb-6">
+          <div class="text-4xl md:text-5xl font-extrabold tracking-widest">GAME PANEL</div>
+          <div class="text-sm md:text-base text-white/90 mt-2">Team state, your inventory and actions</div>
+        </div>
+
+        <section id="summaryPanel" class="relative z-[200] grid gap-6 md:grid-cols-2 mb-6">
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 cardShadow">
+            <div class="flex items-center justify-between gap-3 mb-4">
+              <h2 class="text-xl font-extrabold">Team Shared State</h2>
+              <a
+                id="dashboardNavBtn"
+                href="dashboard.html"
+                target="_top"
+                class="inline-flex items-center justify-center cursor-pointer text-xs font-bold px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 no-underline"
+              >
+                Dashboard
+              </a>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2"><span>Budget (HKD)</span><span id="budgetHKD" class="font-semibold">–</span></div>
+              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2"><span>City Health</span><span class="font-semibold"><span id="cityHealth">–</span>%</span></div>
+              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2"><span>Buffer Level</span><span id="bufferLevel" class="font-semibold">–</span></div>
+              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2"><span>Transport Time</span><span class="font-semibold">x<span id="transportMultiplier">–</span></span></div>
+              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2"><span>Waste</span><span class="font-semibold"><span id="wasteTotal">–</span> t / <span id="wasteLimit">–</span> t</span></div>
+              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2"><span>Carbon</span><span class="font-semibold"><span id="carbonValue">–</span>% / <span id="carbonLimit">–</span>%</span></div>
+              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2 sm:col-span-2"><span>Day</span><span class="font-semibold"><span id="currentDay">–</span> / <span id="maxDay">–</span></span></div>
+            </div>
+
+            <div id="districtsLines" class="hidden mt-3 space-y-1 text-xs">
+              <div class="text-slate-600">Residential: –</div>
+              <div class="text-slate-600">Commercial: –</div>
+              <div class="text-slate-600">Industrial: –</div>
+            </div>
+            <button type="button" id="districtsSummaryBtn" class="hidden mt-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-800 border border-slate-200 hover:bg-slate-50">View details</button>
+          </div>
+
+          <div id="myInventoryPanel" class="bg-white rounded-2xl p-5 border border-slate-200 cardShadow">
+            <h2 class="text-xl font-extrabold mb-4">My Inventory – <span id="myInventoryRoleName">Municipality</span></h2>
+            <div class="rounded-xl border border-slate-200 overflow-hidden">
+              <div class="grid grid-cols-3 bg-slate-50 text-slate-600 text-xs font-semibold px-4 py-2">
+                <div>Material</div><div class="text-right">Total (t)</div><div class="text-center">Details</div>
+              </div>
+              <div class="px-4 py-4 text-sm text-slate-700">
+                <div class="flex items-center justify-between">
+                  <span>Empty</span>
+                  <span class="font-semibold"><span id="myInventoryTotal">–</span>/<span id="myInventoryCap">–</span> t</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="grid gap-6 md:grid-cols-2 mb-6">
+          <button class="w-full bg-slate-50 hover:bg-white rounded-2xl p-5 text-left border border-slate-200 cardShadow" onclick="navigate('municipality-inventory.html')">
+            <h3 class="text-xl font-extrabold mb-2">Inventory</h3>
+            <p class="text-sm text-slate-600">Inspect and track municipal inventory.</p>
+          </button>
+          <button class="w-full bg-slate-50 hover:bg-white rounded-2xl p-5 text-left border border-slate-200 cardShadow" onclick="navigate('municipality-marketplace.html')">
+            <h3 class="text-xl font-extrabold mb-2">Marketplace</h3>
+            <p class="text-sm text-slate-600">Buy and sell materials in the market.</p>
+          </button>
+          <button class="w-full bg-slate-50 hover:bg-white rounded-2xl p-5 text-left border border-slate-200 cardShadow" onclick="navigate('municipality-residential.html')">
+            <h3 class="text-xl font-extrabold mb-2">Residential</h3>
+            <p class="text-sm text-slate-600">Focus on residential areas and impacts.</p>
+          </button>
+          <button class="w-full bg-slate-50 hover:bg-white rounded-2xl p-5 text-left border border-slate-200 cardShadow" onclick="navigate('municipality-commercial.html')">
+            <h3 class="text-xl font-extrabold mb-2">Commercial</h3>
+            <p class="text-sm text-slate-600">Monitor commercial activity and waste.</p>
+          </button>
+          <button class="w-full bg-slate-50 hover:bg-white rounded-2xl p-5 text-left border border-slate-200 cardShadow" onclick="navigate('municipality-industrial.html')">
+            <h3 class="text-xl font-extrabold mb-2">Industrial</h3>
+            <p class="text-sm text-slate-600">Review industrial zones and emissions.</p>
+          </button>
+          <button class="w-full bg-slate-50 hover:bg-white rounded-2xl p-5 text-left border border-slate-200 cardShadow" onclick="navigate('municipality-projects.html')">
+            <h3 class="text-xl font-extrabold mb-2">City Project</h3>
+            <p class="text-sm text-slate-600">Plan and manage city-wide projects.</p>
+          </button>
+        </section>
+
+        <section>
+          <h3 class="subhead text-base mb-2">Event Log</h3>
+          <div id="hubEventLog" class="bg-white rounded-2xl border border-slate-200 p-4 text-[12px] font-mono max-h-64 overflow-y-auto shadow-sm">
+            No events yet.
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- District status popup -->
+  <div id="districtPopup" class="fixed inset-0 hidden items-center justify-center bg-black/40 p-4">
+    <div class="w-full max-w-md rounded-2xl bg-white shadow-xl border border-slate-200">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+        <h3 class="text-sm font-semibold text-slate-800">District Status</h3>
+        <button type="button" id="districtPopupClose" class="text-slate-500 hover:text-slate-800 px-2 py-1">✕</button>
+      </div>
+      <div class="p-4 space-y-3" id="districtPopupBody">
+        <!-- Filled by script -->
+      </div>
+    </div>
+  </div>
+
+  <script src="player-menu.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const role = params.get('role') || 'Municipality';
+
+    (function setupDashboardNav() {
+      const el = document.getElementById('dashboardNavBtn');
+      if (!el) return;
+      const u = new URL('dashboard.html', window.location.href);
+      const r = params.get('role') || 'Municipality';
+      u.searchParams.set('role', r);
+      try { localStorage.setItem('besseLastRole', r); } catch (_e) {}
+      el.setAttribute('href', u.toString());
+    })();
+
+    function navigate(path) {
+      const url = new URL(path, window.location.origin);
+      url.searchParams.set('role', role);
+      const dest = url.toString();
+      if (window.self !== window.top) {
+        window.top.location.href = dest;
+      } else {
+        window.location.href = dest;
+      }
+    }
+
+    // ─── Live metrics: reuse game state from server ───
+    const socket = io();
+    if (typeof besseAttachRestartUI === 'function') besseAttachRestartUI(socket);
+
+    function updateDayDisplay(payload) {
+      document.getElementById('currentDay').textContent = payload.day;
+      document.getElementById('maxDay').textContent = payload.maxDay;
+      if (window.BesseGameCalendar && payload) {
+        window.BesseGameCalendar.updateDom({ day: payload.day, maxDay: payload.maxDay });
+      }
+      if (window.BesseSyncHeaderDayChip) window.BesseSyncHeaderDayChip(payload.day, payload.maxDay);
+    }
+
+    function getInventoryTotal(inv) {
+      if (!inv) return 0;
+      let total = Math.max(0, Number(inv.unprocessedWaste || 0));
+      Object.values(inv.materials || {}).forEach((g) => { total += (g.A || 0) + (g.B || 0) + (g.C || 0); });
+      Object.values(inv.waste || {}).forEach((g) => { total += (g.B || 0) + (g.C || 0) + (g.F || 0); });
+      return Math.round(total * 10) / 10;
+    }
+
+    function getAllRolesInventoryStats(roles) {
+      const roleKeys = ['municipality', 'mrf', 'broker'];
+      let total = 0;
+      let capacity = 0;
+      roleKeys.forEach((k) => {
+        const inv = roles && roles[k] ? roles[k].inventory : null;
+        total += getInventoryTotal(inv);
+        capacity += Number(inv && inv.capacityTonnes ? inv.capacityTonnes : 0);
+      });
+      return { total: Math.round(total * 10) / 10, capacity };
+    }
+
+    function renderMyInventory(roles) {
+      const panel = document.getElementById('myInventoryPanel');
+      const nameSpan = document.getElementById('myInventoryRoleName');
+      const totalEl = document.getElementById('myInventoryTotal');
+      const capEl = document.getElementById('myInventoryCap');
+      if (!roles || !panel || !nameSpan || !totalEl || !capEl) return;
+
+      const roleKey = 'municipality';
+      const roleObj = roles[roleKey];
+      if (!roleObj || !roleObj.inventory) return;
+
+      nameSpan.textContent = roleObj.roleName || 'Municipality';
+      const inv = roleObj.inventory;
+
+      let total = Math.max(0, Number(inv.unprocessedWaste || 0));
+      Object.values(inv.materials || {}).forEach((g) => { total += (g.A || 0) + (g.B || 0) + (g.C || 0); });
+      Object.values(inv.waste || {}).forEach((g) => { total += (g.B || 0) + (g.C || 0) + (g.F || 0); });
+      const cap = inv.capacityTonnes ?? 150;
+      totalEl.textContent = total;
+      capEl.textContent = cap;
+    }
+
+    function renderGameState(data) {
+      if (!data) return;
+      const shared = data.shared;
+      const roles = data.roles;
+
+      document.getElementById('budgetHKD').textContent = shared.budgetHKD.toLocaleString('en-HK');
+      document.getElementById('cityHealth').textContent = shared.cityHealth;
+      document.getElementById('bufferLevel').textContent =
+        (roles && roles.municipality && roles.municipality.bufferLevel) ? roles.municipality.bufferLevel : 'Normal';
+      document.getElementById('transportMultiplier').textContent = shared.transportTimeMultiplier ?? 1;
+      const inventoryWaste = getAllRolesInventoryStats(roles);
+      document.getElementById('wasteTotal').textContent = inventoryWaste.total;
+      document.getElementById('wasteLimit').textContent = inventoryWaste.capacity;
+      document.getElementById('carbonValue').textContent = shared.carbonEmissions?.value ?? '–';
+      document.getElementById('carbonLimit').textContent = shared.carbonEmissions?.limit ?? '–';
+      updateDayDisplay({ day: shared.day, maxDay: shared.maxDay });
+
+      const dsBtn = document.getElementById('districtsSummaryBtn');
+      const dsLines = document.getElementById('districtsLines');
+      if ((dsLines || dsBtn) && shared.districts) {
+        const getTotal = (w) => { if (!w) return 0; let t = 0; Object.values(w).forEach((g) => { Object.values(g).forEach((n) => { t += n; }); }); return t; };
+        const getStatus = (total) => total <= 20 ? 'Normal' : total <= 40 ? 'Full' : 'Overflowing';
+        const colorClass = (s) => s === 'Overflowing' ? 'text-red-700' : s === 'Full' ? 'text-emerald-800' : 'text-emerald-700';
+        const items = ['residential', 'commercial', 'industrial'].map((k) => {
+          const total = getTotal(shared.districts[k].waste);
+          const status = getStatus(total);
+          return { key: k, label: k.charAt(0).toUpperCase() + k.slice(1), total, status, cls: colorClass(status) };
+        });
+
+        if (dsLines) {
+          dsLines.innerHTML = items.map((it) => {
+            return `<div class="${it.cls}"><span class="font-semibold">${it.label}:</span> ${it.total} t <span class="text-slate-500">(${it.status})</span></div>`;
+          }).join('');
+        }
+      }
+
+      renderMyInventory(roles);
+
+      // Event log under dashboard buttons
+      const logEl = document.getElementById('hubEventLog');
+      if (logEl) {
+        if (shared.eventLog && shared.eventLog.length > 0) {
+          logEl.innerHTML = shared.eventLog.slice(-10).reverse().map((e) =>
+            `<div class="py-0.5">[Day ${e.day}] ${e.message}</div>`
+          ).join('');
+        } else {
+          logEl.textContent = 'No events yet.';
+        }
+      }
+
+      // Keep latest shared for popup
+      window.__latestShared = shared;
+    }
+
+    socket.on('gameStateUpdate', renderGameState);
+
+    socket.on('dayUpdate', updateDayDisplay);
+
+    socket.on('gameOver', (payload) => {
+      if (payload && payload.state) {
+        renderGameState(payload.state);
+      }
+    });
+
+    // Fallback: initial static JSON (for first load before socket update)
+    (async function init() {
+      const res = await fetch('gameState.json').catch(() => null);
+      if (res && res.ok) {
+        const data = await res.json();
+        const team = data.teams[0];
+        renderGameState({ shared: team.shared, roles: team.roles });
+      }
+    })();
+
+    function openDistrictPopup() {
+      const shared = window.__latestShared;
+      const popup = document.getElementById('districtPopup');
+      const body = document.getElementById('districtPopupBody');
+      if (!popup || !body || !shared || !shared.districts) return;
+
+      const getTotal = (w) => { if (!w) return 0; let t = 0; Object.values(w).forEach((g) => { Object.values(g).forEach((n) => { t += n; }); }); return t; };
+      const getStatus = (total) => total <= 20 ? 'Normal' : total <= 40 ? 'Full' : 'Overflowing';
+      const color = (s) => s === 'Overflowing' ? 'bg-red-100 text-red-700 border-red-200' : s === 'Full' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      const label = (k) => k.charAt(0).toUpperCase() + k.slice(1);
+
+      body.innerHTML = ['residential', 'commercial', 'industrial'].map((k) => {
+        const total = getTotal(shared.districts[k]?.waste);
+        const s = getStatus(total);
+        return `
+          <div class="flex items-center justify-between rounded-xl border px-3 py-2 ${color(s)}">
+            <div class="font-medium">${label(k)}</div>
+            <div class="text-sm">${total} t · ${s}</div>
+          </div>
+        `;
+      }).join('');
+
+      popup.classList.remove('hidden');
+      popup.classList.add('flex');
+    }
+
+    function closeDistrictPopup() {
+      const popup = document.getElementById('districtPopup');
+      if (!popup) return;
+      popup.classList.add('hidden');
+      popup.classList.remove('flex');
+    }
+
+    document.getElementById('districtsSummaryBtn')?.addEventListener('click', openDistrictPopup);
+    document.getElementById('districtPopupClose')?.addEventListener('click', closeDistrictPopup);
+    document.getElementById('districtPopup')?.addEventListener('click', (e) => {
+      if (e.target && e.target.id === 'districtPopup') closeDistrictPopup();
+    });
+  </script>
+</body>
+</html>
+
+

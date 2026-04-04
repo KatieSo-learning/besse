@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.*
+*.log
+# Firebase service account (never commit)
+*-firebase-adminsdk-*.json
+serviceAccount*.json
+# Local secrets (copy your Firebase key here; keep folder in repo, not the key)
+secrets/*
+!secrets/.gitkeep

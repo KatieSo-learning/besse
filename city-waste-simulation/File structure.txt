@@ -1,0 +1,4 @@
+project/
+├── server.js
+└── public/
+    └── index.html

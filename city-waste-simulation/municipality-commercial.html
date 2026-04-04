@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Municipality – Commercial Sector Waste Collection</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <link rel="stylesheet" href="player-menu.css" />
+  <link rel="stylesheet" href="ui-fonts.css" />
+  <style>
+    .panel-bg { background: #e8e3d3; min-height: 100vh; }
+    .topbar { background: #2f5a47; }
+    .ui-card { background: #efefef; border: 1px solid #d4d4d8; border-radius: 16px; overflow: hidden; }
+    .ui-head { background: #2f5a47; color: #f8fafc; font-weight: 800; letter-spacing: .04em; }
+    .preview-box { background: #cfcfd1; border-radius: 10px; min-height: 210px; }
+    .status-box { color: #111827; background: #efefef; border: 1px solid #d4d4d8; }
+    .status-normal, .status-full, .status-overflowing { background: #efefef; }
+    .record-bar { background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%); }
+    .donut {
+      width: 82px;
+      height: 82px;
+      border-radius: 50%;
+      background: conic-gradient(var(--c) calc(var(--p) * 1%), #d1d5db 0);
+      position: relative;
+    }
+    .donut::after {
+      content: "";
+      position: absolute;
+      inset: 9px;
+      background: #efefef;
+      border-radius: 50%;
+      border: 1px solid #e5e7eb;
+    }
+    .donut-txt {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.1rem;
+      z-index: 1;
+      color: #111827;
+    }
+  </style>
+    <style>
+      :root {
+        --ink:#1a2f25;
+        --ink-2:#244635;
+        --panel:#9bb38f;
+        --paper:#e3dfd2;
+        --card:#ffffff;
+        --muted:#6b7280;
+        --accent:#2f6f43;
+        --accent-2:#3e7d51;
+        --radius-xl: 20px;
+        --shadow-1: 0 12px 24px rgba(0,0,0,.12);
+      }
+      html, body { height: 100%; }
+      body { background: var(--paper) !important; color: #1f2937 !important; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji" !important; }
+      .app-header { background: var(--ink-2) !important; color: #fff !important; box-shadow: var(--shadow-1) !important; }
+      .stage { background: var(--panel) !important; border-radius: 26px !important; box-shadow: var(--shadow-1) !important; border: 2px solid rgba(0,0,0,.06) !important; }
+      .stage-head { background: var(--ink) !important; color: #e8f3ec !important; }
+      /* Avoid overriding generic rounding utility classes (buttons/modals also use rounded-*) */
+      .card, .role-card { background: var(--card) !important; }
+      .btn-ink { background: var(--ink) !important; color:#fff !important; }
+      .btn-main { background:#fff !important; color:#111827 !important; border: 2px solid #e9e5d6 !important; }
+      .record-bar { background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%) !important; }
+      .status-normal { background: linear-gradient(135deg, #059669 0%, #047857 100%) !important; }
+      .status-full { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; }
+      .status-overflowing { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important; }
+    </style>
+    <!-- GREEN-THEME-OVERRIDE -->
+</head>
+<body class="panel-bg min-h-screen text-slate-800">
+  <div class="max-w-7xl mx-auto py-4 px-0">
+    <header class="topbar px-6 py-4 text-white shadow mb-4 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+        <button onclick="goHub()" class="bg-white text-slate-800 hover:bg-slate-100 rounded-full w-10 h-10 text-lg font-bold leading-none shrink-0">←</button>
+        <div class="flex items-center gap-2 min-w-0">
+          <div class="flex items-center rounded-full bg-[#f1f1ea] text-slate-800 border border-black/10 px-2.5 sm:px-3 py-1 text-[11px] sm:text-xs font-extrabold tracking-wide min-w-0 max-w-[14rem] sm:max-w-xs">
+            <span id="clockText">10:00 a.m.</span>
+            <span class="mx-1.5 opacity-50 shrink-0">|</span>
+            <span id="dateText" class="truncate">01 November 2025</span>
+          </div>
+          <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="游戏日进度">Day – / –</span>
+        </div>
+      </div>
+      <h1 class="text-2xl md:text-3xl font-extrabold tracking-wide">Commercial Waste Collection</h1>
+      <div class="flex items-center gap-3">
+        <button
+          id="playerBadgeBtn"
+          data-player-menu-trigger="Municipality"
+          type="button"
+          class="flex items-center gap-2 bg-white rounded-full px-5 py-2 border border-white/30 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-300/60 text-slate-800"
+        >
+          <span class="text-sm font-semibold">Jesse, MRF</span>
+          <span>🧳</span>
+          <span class="hidden text-xs text-slate-600" id="headerWaste">0/– t</span>
+        </button>
+      </div>
+    </header>
+
+    <section class="hidden mb-4 bg-white/80 rounded-2xl p-4 shadow-sm border border-emerald-100">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <h2 class="font-semibold text-slate-800">Game Hub Summary</h2>
+      </div>
+      <div class="mt-3 grid gap-3 md:grid-cols-2">
+        <div class="bg-white rounded-xl border border-slate-200 p-3">
+          <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+            <div class="text-slate-500">Budget (HKD)</div><div class="text-right font-medium" id="hubBudget">–</div>
+            <div class="text-slate-500">City Health</div><div class="text-right font-medium" id="hubHealth">–%</div>
+            <div class="text-slate-500">Buffer Level</div><div class="text-right font-medium" id="hubBuffer">–</div>
+            <div class="text-slate-500">Transport Time</div><div class="text-right font-medium">x<span id="hubTransport">–</span></div>
+            <div class="text-slate-500">Waste</div><div class="text-right font-medium"><span id="hubWasteTotal">–</span>/<span id="hubWasteLimit">–</span> t</div>
+            <div class="text-slate-500">Carbon</div><div class="text-right font-medium"><span id="hubCarbon">–</span>/<span id="hubCarbonLimit">–</span>%</div>
+            <div class="text-slate-500">Day</div><div class="text-right font-medium"><span id="hubDay">–</span>/<span id="hubMaxDay">–</span></div>
+          </div>
+          <button type="button" class="mt-2 text-left text-xs text-slate-700 underline decoration-slate-300 hover:decoration-slate-500"
+                  id="hubDistrictsBtn">
+            Districts: –
+          </button>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 p-3">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-semibold">Municipality Inventory</p>
+            <p class="text-xs text-slate-500"><span id="hubInvTotal">–</span>/<span id="hubInvCap">–</span> t</p>
+          </div>
+          <p class="mt-2 text-xs text-slate-600">Showing total only (consistent across pages).</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- District status popup -->
+    <div id="districtPopup" class="fixed inset-0 hidden items-center justify-center bg-black/40 p-4">
+      <div class="w-full max-w-md rounded-2xl bg-white shadow-xl border border-slate-200">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+          <h3 class="text-sm font-semibold text-slate-800">District Status</h3>
+          <button type="button" id="districtPopupClose" class="text-slate-500 hover:text-slate-800 px-2 py-1">✕</button>
+        </div>
+        <div class="p-4 space-y-3" id="districtPopupBody">
+          <!-- Filled by script -->
+        </div>
+      </div>
+    </div>
+
+    <main class="px-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <section class="ui-card">
+          <div class="ui-head px-5 py-3 text-center text-2xl">WASTE</div>
+          <div id="statusCard" class="status-box status-normal p-5 shadow-none border-0 rounded-none">
+            <div class="preview-box max-w-[290px] mx-auto mb-5 flex items-center justify-center">
+              <div class="text-center px-3 py-2">
+                <svg viewBox="0 0 220 130" class="w-[210px] h-auto mx-auto" role="img" aria-label="Commercial Waste Collection clipart">
+                  <defs>
+                    <linearGradient id="commercialGroundGrad" x1="0" x2="1">
+                      <stop offset="0%" stop-color="#06b6d4"></stop>
+                      <stop offset="100%" stop-color="#22c55e"></stop>
+                    </linearGradient>
+                    <linearGradient id="buildingGrad" x1="0" x2="1">
+                      <stop offset="0%" stop-color="#6366f1"></stop>
+                      <stop offset="100%" stop-color="#8b5cf6"></stop>
+                    </linearGradient>
+                    <linearGradient id="binGrad" x1="0" x2="1">
+                      <stop offset="0%" stop-color="#f59e0b"></stop>
+                      <stop offset="100%" stop-color="#ef4444"></stop>
+                    </linearGradient>
+                  </defs>
+                  <rect x="12" y="94" width="196" height="10" rx="4" fill="url(#commercialGroundGrad)"></rect>
+                  <rect x="24" y="42" width="62" height="50" rx="4" fill="url(#buildingGrad)"></rect>
+                  <rect x="94" y="32" width="42" height="60" rx="4" fill="#3b82f6"></rect>
+                  <rect x="142" y="50" width="34" height="42" rx="4" fill="#14b8a6"></rect>
+                  <rect x="32" y="50" width="8" height="8" fill="#f8fafc"></rect>
+                  <rect x="46" y="50" width="8" height="8" fill="#f8fafc"></rect>
+                  <rect x="60" y="50" width="8" height="8" fill="#f8fafc"></rect>
+                  <rect x="102" y="40" width="8" height="8" fill="#e0e7ff"></rect>
+                  <rect x="116" y="40" width="8" height="8" fill="#e0e7ff"></rect>
+                  <rect x="102" y="54" width="8" height="8" fill="#e0e7ff"></rect>
+                  <rect x="116" y="54" width="8" height="8" fill="#e0e7ff"></rect>
+                  <rect x="152" y="58" width="16" height="28" rx="3" fill="url(#binGrad)"></rect>
+                  <rect x="149" y="54" width="22" height="5" rx="2" fill="#f97316"></rect>
+                  <path d="M160 66c2 3 2 6 0 9c-2-3-2-6 0-9z" fill="#ffffff"></path>
+                  <circle cx="184" cy="84" r="10" fill="#22c55e"></circle>
+                  <path d="M184 78v12M178 84h12" stroke="#ffffff" stroke-width="2"></path>
+                  <circle cx="40" cy="22" r="8" fill="#fef08a"></circle>
+                  <circle cx="54" cy="18" r="10" fill="#fde68a"></circle>
+                </svg>
+                <p class="mt-2 text-sm font-semibold text-slate-700">Commercial Waste Collection</p>
+              </div>
+            </div>
+            <p class="text-2xl font-semibold mb-2">Status: <span id="statusLabel">Normal</span></p>
+            <div class="h-6 bg-slate-300 rounded-full overflow-hidden mb-4">
+              <div id="statusProgress" class="h-full bg-green-500 rounded-full transition-all duration-300" style="width: 15%"></div>
+            </div>
+            <p class="text-3xl mt-2 flex items-center justify-between">
+              <span class="font-semibold">🗑 Waste</span>
+              <span id="statusBarLabel" class="font-semibold">0 t / min</span>
+            </p>
+          </div>
+          <p id="wastePerDay" class="hidden">4</p>
+        </section>
+
+        <section class="lg:col-span-2 ui-card">
+          <div class="ui-head px-5 py-3 text-center text-2xl">Waste Type</div>
+          <div class="p-5">
+            <div class="mb-5">
+              <div id="wasteTypeDonuts" class="flex flex-wrap justify-between gap-4"></div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-y-2 text-2xl font-semibold mb-6">
+              <div>💰 Cost</div><div id="metricCost" class="text-right">− $0</div>
+              <div>❤️ City Health</div><div id="metricHealth" class="text-right">+ 0%</div>
+              <div>♻ CO2</div><div id="metricCO2" class="text-right">+ 0 kg</div>
+              <div>🗑 Waste</div><div id="metricWaste" class="text-right">− 0 t</div>
+              <div>📦 Inventory</div><div id="metricInventory" class="text-right">− 0 t</div>
+            </div>
+
+            <div class="flex items-center justify-between gap-4">
+              <div class="flex items-center gap-3">
+                <span class="text-3xl font-semibold">Volume</span>
+                <div class="flex items-center rounded-full border border-slate-400 bg-white text-xl">
+                  <button type="button" id="btnMinus" class="px-3 py-1 text-slate-700 hover:bg-slate-100 rounded-l-full">−</button>
+                  <input type="number" id="collectTonsInput" min="1" value="1" step="1" class="w-20 text-center py-1 border-0 bg-transparent text-lg font-semibold text-slate-800" />
+                  <button type="button" id="btnPlus" class="px-3 py-1 text-slate-700 hover:bg-slate-100 rounded-r-full">+</button>
+                </div>
+              </div>
+              <button type="button" id="collectBtn" class="!bg-[#6aa84f] hover:!bg-[#5c9446] !text-white font-semibold px-7 py-2 rounded-xl text-xl shadow border border-emerald-900/30 disabled:opacity-50 disabled:cursor-not-allowed">Collect</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="mt-4 grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
+        <div class="lg:col-span-1 rounded-xl overflow-hidden border border-slate-300 bg-white">
+          <div class="record-bar px-3 py-2 text-white text-2xl font-bold flex items-center gap-2">📎 <span>Record</span></div>
+          <div id="recordLog" class="bg-white p-3 max-h-36 overflow-y-auto text-base text-slate-700 leading-relaxed">No events yet.</div>
+        </div>
+        <div class="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div class="rounded-full bg-white border border-slate-300 px-4 py-2 flex items-center justify-between"><span class="text-lg">💰</span><span id="footerBudget" class="font-semibold">–</span></div>
+          <div class="rounded-full bg-white border border-slate-300 px-4 py-2 flex items-center gap-2">
+            <span class="text-lg">❤️</span>
+            <div class="flex-1 h-4 bg-slate-200 rounded-full overflow-hidden"><div id="footerHealthBar" class="h-full bg-red-400 rounded-full" style="width: 40%"></div></div>
+            <span id="footerHealth" class="font-medium">–%</span>
+          </div>
+          <div class="rounded-full bg-white border border-slate-300 px-4 py-2 flex items-center justify-between"><span class="text-lg">🗑</span><span id="footerWaste" class="font-semibold">–/– t</span></div>
+          <div class="rounded-full bg-white border border-slate-300 px-4 py-2 flex items-center gap-2">
+            <span class="text-lg">♻</span>
+            <div class="flex-1 h-4 bg-slate-200 rounded-full overflow-hidden"><div id="footerCO2Bar" class="h-full bg-emerald-500 rounded-full" style="width: 0%"></div></div>
+            <span id="footerCO2" class="font-medium">–%</span>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="player-menu.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const role = params.get('role') || 'Municipality';
+    const DISTRICT_KEY = 'commercial';
+    const TONNES_PER_DAY = 4;
+    const STATUS_NORMAL_MAX = 20;
+    const STATUS_FULL_MAX = 40;
+    const COST = { Normal: 30, Full: 40, Overflowing: 60 };
+    const HEALTH_GAIN = { Normal: 1, Full: 2, Overflowing: 4 };
+    const MATERIAL_CO2 = { paper: 0.6, plastic: 1.0, metal: 0.8, glass: 0.5, wood: 0.7 };
+
+    function goHub() {
+      const url = new URL('game.html', window.location.origin);
+      url.searchParams.set('role', role);
+      window.location.href = url.toString();
+    }
+
+    const socket = io();
+    let gameOver = false;
+    if (typeof besseAttachRestartUI === 'function') besseAttachRestartUI(socket);
+    window.addEventListener('besseGameRestarted', () => { gameOver = false; });
+    let currentTotal = 0;
+    let currentStatus = 'Normal';
+    let latestSharedForPopup = null;
+
+    function getTotal(w) {
+      if (!w) return 0;
+      let t = 0;
+      Object.values(w).forEach((g) => { Object.values(g).forEach((n) => { t += n; }); });
+      return t;
+    }
+
+    function getStatus(total) {
+      if (total <= STATUS_NORMAL_MAX) return 'Normal';
+      if (total <= STATUS_FULL_MAX) return 'Full';
+      return 'Overflowing';
+    }
+
+    function updateDayDisplay(day, maxDay) {
+      if (day == null || maxDay == null) return;
+      if (window.BesseGameCalendar) {
+        window.BesseGameCalendar.updateDom({ day, maxDay });
+      }
+      if (window.BesseSyncHeaderDayChip) window.BesseSyncHeaderDayChip(day, maxDay);
+    }
+
+    function doCollect() {
+      if (gameOver) return;
+      const input = document.getElementById('collectTonsInput');
+      const tons = Math.max(1, Math.min(currentTotal, Math.floor(Number(input && input.value) || 1)));
+      socket.emit('collectWasteFromDistrict', { role: 'Municipality', district: DISTRICT_KEY, tons });
+    }
+
+    function updateVolumeButtons() {
+      const input = document.getElementById('collectTonsInput');
+      const btnMinus = document.getElementById('btnMinus');
+      const btnPlus = document.getElementById('btnPlus');
+      const btnCollect = document.getElementById('collectBtn');
+      const max = Math.max(1, currentTotal);
+      if (input) { input.max = max; const v = Math.min(max, Math.max(1, parseInt(input.value, 10) || 1)); input.value = v; }
+      const disabled = gameOver || currentTotal <= 0;
+      if (btnMinus) { btnMinus.disabled = disabled; btnMinus.onclick = () => { const i = document.getElementById('collectTonsInput'); i.value = Math.max(1, (parseInt(i.value,10)||1)-1); updateMetrics(); }; }
+      if (btnPlus)  { btnPlus.disabled = disabled;  btnPlus.onclick = () => { const i = document.getElementById('collectTonsInput'); i.value = Math.min(currentTotal, (parseInt(i.value,10)||0)+1); updateMetrics(); }; }
+      if (btnCollect) { btnCollect.disabled = disabled; btnCollect.onclick = doCollect; }
+      if (input) input.oninput = updateMetrics;
+    }
+
+    function updateMetrics() {
+      const input = document.getElementById('collectTonsInput');
+      const tons = Math.max(0, Math.min(currentTotal, Math.floor(Number(input && input.value) || 0)));
+      const costPerTon = COST[currentStatus] || 30;
+      const healthPer5 = HEALTH_GAIN[currentStatus] || 1;
+      const cost = tons * costPerTon;
+      const health = healthPer5 * (tons / 5);
+      // District waste grades: B/C/F only (matches donuts & server district waste).
+      const w = window._lastWaste || {};
+      let totalBCF = 0;
+      Object.values(w).forEach((grades) => {
+        totalBCF += (grades.B || 0) + (grades.C || 0) + (grades.F || 0);
+      });
+      let avgCo2 = 0.8;
+      if (totalBCF > 0) {
+        let sum = 0;
+        Object.entries(w).forEach(([mat, grades]) => {
+          const n = (grades.B || 0) + (grades.C || 0) + (grades.F || 0);
+          sum += n * (MATERIAL_CO2[mat] ?? 0.8);
+        });
+        avgCo2 = sum / totalBCF;
+      }
+      const co2KgEst = tons * avgCo2;
+      document.getElementById('metricCost').textContent = '− $' + cost.toLocaleString();
+      document.getElementById('metricHealth').textContent = '+ ' + health.toFixed(1) + '%';
+      document.getElementById('metricCO2').textContent = '+ ' + co2KgEst.toFixed(1) + ' kg';
+      // City uncollected waste (districts) decreases by the tonnes you collect — same as server recompute.
+      document.getElementById('metricWaste').textContent = tons > 0 ? '− ' + tons + ' t' : '− 0 t';
+      document.getElementById('metricInventory').textContent = '+ ' + tons + ' t';
+    }
+
+    function renderGameState(data) {
+      if (!data) return;
+      const shared = data.shared;
+      const roles = data.roles;
+      latestSharedForPopup = shared;
+      const districtKey = DISTRICT_KEY;
+      const districts = shared.districts;
+      const w = (districts && districts[districtKey]) ? districts[districtKey].waste : {};
+      currentTotal = getTotal(w);
+      currentStatus = getStatus(currentTotal);
+      window._lastWaste = w;
+
+      const municipalityInv = (roles && roles.municipality && roles.municipality.inventory) ? roles.municipality.inventory : {};
+      let invTotal = (municipalityInv.unprocessedWaste || 0);
+      Object.values(municipalityInv.waste || {}).forEach((grades) => { invTotal += (grades.B||0) + (grades.C||0) + (grades.F||0); });
+      window._municipalityInventoryTotal = invTotal;
+
+      const cap = roles?.municipality?.inventory?.capacityTonnes ?? 150;
+      document.getElementById('headerWaste').textContent = currentTotal + '/' + cap + ' t';
+      updateDayDisplay(shared.day, shared.maxDay);
+
+      document.getElementById('statusLabel').textContent = currentStatus;
+      const card = document.getElementById('statusCard');
+      if (card) {
+        card.classList.remove('status-normal', 'status-full', 'status-overflowing');
+        card.classList.add(
+          currentStatus === 'Overflowing' ? 'status-overflowing' : currentStatus === 'Full' ? 'status-full' : 'status-normal'
+        );
+      }
+      const pct = currentStatus === 'Normal' ? (currentTotal / STATUS_NORMAL_MAX) * 100 : currentStatus === 'Full' ? 50 + (currentTotal - STATUS_NORMAL_MAX) / (STATUS_FULL_MAX - STATUS_NORMAL_MAX) * 50 : Math.min(100, 50 + (currentTotal - STATUS_FULL_MAX) / 2);
+      document.getElementById('statusProgress').style.width = Math.min(100, pct) + '%';
+      document.getElementById('statusBarLabel').textContent = currentTotal + '/' + (currentStatus === 'Normal' ? STATUS_NORMAL_MAX : currentStatus === 'Full' ? STATUS_FULL_MAX : '∞') + ' t';
+      document.getElementById('wastePerDay').textContent = TONNES_PER_DAY;
+
+      const materials = ['metal', 'paper', 'wood', 'plastic', 'glass'];
+      const colors = { paper: '#3b82f6', plastic: '#60a5fa', metal: '#000000', wood: '#92400e', glass: '#65a30d' };
+      const labels = { paper: '📄 Paper', plastic: '🧴 Plastic', metal: '🔩 Metal', wood: '🪵 Wood', glass: '🍾 Glass' };
+      let donutHtml = '';
+      materials.forEach((m) => {
+        const t = (w[m] && (w[m].B + w[m].C + w[m].F)) || 0;
+        const pct = currentTotal > 0 ? Math.round((t / currentTotal) * 100) : 0;
+        donutHtml += `
+          <div class="flex flex-col items-center min-w-[90px]">
+            <div class="donut" style="--c:${colors[m]};--p:${pct}">
+              <span class="donut-txt">${pct}%</span>
+            </div>
+            <span class="text-2xl mt-2 font-semibold">${labels[m]}</span>
+          </div>
+        `;
+      });
+      document.getElementById('wasteTypeDonuts').innerHTML = currentTotal > 0 ? donutHtml : '<p class="text-sm text-slate-500">No waste in district yet.</p>';
+
+      updateVolumeButtons();
+      updateMetrics();
+
+      const logEl = document.getElementById('recordLog');
+      if (shared.eventLog && shared.eventLog.length > 0) {
+        logEl.innerHTML = shared.eventLog.slice(-8).reverse().map((e) => `<div class="py-0.5">[Day ${e.day}] ${e.message}</div>`).join('');
+      } else { logEl.textContent = 'No events yet.'; }
+
+      const buf = (roles && roles.municipality && roles.municipality.bufferLevel) ? roles.municipality.bufferLevel : 'Normal';
+      const tm = shared.transportTimeMultiplier ?? 1;
+      document.getElementById('hubBudget').textContent = shared.budgetHKD.toLocaleString('en-HK');
+      document.getElementById('hubHealth').textContent = shared.cityHealth + '%';
+      document.getElementById('hubBuffer').textContent = buf;
+      document.getElementById('hubTransport').textContent = tm;
+      let allInvTotal = 0;
+      let allInvCap = 0;
+      ['municipality', 'mrf', 'broker'].forEach((k) => {
+        const inv2 = roles && roles[k] ? roles[k].inventory : null;
+        if (!inv2) return;
+        allInvCap += Number(inv2.capacityTonnes || 0);
+        allInvTotal += Math.max(0, Number(inv2.unprocessedWaste || 0));
+        Object.values(inv2.materials || {}).forEach((g) => { allInvTotal += (g.A || 0) + (g.B || 0) + (g.C || 0); });
+        Object.values(inv2.waste || {}).forEach((g) => { allInvTotal += (g.B || 0) + (g.C || 0) + (g.F || 0); });
+      });
+      document.getElementById('hubWasteTotal').textContent = Math.round(allInvTotal * 10) / 10;
+      document.getElementById('hubWasteLimit').textContent = allInvCap;
+      document.getElementById('hubCarbon').textContent = shared.carbonEmissions.value;
+      document.getElementById('hubCarbonLimit').textContent = shared.carbonEmissions.limit;
+      document.getElementById('hubDay').textContent = shared.day;
+      document.getElementById('hubMaxDay').textContent = shared.maxDay;
+
+      if (shared.districts) {
+        const getDistrictTotal = (w2) => {
+          if (!w2) return 0;
+          let t2 = 0;
+          Object.values(w2).forEach((g) => { Object.values(g).forEach((n) => { t2 += n; }); });
+          return t2;
+        };
+        const getStatusText = (total) => total <= 20 ? 'Normal' : total <= 40 ? 'Full' : 'Overflowing';
+        const parts = ['residential', 'commercial', 'industrial'].map((k) => {
+          const total = getDistrictTotal(shared.districts[k] && shared.districts[k].waste);
+          return `${k.charAt(0).toUpperCase() + k.slice(1)} ${total} t (${getStatusText(total)})`;
+        });
+        const btn = document.getElementById('hubDistrictsBtn');
+        if (btn) btn.textContent = 'Districts: ' + parts.join(' · ');
+      }
+
+      const invObj = roles && roles.municipality && roles.municipality.inventory ? roles.municipality.inventory : null;
+      if (invObj) {
+        let invTotal2 = (invObj.unprocessedWaste || 0);
+        Object.values(invObj.materials || {}).forEach((g) => { invTotal2 += (g.A || 0) + (g.B || 0) + (g.C || 0); });
+        Object.values(invObj.waste || {}).forEach((g) => { invTotal2 += (g.B || 0) + (g.C || 0) + (g.F || 0); });
+        const cap = invObj.capacityTonnes ?? 150;
+        document.getElementById('hubInvTotal').textContent = invTotal2;
+        document.getElementById('hubInvCap').textContent = cap;
+      }
+
+      document.getElementById('footerBudget').textContent = shared.budgetHKD.toLocaleString('en-HK');
+      document.getElementById('footerHealth').textContent = shared.cityHealth + '%';
+      document.getElementById('footerHealthBar').style.width = shared.cityHealth + '%';
+      document.getElementById('footerWaste').textContent = (Math.round(allInvTotal * 10) / 10) + '/' + allInvCap + ' t';
+      document.getElementById('footerCO2').textContent = shared.carbonEmissions.value + '%';
+      document.getElementById('footerCO2Bar').style.width = Math.min(100, shared.carbonEmissions.value) + '%';
+    }
+
+    socket.on('gameStateUpdate', renderGameState);
+    socket.on('dayUpdate', (p) => updateDayDisplay(p.day, p.maxDay));
+    socket.on('collectWasteError', (data) => alert(data.message || 'Error collecting waste.'));
+
+    function openDistrictPopup() {
+      const shared = latestSharedForPopup;
+      const popup = document.getElementById('districtPopup');
+      const body = document.getElementById('districtPopupBody');
+      if (!popup || !body || !shared || !shared.districts) return;
+
+      const getTotal = (w) => {
+        if (!w) return 0;
+        let t = 0;
+        Object.values(w).forEach((g) => { Object.values(g).forEach((n) => { t += n; }); });
+        return t;
+      };
+      const getStatus = (total) => total <= 20 ? 'Normal' : total <= 40 ? 'Full' : 'Overflowing';
+      const color = (s) => s === 'Overflowing' ? 'bg-red-100 text-red-700 border-red-200' : s === 'Full' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      const label = (k) => k.charAt(0).toUpperCase() + k.slice(1);
+
+      body.innerHTML = ['residential', 'commercial', 'industrial'].map((k) => {
+        const total = getTotal(shared.districts[k]?.waste);
+        const s = getStatus(total);
+        return `
+          <div class="flex items-center justify-between rounded-xl border px-3 py-2 ${color(s)}">
+            <div class="font-medium">${label(k)}</div>
+            <div class="text-sm">${total} t · ${s}</div>
+          </div>
+        `;
+      }).join('');
+
+      popup.classList.remove('hidden');
+      popup.classList.add('flex');
+    }
+
+    function closeDistrictPopup() {
+      const popup = document.getElementById('districtPopup');
+      if (!popup) return;
+      popup.classList.add('hidden');
+      popup.classList.remove('flex');
+    }
+
+    document.getElementById('hubDistrictsBtn')?.addEventListener('click', openDistrictPopup);
+    document.getElementById('districtPopupClose')?.addEventListener('click', closeDistrictPopup);
+    document.getElementById('districtPopup')?.addEventListener('click', (e) => {
+      if (e.target && e.target.id === 'districtPopup') closeDistrictPopup();
+    });
+    socket.on('gameOver', (payload) => {
+      gameOver = true;
+      if (payload && payload.state) renderGameState(payload.state);
+    });
+
+    async function pollState() {
+      const res = await fetch('/state').catch(() => null);
+      if (!res || !res.ok) return;
+      const data = await res.json().catch(() => null);
+      if (data && data.shared && data.roles) renderGameState(data);
+    }
+
+    (async function init() {
+      await pollState();
+      setInterval(pollState, 1000);
+    })();
+  </script>
+</body>
+</html>
+
