@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Redirecting…</title>
+  <script>
+    (function () {
+      var p = new URLSearchParams(window.location.search);
+      var role = p.get('role') || 'MRF';
+      var u = new URL('mrf-inventory.html', window.location.origin);
+      u.searchParams.set('role', role);
+      u.searchParams.set('facility', 'sorting');
+      window.location.replace(u.toString());
+    })();
+  </script>
+  <link rel="stylesheet" href="ui-fonts.css" />
+</head>
+<body>
+  <p style="font-family: system-ui; padding: 1rem">Redirecting to Sorting Centre…</p>
+</body>
+</html>

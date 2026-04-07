@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>City Waste Simulation – Leaderboard &amp; Game Results</title>
+<script src="/socket.io/socket.io.js"></script>
+  <link rel="stylesheet" href="ui-fonts.css" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --g-darkest:#1a2f25;--g-dark:#244635;--g-mid:#4a5e3f;--g-olive:#5c6b4f;
+    --g-sage:#8a9a7b;--g-light:#adb9a0;--g-pale:#c8d2be;
+    --cream:#e8e4d9;--cream-lt:#f0ede4;--cream-bg:#f5f3ed;--white:#fafaf7;
+    --gold:#a08c4a;--gold-lt:#c4b06a;--red:#8b3a3a;
+  }
+  body{font-family:'DM Sans',sans-serif;background:var(--cream-bg);min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden}
+
+  /* ── Waiting State ── */
+  .waiting{position:fixed;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .5s ease}
+  .waiting.hide{opacity:0;pointer-events:none}
+  .waiting-icon{font-size:48px;margin-bottom:16px}
+  .waiting h2{font-size:20px;font-weight:700;color:var(--g-darkest);margin-bottom:4px}
+  .waiting p{font-size:13px;color:var(--g-sage);font-weight:500;margin-bottom:16px}
+  .waiting-bar{width:200px;height:6px;background:var(--cream);border-radius:4px;overflow:hidden}
+  .waiting-fill{height:100%;background:var(--g-mid);border-radius:4px;transition:width .5s ease;width:0%}
+
+  /* ── Overlay ── */
+  .overlay{position:fixed;inset:0;background:rgba(26,35,22,.55);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:10;opacity:0;pointer-events:none;transition:opacity .5s ease}
+  .overlay.show{opacity:1;pointer-events:all}
+
+  /* ── Leaderboard Panel ── */
+  .lb{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.94);z-index:20;width:94%;max-height:92vh;overflow-y:auto;background:var(--white);border:1px solid var(--g-pale);border-radius:20px;padding:28px 24px 24px;opacity:0;pointer-events:none;transition:opacity .5s ease .15s,transform .5s cubic-bezier(.22,.61,.36,1) .15s;box-shadow:0 24px 80px rgba(26,35,22,.18)}
+  .lb.show{opacity:1;pointer-events:all;transform:translate(-50%,-50%) scale(1)}
+  .lb::-webkit-scrollbar{width:4px}
+  .lb::-webkit-scrollbar-thumb{background:var(--g-pale);border-radius:4px}
+
+  /* ── Header ── */
+  .lb-header{text-align:center;margin-bottom:6px}
+  .lb-badge{display:inline-flex;align-items:center;gap:6px;background:var(--g-dark);border-radius:100px;padding:5px 14px;font-size:20px;font-weight:700;color:var(--g-pale);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px}
+  .lb-title{font-size:24px;font-weight:800;color:var(--g-darkest);letter-spacing:-.5px;margin-bottom:2px}
+  .lb-sub{font-size:12px;color:var(--g-sage);font-weight:500}
+  .lb-reason{font-size:11px;color:var(--red);font-weight:600;margin-top:4px;font-style:italic}
+
+  /* ── City Grade ── */
+  .city-grade{display:flex;align-items:center;gap:14px;margin:18px auto 0;padding:14px 18px;background:linear-gradient(135deg,rgba(45,58,40,.06),rgba(90,107,79,.03));border:1px solid rgba(90,107,79,.1);border-radius:14px;max-width: 75%}
+  .grade-circle{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;flex-shrink:0;border:2px solid}
+  .grade-s{background:rgba(160,140,74,.12);color:var(--gold);border-color:rgba(160,140,74,.3)}
+  .grade-a{background:rgba(74,94,63,.1);color:var(--g-mid);border-color:rgba(74,94,63,.2)}
+  .grade-b{background:rgba(138,154,123,.1);color:var(--g-sage);border-color:rgba(138,154,123,.2)}
+  .grade-c{background:rgba(200,180,120,.1);color:#8a7a40;border-color:rgba(200,180,120,.2)}
+  .grade-d{background:rgba(180,120,60,.1);color:#8a5a2a;border-color:rgba(180,120,60,.2)}
+  .grade-f{background:rgba(139,58,58,.1);color:var(--red);border-color:rgba(139,58,58,.2)}
+  .grade-info{flex:1}
+  .grade-label{font-size:11px;font-weight:600;color:var(--g-sage);text-transform:uppercase;letter-spacing:.5px}
+  .grade-value{font-size:16px;font-weight:800;color:var(--g-darkest)}
+
+  /* ── Tabs ── */
+  .lb-tabs{display:flex;gap:4px;align-items:center;margin:18px auto 16px;background:var(--cream);border-radius:12px;padding:4px;max-width: 75%}
+  .lb-tab{flex:1;padding:9px 6px;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;color:var(--g-sage);background:0 0;border:none;cursor:pointer;transition:all .25s ease;text-align:center}
+  .lb-tab.active{background:var(--white);color:var(--g-dark);box-shadow:0 2px 8px rgba(26,35,22,.08)}
+  .lb-tab:hover:not(.active){color:var(--g-olive)}
+
+  /* ── Podium ── */
+  .podium{display:flex;align-items:flex-end;justify-content:center;gap:8px;margin:0 0 18px}
+  .pod{display:flex;flex-direction:column;align-items:center;opacity:0;transform:translateY(16px);transition:opacity .5s ease,transform .5s ease}
+  .pod.show{opacity:1;transform:translateY(0)}
+  .pod-avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;position:relative;border:2px solid var(--cream)}
+  .pod.first .pod-avatar{width:56px;height:56px;font-size:19px;border-color:var(--gold-lt);box-shadow:0 0 20px rgba(160,140,74,.2)}
+  .pod-crown{position:absolute;top:-14px;font-size:16px;filter:drop-shadow(0 1px 4px rgba(160,140,74,.4))}
+  .pod-name{font-size:11px;font-weight:700;color:var(--g-darkest);margin-top:6px;max-width:90px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pod-score{font-size:10px;font-weight:600;color:var(--g-sage);margin-top:1px}
+  .pod-bar{width:360px;border-radius:10px 10px 0 0;margin-top:6px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:8px;text-align:center;font-size:32px;font-weight:800}
+  .pod.first .pod-bar{height:120px;background:linear-gradient(180deg,rgba(160,140,74,.18),rgba(160,140,74,.04));border:1px solid rgba(160,140,74,.2);border-bottom:none;color:var(--gold)}
+  .pod.second .pod-bar{height:90px;background:linear-gradient(180deg,rgba(90,107,79,.12),rgba(90,107,79,.03));border:1px solid rgba(90,107,79,.12);border-bottom:none;color:var(--g-sage)}
+  .pod.third .pod-bar{height:60px;background:linear-gradient(180deg,rgba(138,154,123,.12),rgba(138,154,123,.03));border:1px solid rgba(138,154,123,.1);border-bottom:none;color:var(--g-light)}
+
+  /* ── Stats Grid ── */
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:18px}
+  .stat-card{padding:12px;border-radius:12px;background:var(--cream-lt);border:1px solid rgba(90,107,79,.06)}
+  .stat-icon{font-size:14px;margin-bottom:4px}
+  .stat-label{font-size:10px;font-weight:600;color:var(--g-sage);text-transform:uppercase;letter-spacing:.5px}
+  .stat-val{font-size:16px;font-weight:800;color:var(--g-darkest);margin-top:2px}
+  .stat-sub{font-size:9px;font-weight:600;color:var(--g-sage);margin-top:1px}
+  .stat-val.danger{color:var(--red)}
+  .stat-val.good{color:var(--g-mid)}
+
+  /* ── Divider ── */
+  .lb-divider{height:1px;background:var(--cream);margin:0 0 18px}
+
+  /* ── Buttons ── */
+  .lb-actions{display:flex;gap:8px}
+  .btn{flex:1;padding:13px 0;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;border:none;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,background .2s ease}
+  .btn:active{transform:scale(.97)}
+  .btn-sec{background:var(--cream);color:var(--g-mid);border:1px solid rgba(90,107,79,.1)}
+  .btn-sec:hover{background:var(--cream-lt)}
+  .btn-pri{background:var(--g-dark);color:var(--cream-lt);box-shadow:0 4px 20px rgba(45,58,40,.25)}
+  .btn-pri:hover{background:var(--g-mid);box-shadow:0 6px 28px rgba(45,58,40,.35)}
+
+  @media(max-width:480px){
+    .lb{padding:22px 16px 20px;border-radius:16px}
+    .lb-title{font-size:20px}.lb-tab{font-size:10px;padding:8px 4px}
+    .pod-bar{width:60px}.pod.first .pod-avatar{width:48px;height:48px}
+    .pod-avatar{width:38px;height:38px}.btn{padding:11px 0;font-size:12px}
+  }
+</style>
+</head>
+<body>
+
+<!-- Waiting state -->
+<div class="waiting" id="waitingState">
+  <div class="waiting-icon">🏙️</div>
+  <h2>Game in progress…</h2>
+  <p>Day <strong id="waitDay">–</strong> / <strong id="waitMaxDay">180</strong></p>
+  <div class="waiting-bar"><div class="waiting-fill" id="waitFill"></div></div>
+</div>
+
+<div class="overlay" id="overlay"></div>
+
+<!-- ── LEADERBOARD ── -->
+<div class="lb" id="leaderboard">
+  <div class="lb-header">
+    <div class="lb-badge" id="lbBadge">🏆 Game Over</div>
+    <div class="lb-title">Leaderboard</div>
+    <div class="lb-sub" id="lbSub"></div>
+    <div class="lb-reason" id="lbReason"></div>
+  </div>
+
+  <div class="city-grade" id="cityGrade"></div>
+
+  <div class="lb-tabs">
+    <button class="lb-tab active" onclick="switchTab('overall',this)">⭐ Overall Score</button>
+    <button class="lb-tab" onclick="switchTab('income',this)">💰 Highest Income</button>
+    <button class="lb-tab" onclick="switchTab('waste',this)">🗑️ Lowest Waste</button>
+  </div>
+
+  <div class="podium" id="podium"></div>
+  <div class="lb-divider"></div>
+  <div class="stats" id="statsGrid"></div>
+
+  <div class="lb-actions">
+    <button class="btn btn-sec" type="button" onclick="window.location.href='/'">Leave</button>
+    <button class="btn btn-pri" type="button" id="playAgainBtn">Play Again →</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════
+// ── Socket Connection ──
+// ══════════════════════════════════════
+const socket = io();
+let latestState = null;
+let shown = false;
+let scores = null;
+let currentTab = 'overall';
+
+const roleFromUrl = (() => {
+  try {
+    return new URLSearchParams(window.location.search).get('role');
+  } catch {
+    return null;
+  }
+})();
+
+function goBackToRoleHome() {
+  if (roleFromUrl) {
+    window.location.href = 'game.html?role=' + encodeURIComponent(roleFromUrl);
+    return;
+  }
+  window.location.href = '/';
+}
+
+/** Resets server session then routes back to the role main page. */
+function playAgain() {
+  const btn = document.getElementById('playAgainBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Starting…';
+  }
+  socket.emit('restartGame', { role: roleFromUrl }, (res) => {
+    if (res && res.ok) {
+      // Gate behavior:
+      // - If not all 3 roles clicked yet, stay here and wait.
+      // - When server restarts (allReady), *everyone* redirects to game.html.
+      if (res.allReady) goBackToRoleHome();
+      else if (btn) {
+        btn.textContent = 'Waiting for others…';
+        btn.disabled = true;
+      }
+      return;
+    }
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Play Again →';
+    }
+    alert('Could not restart the game. Check your connection and try again.');
+  });
+}
+
+document.getElementById('playAgainBtn')?.addEventListener('click', playAgain);
+
+socket.on('gameRestarted', (payload) => {
+  if (payload && payload.allReady) {
+    // All roles clicked Play Again: route this client back to its role page.
+    goBackToRoleHome();
+    return;
+  }
+  if (!shown) return;
+  shown = false;
+  document.getElementById('leaderboard')?.classList.remove('show');
+  document.getElementById('overlay')?.classList.remove('show');
+  document.getElementById('waitingState')?.classList.remove('hide');
+  const waitFill = document.getElementById('waitFill');
+  if (waitFill) waitFill.style.width = '0%';
+  fetch('/state')
+    .then((r) => r.json())
+    .then((data) => {
+      latestState = data;
+      updateWaiting(data);
+    })
+    .catch(() => {});
+});
+
+const ROLE_COLORS = {
+  municipality: '#5c6b4f',
+  mrf: '#4a5e3f',
+  broker: '#2d3a28'
+};
+
+// ── Listen for live state ──
+socket.on('gameStateUpdate', (state) => {
+  latestState = state;
+  updateWaiting(state);
+
+  // Detect max day reached (backup if gameOver event missed)
+  if (!shown && state.shared && state.shared.day >= state.shared.maxDay) {
+    triggerLeaderboard('Simulation complete — Day ' + state.shared.maxDay + ' reached!', state);
+  }
+});
+
+// ── Listen for game over ──
+socket.on('gameOver', (data) => {
+  if (!shown) {
+    triggerLeaderboard(data.reason, data.state, data.isWin);
+  }
+});
+
+// ── Check on page load (game might already be over) ──
+fetch('/state')
+  .then(r => r.json())
+  .then(data => {
+    if (data.notStarted) return;
+    latestState = data;
+    const s = data.shared;
+    if (!s) return;
+
+    updateWaiting(data);
+
+    const isOver =
+      s.cityHealth <= 0 ||
+      s.budgetHKD <= 0 ||
+      s.waste.totalTonnes >= s.waste.capacityTonnes ||
+      s.carbonEmissions.value >= s.carbonEmissions.limit ||
+      s.day >= s.maxDay;
+
+    if (isOver) {
+      let reason = 'Game ended';
+      if (s.cityHealth <= 0) reason = 'City health reached 0%';
+      else if (s.budgetHKD <= 0) reason = 'Budget depleted';
+      else if (s.waste.totalTonnes >= s.waste.capacityTonnes) reason = 'Waste capacity full';
+      else if (s.carbonEmissions.value >= s.carbonEmissions.limit) reason = 'Carbon limit reached';
+      else if (s.day >= s.maxDay) reason = 'Simulation complete — Day ' + s.maxDay;
+      triggerLeaderboard(reason, data);
+    }
+  })
+  .catch(() => {});
+
+// ══════════════════════════════════════
+// ── Waiting State ──
+// ══════════════════════════════════════
+function updateWaiting(state) {
+  if (shown || !state || !state.shared) return;
+  const s = state.shared;
+  document.getElementById('waitDay').textContent = s.day || '–';
+  document.getElementById('waitMaxDay').textContent = s.maxDay || 180;
+  const pct = Math.min(100, ((s.day || 0) / (s.maxDay || 180)) * 100);
+  document.getElementById('waitFill').style.width = pct + '%';
+}
+
+// ══════════════════════════════════════
+// ── Score Computation (FROM REAL DATA) ──
+// ══════════════════════════════════════
+function computeScores(state) {
+  const s = state.shared;
+  const r = state.roles;
+
+  // ── Helper: total waste in a role's inventory ──
+  function getRoleWaste(key) {
+    const w = r[key]?.inventory?.waste;
+    if (!w) return 0;
+    let t = 0;
+    Object.values(w).forEach(g => { t += (g.B||0) + (g.C||0) + (g.F||0); });
+    return Math.round(t * 10) / 10;
+  }
+
+  // ── Helper: total materials in a role's inventory ──
+  function getRoleMaterials(key) {
+    const m = r[key]?.inventory?.materials;
+    if (!m) return 0;
+    let t = 0;
+    Object.values(m).forEach(g => { t += (g.A||0) + (g.B||0) + (g.C||0); });
+    return Math.round(t * 10) / 10;
+  }
+
+  // ── Helper: material market value ──
+  function getMaterialValue(key) {
+    const m = r[key]?.inventory?.materials;
+    if (!m) return 0;
+    const vp = s.marketplace?.vendor || {};
+    let v = 0;
+    Object.entries(m).forEach(([mat, grades]) => {
+      const price = vp[mat]?.current || 100;
+      v += (grades.A||0)*price*1.2 + (grades.B||0)*price + (grades.C||0)*price*0.8;
+    });
+    return Math.round(v);
+  }
+
+  // ── City-wide metrics (0–100 each) ──
+  const healthPct = Math.max(0, Math.round(s.cityHealth));
+  const budgetPct = Math.max(0, Math.min(100, Math.round((s.budgetHKD / 1000000) * 100)));
+  const co2Remaining = Math.max(0, Math.round(100 - s.carbonEmissions.value));
+  const wasteRemaining = Math.max(0, Math.round(100 - (s.waste.totalTonnes / s.waste.capacityTonnes * 100)));
+  const cityBase = Math.round((healthPct + budgetPct + co2Remaining + wasteRemaining) / 4);
+
+  // ── Count completed projects ──
+  const projects = Object.values(s.projects || {});
+  const projectsDone = projects.filter(p => p?.completedDay).length;
+  const projectsTotal = Math.max(1, projects.length);
+
+  // ── Broker upgrade score ──
+  const ups = r.broker?.transportation?.upgrades || {};
+  const upgradeSum = ((ups.speed||1)-1) + ((ups.capacity||1)-1) + ((ups.green||1)-1) + ((ups.fleet||1)-1); // 0–16
+
+  // ── Stats ──
+  const stats = s.stats || {};
+  const materialCollected = stats.materialCollected || 0;
+  const totalTonneMoved = stats.totalTonneMoved || 0;
+
+  // ════════════════════════════════════
+  // OVERALL SCORE (0–100)
+  // 40% city base + 60% role-specific
+  // ════════════════════════════════════
+  const muniOverall = Math.min(100, Math.round(
+    cityBase * 0.4 +
+    (projectsDone / projectsTotal) * 100 * 0.3 +
+    Math.min(100, materialCollected * 0.5) * 0.3
+  ));
+
+  const mrfOverall = Math.min(100, Math.round(
+    cityBase * 0.4 +
+    co2Remaining * 0.3 +
+    Math.max(0, 100 - getRoleWaste('mrf') * 2) * 0.3
+  ));
+
+  const brokerOverall = Math.min(100, Math.round(
+    cityBase * 0.4 +
+    Math.min(100, totalTonneMoved * 0.5) * 0.3 +
+    Math.min(100, upgradeSum * 6.25) * 0.3
+  ));
+
+  // ════════════════════════════════════
+  // INCOME (HKD value contributed)
+  // ════════════════════════════════════
+  const muniIncome = Math.round(projectsDone * 5000 + materialCollected * 200);
+  const mrfIncome = getMaterialValue('mrf') + Math.round(getRoleMaterials('mrf') * 150);
+  const brokerIncome = Math.round(totalTonneMoved * 150 + upgradeSum * 1000);
+
+  // ════════════════════════════════════
+  // WASTE (tonnes in inventory — lower = better)
+  // ════════════════════════════════════
+  const muniWaste = getRoleWaste('municipality');
+  const mrfWaste = getRoleWaste('mrf');
+  const brokerWaste = getRoleWaste('broker');
+
+  return {
+    city: { score: cityBase, health: healthPct, budget: budgetPct, co2: co2Remaining, waste: wasteRemaining },
+    raw: { budgetHKD: s.budgetHKD, cityHealth: s.cityHealth, co2Value: s.carbonEmissions.value, wasteTotal: s.waste.totalTonnes, day: s.day, maxDay: s.maxDay },
+    roles: [
+      { key:'municipality', name:'Municipality', initial:'M', overall:muniOverall, income:muniIncome, waste:muniWaste },
+      { key:'mrf',          name:'MRF',          initial:'R', overall:mrfOverall,  income:mrfIncome,  waste:mrfWaste },
+      { key:'broker',       name:'Broker',       initial:'B', overall:brokerOverall, income:brokerIncome, waste:brokerWaste }
+    ]
+  };
+}
+
+// ══════════════════════════════════════
+// ── Trigger Leaderboard ──
+// ══════════════════════════════════════
+function triggerLeaderboard(reason, state, isWin) {
+  if (shown) return;
+  shown = true;
+  scores = computeScores(state);
+  scores.reason = reason;
+  const win = typeof isWin === 'boolean'
+    ? isWin
+    : /simulation complete|day\s*180/i.test(String(reason || ''));
+
+  // Hide waiting, show overlay + panel
+  document.getElementById('waitingState').classList.add('hide');
+  document.getElementById('overlay').classList.add('show');
+
+  // Populate header
+  document.getElementById('lbSub').textContent = 'Day ' + scores.raw.day + ' / ' + scores.raw.maxDay;
+  document.getElementById('lbReason').textContent = reason;
+  document.getElementById('lbBadge').textContent = win ? '🏆 Well done!' : '🏆 Game Over';
+
+  // City grade
+  renderCityGrade(scores.city.score);
+
+  // Render default tab
+  switchTab('overall', document.querySelector('.lb-tab.active'));
+
+  // Render stats
+  renderStats(scores);
+
+  // Show panel
+  setTimeout(() => document.getElementById('leaderboard').classList.add('show'), 100);
+}
+
+// ══════════════════════════════════════
+// ── City Grade ──
+// ══════════════════════════════════════
+function renderCityGrade(score) {
+  let grade, cls;
+  if (score >= 85)      { grade = 'S'; cls = 'grade-s'; }
+  else if (score >= 70) { grade = 'A'; cls = 'grade-a'; }
+  else if (score >= 55) { grade = 'B'; cls = 'grade-b'; }
+  else if (score >= 40) { grade = 'C'; cls = 'grade-c'; }
+  else if (score >= 25) { grade = 'D'; cls = 'grade-d'; }
+  else                  { grade = 'F'; cls = 'grade-f'; }
+
+  document.getElementById('cityGrade').innerHTML = `
+    <div class="grade-circle ${cls}">${grade}</div>
+    <div class="grade-info">
+      <div class="grade-label">City Performance</div>
+      <div class="grade-value">${score} / 100</div>
+    </div>
+  `;
+}
+
+// ══════════════════════════════════════
+// ── Stats Cards ──
+// ══════════════════════════════════════
+function renderStats(sc) {
+  const r = sc.raw;
+  const dangerHealth = r.cityHealth <= 25;
+  const dangerBudget = r.budgetHKD <= 50000;
+  const dangerCo2 = r.co2Value >= 80;
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-icon">❤️</div>
+      <div class="stat-label">City Health</div>
+      <div class="stat-val ${dangerHealth ? 'danger' : 'good'}">${r.cityHealth.toFixed(1)}%</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">💰</div>
+      <div class="stat-label">Budget Remaining</div>
+      <div class="stat-val ${dangerBudget ? 'danger' : 'good'}">HKD ${Math.round(r.budgetHKD).toLocaleString()}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">☁️</div>
+      <div class="stat-label">CO₂ Emissions</div>
+      <div class="stat-val ${dangerCo2 ? 'danger' : 'good'}">${r.co2Value.toFixed(1)}%</div>
+      <div class="stat-sub">of 100% limit</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🗑️</div>
+      <div class="stat-label">Uncollected Waste</div>
+      <div class="stat-val">${Math.round(r.wasteTotal).toLocaleString()} t</div>
+      <div class="stat-sub">in districts</div>
+    </div>
+  `;
+}
+
+// ══════════════════════════════════════
+// ── Tab Switching ──
+// ══════════════════════════════════════
+function switchTab(tab, btn) {
+  currentTab = tab;
+  document.querySelectorAll('.lb-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  renderPodium(tab);
+}
+
+// ══════════════════════════════════════
+// ── Podium Render ──
+// ══════════════════════════════════════
+function renderPodium(tab) {
+  if (!scores) return;
+
+  // Sort roles by selected metric
+  const sorted = [...scores.roles];
+
+  if (tab === 'overall') {
+    sorted.sort((a, b) => b.overall - a.overall);
+  } else if (tab === 'income') {
+    sorted.sort((a, b) => b.income - a.income);
+  } else if (tab === 'waste') {
+    sorted.sort((a, b) => a.waste - b.waste); // lower waste = rank 1
+  }
+
+  // Format score for display
+  function getDisplay(role) {
+    if (tab === 'overall') return role.overall + ' pts';
+    if (tab === 'income') return 'HKD ' + role.income.toLocaleString();
+    if (tab === 'waste') return role.waste.toFixed(1) + ' t';
+    return '';
+  }
+
+  // Podium order: [2nd, 1st, 3rd]
+  const podOrder = [sorted[1], sorted[0], sorted[2]];
+  const classes = ['second', 'first', 'third'];
+
+  const podium = document.getElementById('podium');
+  podium.innerHTML = podOrder.map((role, i) => `
+    <div class="pod ${classes[i]}" id="pod${i}">
+      <div class="pod-avatar" style="background:${ROLE_COLORS[role.key]};color:#fff;">
+        ${classes[i] === 'first' ? '<div class="pod-crown">👑</div>' : ''}
+        ${role.initial}
+      </div>
+      <div class="pod-name">${role.name}</div>
+      <div class="pod-score">${getDisplay(role)}</div>
+      <div class="pod-bar">${i === 0 ? '2' : i === 1 ? '1' : '3'}</div>
+    </div>
+  `).join('');
+
+  // Animate
+  setTimeout(() => document.getElementById('pod1')?.classList.add('show'), 200);
+  setTimeout(() => document.getElementById('pod0')?.classList.add('show'), 400);
+  setTimeout(() => document.getElementById('pod2')?.classList.add('show'), 550);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Broker – Air Freight &amp; Airport Operations</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <link rel="stylesheet" href="player-menu.css" />
+  <link rel="stylesheet" href="ui-fonts.css" />
+  <style>
+    body { background: #e8e3d3; min-height: 100vh; }
+    .topbar { background: #2f5a47; }
+    .status-strip { position: fixed; bottom: 10px; left: 24px; right: 24px; z-index: 9990; }
+    @media (max-width: 768px) { .status-strip { left: 12px; right: 12px; } }
+    .record-bar { background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%); }
+    .cardShadow { box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08); }
+
+    .dashed-panel {
+      border-radius: 1.25rem;
+      border: 2px dashed rgba(126, 98, 60, .55);
+      background: rgba(255,255,255,.6);
+    }
+
+    .paper-card {
+      background: #ffffff;
+      border: 1px solid rgba(0,0,0,.14);
+      box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+      border-radius: 1rem;
+    }
+  </style>
+  <style>
+    :root {
+      --ink:#1a2f25;
+      --ink-2:#244635;
+      --panel:#9bb38f;
+      --paper:#e3dfd2;
+      --card:#ffffff;
+      --muted:#6b7280;
+      --accent:#2f6f43;
+      --accent-2:#3e7d51;
+      --radius-xl: 20px;
+      --shadow-1: 0 12px 24px rgba(0,0,0,.12);
+      }
+    html, body { height: 100%; }
+    body {
+      background: #e8e3d3 !important;
+      color: #1f2937 !important;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace !important;
+    }
+    .app-header { background: #2f5a47 !important; color: #fff !important; box-shadow: var(--shadow-1) !important; }
+    .stage-head { background: var(--ink) !important; color: #e8f3ec !important; }
+      /* Avoid overriding generic rounding utility classes (buttons/modals also use rounded-*) */
+      .card, .role-card { background: var(--card) !important; }
+    .btn-ink { background: var(--ink) !important; color:#fff !important; }
+    .btn-main { background:#fff !important; color:#111827 !important; border: 2px solid #e9e5d6 !important; }
+    .record-bar { background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%) !important; }
+    .status-normal { background: linear-gradient(135deg, #059669 0%, #047857 100%) !important; }
+    .status-full { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; }
+    .status-overflowing { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important; }
+    #upgradeBtn {
+      color: #ffffff !important;
+      background: #059669 !important;
+      font-weight: 700 !important;
+    }
+  </style>
+  <!-- GREEN-THEME-OVERRIDE -->
+</head>
+<body class="min-h-screen text-slate-800">
+  <div class="mx-auto">
+    <header class="topbar px-6 py-4 text-white shadow mb-4 flex items-center justify-between">
+      <div class="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+        <button onclick="goHub()" class="bg-white text-slate-800 hover:bg-slate-100 rounded-full w-10 h-10 text-lg font-bold leading-none shrink-0">←</button>
+        <div class="hidden md:flex items-center rounded-full bg-[#f1f1ea] text-slate-700 border border-black/15 px-4 py-2 text-sm font-extrabold tracking-wide">
+          <span id="clockText">10:00 a.m.</span>
+          <span class="mx-2">|</span>
+          <span id="dateText">01 November 2025</span>
+        </div>
+        <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="游戏日进度">Day – / –</span>
+      </div>
+      <h1 class="text-2xl font-extrabold tracking-wide">Airport</h1>
+      <div class="flex items-center gap-3 pr-2">
+        <button
+          id="playerBadgeBtn"
+          data-player-menu-trigger="Broker"
+          type="button"
+          class="bg-white rounded-full px-5 py-2 text-sm hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-300/60 text-slate-800 max-w-[min(320px,48vw)]"
+        >
+          <span id="headerPlayerName" class="font-semibold">@Player, Broker</span>
+          <span class="ml-2">✈️</span>
+          <span id="invCapacityBadge" class="ml-1 text-xs text-slate-600 whitespace-nowrap hidden">–/– tons</span>
+        </button>
+      </div>
+    </header>
+
+    <section class="hidden mb-4 bg-white/80 rounded-2xl p-4 shadow-sm border border-emerald-100">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <h2 class="font-semibold text-slate-800">Game Hub Summary</h2>
+      </div>
+      <div class="mt-3 grid gap-3 md:grid-cols-2">
+        <div class="bg-white rounded-xl border border-slate-200 p-3">
+          <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+            <div class="text-slate-500">Budget (HKD)</div><div class="text-right font-medium" id="hubBudget">-</div>
+            <div class="text-slate-500">City Health</div><div class="text-right font-medium" id="hubHealth">-%</div>
+            <div class="text-slate-500">Buffer Level</div><div class="text-right font-medium" id="hubBuffer">-</div>
+            <div class="text-slate-500">Transport Time</div><div class="text-right font-medium">x<span id="hubTransport">-</span></div>
+            <div class="text-slate-500">Waste</div><div class="text-right font-medium"><span id="hubWasteTotal">-</span>/<span id="hubWasteLimit">-</span> t</div>
+            <div class="text-slate-500">Carbon</div><div class="text-right font-medium"><span id="hubCarbon">-</span>/<span id="hubCarbonLimit">-</span>%</div>
+            <div class="text-slate-500">Day</div><div class="text-right font-medium"><span id="hubDay">-</span>/<span id="hubMaxDay">-</span></div>
+          </div>
+          <p class="hidden mt-2 text-xs text-slate-600" id="hubDistricts">Districts: -</p>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 p-3">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-semibold">Broker Inventory</p>
+            <p class="text-xs text-slate-500"><span id="hubInvTotal">-</span>/<span id="hubInvCap">-</span> t</p>
+          </div>
+          <p class="mt-2 text-xs text-slate-600">Showing total only (same layout as Municipality inventory).</p>
+        </div>
+      </div>
+    </section>
+
+    <main class="px-4 md:px-6 pt-2 pb-72">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <section class="dashed-panel rounded-xl p-4">
+          <h2 class="text-2xl md:text-2xl font-extrabold tracking-wide text-slate-900 text-center mb-4">Airport Fleet</h2>
+          <div class="flex flex-col gap-4 flex-1">
+            <div class="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center h-48">
+              <div class="w-full h-full max-w-xs max-h-40 border border-slate-300 bg-slate-200 flex flex-col items-center justify-center gap-2">
+                <svg class="w-16 h-16 text-[#2f5a47]" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M10 30L48 20L54 26L22 34L18 44L10 42L14 34L10 30Z" fill="currentColor" opacity="0.22"/>
+                  <path d="M22 34L54 26" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+                  <path d="M18 44L14 34L22 34L18 44Z" fill="currentColor" opacity="0.25"/>
+                  <path d="M48 20L54 26L50 30L44 24L48 20Z" fill="currentColor" opacity="0.35"/>
+                  <path d="M30 26L40 26" stroke="white" stroke-width="2" opacity="0.65" stroke-linecap="round"/>
+                  <circle cx="22" cy="44" r="5" fill="currentColor" opacity="0.18"/>
+                  <circle cx="22" cy="44" r="2.5" fill="white" opacity="0.9"/>
+                </svg>
+                <span class="text-xs text-slate-500 tracking-wide uppercase">Airport Fleet</span>
+              </div>
+            </div>
+            <div class="space-y-2 text-xs text-slate-700">
+              <div class="flex items-center justify-between">
+                <span class="font-semibold">Active</span>
+                <div id="activeTruckIcons" class="flex gap-1 text-lg">
+                  <span>✈️</span><span>✈️</span><span>✈️</span><span>✈️</span><span>✈️</span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="font-semibold">In Use</span>
+                <div id="inUseTruckIcons" class="flex gap-1 text-lg">
+                  <span class="opacity-30">✈️</span><span class="opacity-30">✈️</span><span class="opacity-30">✈️</span><span class="opacity-30">✈️</span><span class="opacity-30">✈️</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="lg:col-span-2 dashed-panel rounded-xl p-4 relative">
+          <h2 class="text-2xl md:text-2xl font-extrabold tracking-wide text-slate-900 text-center mb-4">Upgrade</h2>
+          <button
+            type="button"
+            class="absolute right-4 top-4 w-12 h-12 rounded-full bg-amber-300 hover:bg-amber-200 text-slate-900 font-extrabold border border-black/10 shadow"
+            title="Help"
+          >
+            ?
+          </button>
+          <div class="flex flex-col flex-1">
+          <p class="text-[11px] text-rose-700 mb-3">
+            *During upgrade installation, the vehicle is COMPLETELY UNAVAILABLE for deliveries!
+          </p>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-700 flex-1">
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="font-semibold flex items-center gap-1">
+                  ⚡ <span>Speed</span>
+                </span>
+                <label class="inline-flex items-center gap-2">
+                  <input type="radio" name="upgradeType" value="speed" class="text-emerald-600" checked />
+                  <span>Select</span>
+                </label>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <div class="text-sm leading-none" id="speedStars"><span class="text-amber-500">★</span><span class="text-slate-300">★★★★</span></div>
+                <span class="text-[11px] text-slate-500" id="speedLv">Lv. 1</span>
+              </div>
+              <p class="text-[11px] text-slate-500" id="speedDesc">
+                Delivery Time : 1 day, Return Time: 1 day
+              </p>
+            </div>
+
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="font-semibold flex items-center gap-1">
+                  📦 <span>Capacity</span>
+                </span>
+                <label class="inline-flex items-center gap-2">
+                  <input type="radio" name="upgradeType" value="capacity" class="text-emerald-600" />
+                  <span>Select</span>
+                </label>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <div class="text-sm leading-none" id="capacityStars"><span class="text-amber-500">★</span><span class="text-slate-300">★★★★</span></div>
+                <span class="text-[11px] text-slate-500" id="capacityLv">Lv. 1</span>
+              </div>
+              <p class="text-[11px] text-slate-500" id="capacityDesc">
+                Capacity per Truck : 5 tons
+              </p>
+            </div>
+
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="font-semibold flex items-center gap-1">
+                  🌿 <span>Green Engine</span>
+                </span>
+                <label class="inline-flex items-center gap-2">
+                  <input type="radio" name="upgradeType" value="green" class="text-emerald-600" />
+                  <span>Select</span>
+                </label>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <div class="text-sm leading-none" id="greenStars"><span class="text-amber-500">★</span><span class="text-slate-300">★★★★</span></div>
+                <span class="text-[11px] text-slate-500" id="greenLv">Lv. 1</span>
+              </div>
+              <p class="text-[11px] text-slate-500" id="greenDesc">
+                CO2 generated per trip: 500 kg
+              </p>
+            </div>
+
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="font-semibold flex items-center gap-1">
+                  🚚 <span>Fleet Expansion</span>
+                </span>
+                <label class="inline-flex items-center gap-2">
+                  <input type="radio" name="upgradeType" value="fleet" class="text-emerald-600" />
+                  <span>Select</span>
+                </label>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <div class="text-sm leading-none" id="fleetStars"><span class="text-amber-500">★</span><span class="text-slate-300">★★★★</span></div>
+                <span class="text-[11px] text-slate-500" id="fleetLv">Lv. 1</span>
+              </div>
+              <p class="text-[11px] text-slate-500" id="fleetDesc">
+                Total Quantity: 1
+              </p>
+            </div>
+          </div>
+
+          <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
+            <div class="bg-emerald-50 rounded-xl border border-emerald-100 px-3 py-2">
+              <p class="text-[11px] text-slate-500">Cost($)/trip</p>
+              <p class="font-semibold text-emerald-700">$<span id="upgradeCost">400</span></p>
+            </div>
+            <div class="bg-emerald-50 rounded-xl border border-emerald-100 px-3 py-2">
+              <p class="text-[11px] text-slate-500">CO2 impact</p>
+              <p class="font-semibold text-emerald-700">+<span id="upgradeCO2">1.6</span> t</p>
+            </div>
+            <div class="bg-slate-50 rounded-xl border border-slate-200 px-3 py-2">
+              <p class="text-[11px] text-slate-500">Effect</p>
+              <p class="font-semibold text-slate-800"><span id="upgradeCapacity">Select an upgrade</span></p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            id="upgradeBtn"
+            class="mt-4 w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 text-sm shadow disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Upgrade"
+            title="Upgrade"
+          >
+            <span style="color:#ffffff">Upgrade</span>
+          </button>
+          </div>
+        </section>
+      </div>
+
+      <div class="status-strip grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
+        <div class="lg:col-span-1 rounded-xl overflow-hidden border border-slate-300 bg-white shadow-sm">
+          <div class="record-bar px-4 py-3 text-white text-2xl font-bold flex items-center gap-2">
+            <span>📎</span><span>Record</span>
+          </div>
+          <div id="recordLog" class="bg-white px-4 py-3 max-h-40 overflow-y-auto text-m md:text-base text-slate-800 leading-relaxed">
+            No events yet.
+          </div>
+        </div>
+
+        <div class="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between">
+            <span class="text-xl">💰</span>
+            <span id="statusBudget" class="font-extrabold text-slate-900">–</span>
+          </div>
+          <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
+            <span class="text-xl">❤️</span>
+            <div class="flex-1 h-3 rounded-full bg-slate-200 overflow-hidden border border-black/10">
+              <div id="statusHealthBar" class="h-full bg-red-400" style="width: 0%"></div>
+            </div>
+            <span id="statusHealth" class="font-extrabold text-slate-900 whitespace-nowrap">–</span>
+          </div>
+          <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between">
+            <span class="text-xl">🗑️</span>
+            <span id="statusInventory" class="font-extrabold text-slate-900">–</span>
+          </div>
+          <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
+            <span class="text-xl">🌳</span>
+            <div class="flex-1 h-3 rounded-full bg-slate-200 overflow-hidden border border-black/10">
+              <div id="statusCO2Bar" class="h-full bg-red-500" style="width: 0%"></div>
+            </div>
+            <span id="statusCO2" class="font-extrabold text-slate-900 whitespace-nowrap">–</span>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="player-menu.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const role = params.get('role') || 'Broker';
+    const BROKER_SOCKET_ROLE = 'Broker';
+
+    function goHub() {
+      const url = new URL('game.html', window.location.origin);
+      url.searchParams.set('role', role);
+      window.location.href = url.toString();
+    }
+
+    const socket = io();
+    if (typeof besseAttachRestartUI === 'function') besseAttachRestartUI(socket);
+    let latestState = null;
+
+    function updateDayDisplay(payload) {
+      const dayEl = document.getElementById('hubDay');
+      const maxDayEl = document.getElementById('hubMaxDay');
+      if (!dayEl || !maxDayEl || !payload) return;
+      dayEl.textContent = payload.day;
+      maxDayEl.textContent = payload.maxDay;
+      if (window.BesseSyncHeaderDayChip) window.BesseSyncHeaderDayChip(payload.day, payload.maxDay);
+    }
+
+    function renderGameState(data) {
+      if (!data) return;
+      latestState = data;
+      const shared = data.shared;
+      const roles = data.roles || {};
+      const broker = roles.broker || roles.Broker || {};
+      const transport = broker.transportation || {};
+      if (transport.upgrades) {
+        ['speed', 'capacity', 'green', 'fleet'].forEach((k) => {
+          if (Number.isFinite(Number(transport.upgrades[k]))) {
+            upgradeState[k] = Number(transport.upgrades[k]);
+          }
+        });
+        updateUpgradeCards();
+        updateUpgradeSummary();
+      }
+
+      const budget = shared.budgetHKD ?? 0;
+      const health = shared.cityHealth ?? 0;
+
+      const budgetEl = document.getElementById('hubBudget');
+      const healthEl = document.getElementById('hubHealth');
+      const wasteTotalEl = document.getElementById('hubWasteTotal');
+      const wasteLimitEl = document.getElementById('hubWasteLimit');
+      const carbonEl = document.getElementById('hubCarbon');
+      const carbonLimitEl = document.getElementById('hubCarbonLimit');
+
+      if (budgetEl) budgetEl.textContent = budget.toLocaleString('en-HK');
+      if (healthEl) healthEl.textContent = health;
+      const hubBufferEl = document.getElementById('hubBuffer');
+      if (hubBufferEl) hubBufferEl.textContent = (roles && roles.broker && roles.broker.bufferLevel) ? roles.broker.bufferLevel : 'Normal';
+      const hubTransportEl = document.getElementById('hubTransport');
+      if (hubTransportEl) hubTransportEl.textContent = shared.transportTimeMultiplier ?? 1;
+      let allInvTotal = 0;
+      let allInvCap = 0;
+      ['municipality', 'mrf', 'broker'].forEach((k) => {
+        const inv2 = roles[k] && roles[k].inventory ? roles[k].inventory : null;
+        if (!inv2) return;
+        allInvCap += Number(inv2.capacityTonnes || 0);
+        allInvTotal += Math.max(0, Number(inv2.unprocessedWaste || 0));
+        Object.values(inv2.materials || {}).forEach((g) => { allInvTotal += (g.A || 0) + (g.B || 0) + (g.C || 0); });
+        Object.values(inv2.waste || {}).forEach((g) => { allInvTotal += (g.B || 0) + (g.C || 0) + (g.F || 0); });
+      });
+      if (wasteTotalEl) wasteTotalEl.textContent = Math.round(allInvTotal * 10) / 10;
+      if (wasteLimitEl) wasteLimitEl.textContent = allInvCap;
+      if (carbonEl) carbonEl.textContent = shared.carbonEmissions?.value ?? '-';
+      if (carbonLimitEl) carbonLimitEl.textContent = shared.carbonEmissions?.limit ?? '-';
+
+      updateDayDisplay({ day: shared.day, maxDay: shared.maxDay });
+
+      const truckLoad = transport.currentLoadTonnes ?? 32;
+      const truckCap = transport.capacityTonnes ?? 150;
+      currentInUseTrucks = Number(transport.inUseCount || 0);
+      renderTruckFleetIcons();
+
+      const statusInvEl = document.getElementById('statusInventory');
+      if (statusInvEl) statusInvEl.textContent = `${truckLoad}/${truckCap} t`;
+      const inv = broker.inventory || {};
+      let invTotal = Math.max(0, Number(inv.unprocessedWaste || 0));
+      Object.values(inv.materials || {}).forEach((g) => { invTotal += (g.A || 0) + (g.B || 0) + (g.C || 0); });
+      Object.values(inv.waste || {}).forEach((g) => { invTotal += (g.B || 0) + (g.C || 0) + (g.F || 0); });
+      const hubInvTotalEl = document.getElementById('hubInvTotal');
+      const hubInvCapEl = document.getElementById('hubInvCap');
+      if (hubInvTotalEl) hubInvTotalEl.textContent = invTotal;
+      if (hubInvCapEl) hubInvCapEl.textContent = inv.capacityTonnes ?? 150;
+
+      const statusBudgetEl = document.getElementById('statusBudget');
+      if (statusBudgetEl) statusBudgetEl.textContent = budget.toLocaleString('en-HK');
+
+      const statusHealthEl = document.getElementById('statusHealth');
+      if (statusHealthEl) statusHealthEl.textContent = `${health}%`;
+
+      const statusCO2El = document.getElementById('statusCO2');
+      if (statusCO2El) statusCO2El.textContent = `${shared.carbonEmissions?.value ?? 0}%`;
+
+      const logEl = document.getElementById('recordLog');
+      if (logEl && shared.eventLog) {
+        const lines = shared.eventLog
+          .slice(-10)
+          .reverse();
+        logEl.innerHTML = lines.length
+          ? lines.map((e) => `<div class="py-0.5">[Day ${e.day}] ${e.message}</div>`).join('')
+          : 'No transport events yet.';
+      }
+
+      if (shared.districts) {
+        const getDistrictTotal = (w2) => {
+          if (!w2) return 0;
+          let t2 = 0;
+          Object.values(w2).forEach((g) => {
+            Object.values(g).forEach((n) => {
+              t2 += n;
+            });
+          });
+          return t2;
+        };
+        const getStatusText = (total) =>
+          total <= 20 ? 'Normal' : total <= 40 ? 'Full' : 'Overflowing';
+        const parts = ['residential', 'commercial', 'industrial'].map((k) => {
+          const total = getDistrictTotal(shared.districts[k] && shared.districts[k].waste);
+          return `${k.charAt(0).toUpperCase() + k.slice(1)} ${total} t (${getStatusText(total)})`;
+        });
+        const hubDistrictsEl = document.getElementById('hubDistricts');
+        if (hubDistrictsEl) hubDistrictsEl.textContent = 'Districts: ' + parts.join(' · ');
+      }
+    }
+
+    socket.on('gameStateUpdate', renderGameState);
+    socket.on('dayUpdate', updateDayDisplay);
+
+    socket.on('gameOver', (payload) => {
+      if (payload && payload.state) renderGameState(payload.state);
+    });
+    socket.on('transportationUpgradeResult', (payload) => {
+      if (!payload) return;
+      if (payload.error) {
+        alert(payload.error);
+        return;
+      }
+      if (payload.upgrades) {
+        ['speed', 'capacity', 'green', 'fleet'].forEach((k) => {
+          if (Number.isFinite(Number(payload.upgrades[k]))) {
+            upgradeState[k] = Number(payload.upgrades[k]);
+          }
+        });
+        updateUpgradeCards();
+        updateUpgradeSummary();
+      }
+    });
+
+    const UPGRADE_TABLE = {
+      speed: {
+        icon: '⚡',
+        tiers: {
+          0: { cost: 0, co2: 0, reductionPct: 0, mult: 1 },
+          1: { cost: 2000, co2: 200, reductionPct: 15, mult: 0.85 },
+          2: { cost: 3500, co2: 350, reductionPct: 32, mult: 0.65 },
+          3: { cost: 5500, co2: 500, reductionPct: 48, mult: 0.48 },
+          4: { cost: 8000, co2: 700, reductionPct: 60, mult: 0.34 },
+          5: { cost: 11000, co2: 900, reductionPct: 75, mult: 0.25 }
+        }
+      },
+      capacity: {
+        icon: '📦',
+        tiers: {
+          0: { cost: 0, co2: 0, increasePct: 0, mult: 1 },
+          1: { cost: 3000, co2: 300, increasePct: 20, mult: 1.2 },
+          2: { cost: 5000, co2: 450, increasePct: 45, mult: 1.45 },
+          3: { cost: 7500, co2: 600, increasePct: 75, mult: 1.75 },
+          4: { cost: 10500, co2: 800, increasePct: 110, mult: 2.1 },
+          5: { cost: 14000, co2: 1000, increasePct: 150, mult: 2.5 }
+        }
+      },
+      green: {
+        icon: '🌿',
+        tiers: {
+          0: { cost: 0, co2: 0, reductionPct: 0, mult: 1 },
+          1: { cost: 4000, co2: 400, reductionPct: 25, mult: 0.75 },
+          2: { cost: 6500, co2: 550, reductionPct: 50, mult: 0.5 },
+          3: { cost: 9000, co2: 700, reductionPct: 70, mult: 0.3 },
+          4: { cost: 12000, co2: 900, reductionPct: 85, mult: 0.15 },
+          5: { cost: 16000, co2: 1100, reductionPct: 95, mult: 0.05 }
+        }
+      },
+      fleet: {
+        icon: '🚚',
+        tiers: {
+          0: { cost: 0, co2: 0, add: 0 },
+          1: { cost: 15000, co2: 380, add: 1 },
+          2: { cost: 25000, co2: 520, add: 2 },
+          3: { cost: 35000, co2: 680, add: 3 },
+          4: { cost: 45000, co2: 820, add: 4 },
+          5: { cost: 55000, co2: 980, add: 5 }
+        }
+      }
+    };
+    const BASE_TRUCK = { deliveryDays: 1, returnDays: 1, cap: 5, co2PerTrip: 500, qty: 1, costPerTrip: 400 };
+    const upgradeState = { speed: 0, capacity: 0, green: 0, fleet: 0 };
+    let currentInUseTrucks = 0;
+
+    function renderTruckFleetIcons() {
+      const fleetAdd = UPGRADE_TABLE.fleet.tiers[upgradeState.fleet]?.add ?? 0;
+      const totalFleet = BASE_TRUCK.qty + fleetAdd;
+      const inUse = Math.max(0, Math.min(totalFleet, Number(currentInUseTrucks || 0)));
+      const activeEl = document.getElementById('activeTruckIcons');
+      const inUseEl = document.getElementById('inUseTruckIcons');
+      if (activeEl) {
+        activeEl.innerHTML = Array.from({ length: totalFleet }).map(() => '<span>✈️</span>').join('');
+      }
+      if (inUseEl) {
+        inUseEl.innerHTML = Array.from({ length: totalFleet }).map((_, i) => {
+          return i < inUse ? '<span>✈️</span>' : '<span class="opacity-30">✈️</span>';
+        }).join('');
+      }
+    }
+
+    function renderStars(level) {
+      const filled = '★'.repeat(level);
+      const empty = '★'.repeat(5 - level);
+      return '<span class="text-amber-500">' + filled + '</span><span class="text-slate-300">' + empty + '</span>';
+    }
+
+    function selectedUpgradeType() {
+      const selected = document.querySelector('input[name="upgradeType"]:checked');
+      return selected ? selected.value : 'speed';
+    }
+
+    function updateUpgradeCards() {
+      document.getElementById('speedStars').innerHTML = renderStars(upgradeState.speed);
+      document.getElementById('capacityStars').innerHTML = renderStars(upgradeState.capacity);
+      document.getElementById('greenStars').innerHTML = renderStars(upgradeState.green);
+      document.getElementById('fleetStars').innerHTML = renderStars(upgradeState.fleet);
+
+      document.getElementById('speedLv').textContent = 'Lv. ' + upgradeState.speed;
+      document.getElementById('capacityLv').textContent = 'Lv. ' + upgradeState.capacity;
+      document.getElementById('greenLv').textContent = 'Lv. ' + upgradeState.green;
+      document.getElementById('fleetLv').textContent = 'Lv. ' + upgradeState.fleet;
+
+      const speedCfg = UPGRADE_TABLE.speed.tiers[upgradeState.speed];
+      const capCfg = UPGRADE_TABLE.capacity.tiers[upgradeState.capacity];
+      const greenCfg = UPGRADE_TABLE.green.tiers[upgradeState.green];
+      const fleetCfg = UPGRADE_TABLE.fleet.tiers[upgradeState.fleet];
+
+      document.getElementById('speedDesc').textContent = 'Delivery Time: ' + (BASE_TRUCK.deliveryDays * speedCfg.mult).toFixed(2) + ' days, Return Time: ' + (BASE_TRUCK.returnDays * speedCfg.mult).toFixed(2) + ' days';
+      document.getElementById('capacityDesc').textContent = 'Capacity per Truck: ' + (BASE_TRUCK.cap * capCfg.mult).toFixed(2) + ' tons';
+      document.getElementById('greenDesc').textContent = 'CO2 generated per trip: ' + (BASE_TRUCK.co2PerTrip * greenCfg.mult).toFixed(2) + ' kg';
+      document.getElementById('fleetDesc').textContent = 'Total Quantity: ' + (BASE_TRUCK.qty + fleetCfg.add);
+      renderTruckFleetIcons();
+    }
+
+    function updateUpgradeSummary() {
+      const type = selectedUpgradeType();
+      const curLevel = upgradeState[type];
+      const nextTier = Math.min(5, curLevel + 1);
+      const isMax = curLevel >= 5;
+      const cfg = UPGRADE_TABLE[type].tiers[nextTier];
+
+      const costEl = document.getElementById('upgradeCost');
+      const co2El = document.getElementById('upgradeCO2');
+      const effectEl = document.getElementById('upgradeCapacity');
+      const btn = document.getElementById('upgradeBtn');
+
+      if (isMax) {
+        costEl.textContent = 'MAX';
+        co2El.textContent = 'MAX';
+        effectEl.textContent = 'Already at max tier';
+        btn.disabled = true;
+        return;
+      }
+
+      if (!cfg) {
+        costEl.textContent = '—';
+        co2El.textContent = '—';
+        effectEl.textContent = 'Upgrade config missing';
+        btn.disabled = true;
+        return;
+      }
+
+      costEl.textContent = cfg.cost.toLocaleString('en-HK');
+      co2El.textContent = cfg.co2.toLocaleString('en-HK') + ' kg';
+      if (type === 'speed') effectEl.textContent = 'Tier ' + nextTier + ': New Time = Base Time × ' + cfg.mult;
+      if (type === 'capacity') effectEl.textContent = 'Tier ' + nextTier + ': New Capacity = Base Capacity × ' + cfg.mult;
+      if (type === 'green') effectEl.textContent = 'Tier ' + nextTier + ': New CO2 = Base CO2 × ' + cfg.mult;
+      if (type === 'fleet') effectEl.textContent = 'Tier ' + nextTier + ': New Quantity = Base Quantity + ' + cfg.add;
+      btn.disabled = false;
+    }
+
+    document.querySelectorAll('input[name="upgradeType"]').forEach((el) => {
+      el.addEventListener('change', updateUpgradeSummary);
+    });
+
+    document.getElementById('upgradeBtn')?.addEventListener('click', () => {
+      if (!socket.connected) {
+        alert('Not connected to server. Check that the game is running on this host and refresh the page.');
+        return;
+      }
+      const type = selectedUpgradeType();
+      socket.emit('brokerUpgradeTransportation', { role: BROKER_SOCKET_ROLE, upgradeType: type });
+    });
+
+    updateUpgradeCards();
+    updateUpgradeSummary();
+
+    (async function init() {
+      async function pollState() {
+        const res = await fetch('/state').catch(() => null);
+        if (!res || !res.ok) return;
+        const data = await res.json().catch(() => null);
+        if (data && data.shared && data.roles) renderGameState(data);
+      }
+      await pollState();
+      setInterval(pollState, 1000);
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+.player-menu {
+  position: fixed;
+  /* Below game-over / modals (typically z-200+); above normal page content so the menu still pops over cards */
+  z-index: 9999;
+  width: 230px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+}
+
+.player-menu.hidden { display: none; }
+
+.player-menu__title {
+  padding: 10px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  color: #334155;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.player-menu__item {
+  width: 100%;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.player-menu__item:hover { background: #f8fafc; }
+
+.player-menu__arrow {
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.player-menu__divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 6px 0;
+}
+

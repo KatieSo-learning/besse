@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>City Waste Simulation – Choose Your Role</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <link rel="stylesheet" href="ui-fonts.css" />
+
+  <style>
+    :root{
+      --ink:#1a2f25;          /* deep green (headers, buttons) */
+      --ink-2:#244635;        /* darker green (header bar) */
+      --panel:#9bb38f;        /* desaturated green (panel bg) */
+      --paper:#e3dfd2;        /* warm gray page bg */
+      --card:#ffffff;         /* white cards */
+      --muted:#6b7280;        /* gray text */
+      --accent:#2f6f43;       /* green accent */
+      --accent-2:#3e7d51;     /* hover */
+      --warning:#ef4444;
+      --radius-xl: 22px;
+      --radius-lg: 18px;
+      --radius-md: 14px;
+      --radius-sm: 10px;
+      --shadow-1: 0 12px 24px rgba(0,0,0,.12);
+      --shadow-2: 0 18px 36px rgba(0,0,0,.16);
+    }
+
+    html, body { height: 100%; }
+    body{
+      background: var(--paper);
+      color:#1f2937;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+
+    /* Header */
+    .app-header{
+      background: var(--ink-2);
+      color:#fff;
+      box-shadow: var(--shadow-1);
+    }
+
+    /* Big rounded stage */
+    .stage{
+      background: var(--panel);
+      border-radius: 28px;
+      box-shadow: var(--shadow-1);
+      border: 2px solid rgba(0,0,0,.06);
+    }
+
+    /* Top stage header band */
+    .stage-head{
+      background: var(--ink);
+      color:#e8f3ec;
+      border-radius: 22px;
+      /* border-top-left-radius: 22px;
+      border-top-right-radius: 22px; */
+      padding: 22px 18px;
+      text-align: center;
+    }
+
+    /* Card styles */
+    .role-card{
+      background: var(--card);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-1);
+      transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+      border: 3px solid transparent;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    .role-card:hover:not(.taken):not(.confirmed){
+      transform: translateY(-6px);
+      box-shadow: var(--shadow-2);
+    }
+    .role-card.selected{
+      border-color: #e6e0c9;
+      box-shadow: 0 0 0 6px rgba(230,224,201,.55);
+    }
+    .role-card.taken{
+      opacity:.45;
+      filter: grayscale(50%);
+      cursor:not-allowed;
+      pointer-events: none;
+    }
+    .role-card.confirmed{
+      cursor: default;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 6px rgba(47,111,67,.35);
+    }
+
+    .role-title{
+      color: var(--ink);
+      letter-spacing:.5px;
+    }
+
+    .dot-list li{
+      position: relative;
+      padding-left: 1rem;
+    }
+    .dot-list li::before{
+      content:"•";
+      position: absolute;
+      left: 0;
+      color: var(--ink);
+      opacity:.8;
+    }
+
+    .pill{
+      border-radius: 999px;
+    }
+
+    /* Taken badge ribbon */
+    .taken-badge{
+      position: absolute;
+      top: 12px;
+      right: -36px;
+      transform: rotate(20deg);
+      background: var(--warning);
+      color:#fff;
+      font-weight: 800;
+      letter-spacing:.1em;
+      padding: 6px 42px;
+      box-shadow: var(--shadow-1);
+      display: none;
+      font-size: .75rem;
+      text-transform: uppercase;
+    }
+    .role-card.taken .taken-badge{ display:block; }
+
+    /* Continue button states */
+    .btn{
+      transition: background .2s ease, transform .15s ease, box-shadow .2s ease;
+      box-shadow: var(--shadow-1);
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn-main{
+      background:#ffffff;
+      color:#111827;
+      border: 2px solid #e9e5d6;
+    }
+    .btn-main.enabled{
+      background: #ffffff;
+      color:#111827;
+      border-color: #cfc9b2;
+    }
+    .btn-main.enabled:hover{
+      background:#f9f7f1;
+    }
+    .btn-ink{
+      background: var(--ink);
+      color: #fff;
+    }
+    .btn-ink:hover{
+      background: #1b3a2d;
+    }
+    .btn-disabled{
+      opacity:.55;
+      cursor:not-allowed;
+      filter: grayscale(20%);
+    }
+
+    /* Room full overlay */
+    .overlay{
+      backdrop-filter: blur(2px);
+    }
+
+    /* Responsive tweaks */
+    @media (max-width: 768px){
+      .stage{ border-radius: 18px; }
+      .stage-head{ border-radius: 16px; }
+    }
+  </style>
+    <style>
+      :root {
+        --ink:#1a2f25;
+        --ink-2:#244635;
+        --panel:#9bb38f;
+        --paper:#e3dfd2;
+        --card:#ffffff;
+        --muted:#6b7280;
+        --accent:#2f6f43;
+        --accent-2:#3e7d51;
+        --radius-xl: 20px;
+        --shadow-1: 0 12px 24px rgba(0,0,0,.12);
+      }
+      html, body { height: 100%; }
+      body { background: var(--paper) !important; color: #1f2937 !important; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji" !important; }
+      .app-header { background: var(--ink-2) !important; color: #fff !important; box-shadow: var(--shadow-1) !important; }
+      .stage { background: var(--panel) !important; border-radius: 26px !important; box-shadow: var(--shadow-1) !important; border: 2px solid rgba(0,0,0,.06) !important; }
+      .stage-head { background: var(--ink) !important; color: #e8f3ec !important; }
+      /* Avoid overriding generic rounding utility classes (buttons/modals also use rounded-*) */
+      .card, .role-card { background: var(--card) !important; }
+      .btn-ink { background: var(--ink) !important; color:#fff !important; }
+      .btn-main { background:#fff !important; color:#111827 !important; border: 2px solid #e9e5d6 !important; }
+      .record-bar { background: linear-gradient(90deg, #16a34a 0%, #047857 100%) !important; }
+      .status-normal { background: linear-gradient(135deg, #059669 0%, #047857 100%) !important; }
+      .status-full { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; }
+      .status-overflowing { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important; }
+    </style>
+    <!-- GREEN-THEME-OVERRIDE -->
+</head>
+<body class="min-h-screen">
+
+  <!-- ROOM-FULL OVERLAY -->
+  <div id="roomFullOverlay" class="fixed inset-0 z-50 bg-black/70 overlay hidden flex items-center justify-center">
+    <div class="bg-white rounded-2xl p-8 text-center max-w-md w-11/12 shadow-2xl">
+      <h2 class="text-3xl font-extrabold text-red-600 mb-2">Room Full</h2>
+      <p class="text-gray-600 text-base">3 players are already connected. Please try again later.</p>
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <header class="app-header w-full">
+    <div class="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
+      <button onclick="goBack()"
+              class="btn btn-main pill px-4 py-2 flex items-center gap-2 text-sm font-semibold">
+        <span class="inline-block -ml-0.5">←</span>
+        <span>Back</span>
+      </button>
+
+      <h1 class="text-3xl md:text-4xl font-extrabold tracking-widest text-center">ABC City</h1>
+
+      <div class="flex items-center gap-3">
+        <span id="playerCountBadge"
+              class="text-xs md:text-sm bg-emerald-600 text-white px-3 py-1 rounded-full">
+          Players: ?/3
+        </span>
+        <div class="w-9 h-9 bg-emerald-400 rounded-full flex items-center justify-center font-extrabold text-black">P</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN STAGE -->
+  <main class="mx-auto max-w-6xl px-4 md:px-6 py-8 md:py-10">
+    <section class="stage p-3 md:p-6">
+      <!-- Stage header band -->
+      <div class="stage-head">
+        <h2 class="text-2xl md:text-3xl font-extrabold tracking-widest">SELECT ROLE</h2>
+        <p class="text-emerald-100 mt-1 text-sm md:text-base">Select a role to start playing the game</p>
+      </div>
+
+      <!-- Card grid on soft backdrop -->
+      <div class="bg-[rgba(0,0,0,0.08)] md:bg-transparent rounded-b-2xl p-4 md:p-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+
+          <!-- Municipality -->
+          <article onclick="selectRole(this, 'Municipality')" id="card-Municipality"
+                   class="role-card p-6 md:p-7">
+            <div class="taken-badge">TAKEN</div>
+            <h3 class="role-title text-2xl md:text-3xl font-extrabold mb-4 md:mb-6">Municipality</h3>
+            <ul class="dot-list space-y-3 text-sm leading-relaxed text-gray-800">
+              <li>You collect waste from Residential, Commercial, and Industrial districts.</li>
+              <li>You balance city metrics: budget, city health, and carbon emissions.</li>
+              <li>You complete city projects using Grade A/B materials to boost city health.</li>
+            </ul>
+          </article>
+
+          <!-- MRF -->
+          <article onclick="selectRole(this, 'MRF')" id="card-MRF"
+                   class="role-card p-6 md:p-7">
+            <div class="taken-badge">TAKEN</div>
+            <h3 class="role-title text-2xl md:text-3xl font-extrabold mb-4 md:mb-6">MRF</h3>
+            <ul class="dot-list space-y-3 text-sm leading-relaxed text-gray-800">
+              <li>You process and sort waste into usable materials (A/B/C grades).</li>
+              <li>You run Sorting, Recycling, and Waste Treatment to reduce low-grade waste.</li>
+              <li>You decide what to send to Broker while controlling processing costs and impact.</li>
+            </ul>
+          </article>
+
+          <!-- Broker -->
+          <article onclick="selectRole(this, 'Broker')" id="card-Broker"
+                   class="role-card p-6 md:p-7">
+            <div class="taken-badge">TAKEN</div>
+            <h3 class="role-title text-2xl md:text-3xl font-extrabold mb-4 md:mb-6">Broker</h3>
+            <ul class="dot-list space-y-3 text-sm leading-relaxed text-gray-800">
+              <li>You move materials and waste between Municipality and MRF.</li>
+              <li>You manage transport choices (truck/port/airport), speed, capacity, and cost.</li>
+              <li>You trade in the marketplace to support team flow and avoid bottlenecks.</li>
+            </ul>
+          </article>
+        </div>
+
+        <!-- Controls row -->
+        <div class="flex flex-wrap items-center justify-between gap-3 mt-8 md:mt-10">
+          <div class="flex items-center gap-2 bg-white/80 border border-[#e9e5d6] rounded-full px-3 py-1.5 shadow">
+            <label for="difficultySelect" class="text-xs font-bold text-slate-700 tracking-wide uppercase">Mode</label>
+            <select id="difficultySelect" class="text-sm font-semibold bg-transparent outline-none cursor-pointer">
+              <option value="normal">Normal</option>
+              <option value="beginner" selected>Beginner</option>
+            </select>
+          </div>
+          <button onclick="resetLobby()"
+                  class="btn btn-ink pill px-6 py-3 font-bold text-sm md:text-base">
+            Reset
+          </button>
+
+          <button id="continueBtn" onclick="confirmSelection()" disabled
+                  class="btn btn-main pill px-7 py-3 font-extrabold text-sm md:text-base btn-disabled flex items-center gap-2">
+            <span>CONTINUE</span>
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ─── SCRIPT ─── -->
+  <script src="player-menu.js"></script>
+  <script>
+    // Socket connection — only this page reserves one of the 3 lobby seats (see server `joinLobby`).
+    const socket = io();
+    function requestLobbySeat() {
+      socket.emit('joinLobby');
+    }
+    socket.on('connect', requestLobbySeat);
+    if (socket.connected) requestLobbySeat();
+    if (typeof besseAttachRestartUI === 'function') besseAttachRestartUI(socket);
+
+    let mySelectedRole = null;    // role the player clicked (not yet confirmed)
+    let myConfirmedRole = null;   // role locked after continue
+    const ALL_ROLES = ['Municipality', 'MRF', 'Broker'];
+    let currentDifficulty = 'beginner';
+
+    function applyDifficultyUI(value, canEdit) {
+      const sel = document.getElementById('difficultySelect');
+      if (!sel) return;
+      const v = (value === 'beginner') ? 'beginner' : 'normal';
+      currentDifficulty = v;
+      if (sel.value !== v) sel.value = v;
+      sel.disabled = !canEdit;
+      sel.classList.toggle('opacity-50', !canEdit);
+      sel.classList.toggle('cursor-not-allowed', !canEdit);
+    }
+
+    // Room full
+    socket.on('roomFull', () => {
+      document.getElementById('roomFullOverlay').classList.remove('hidden');
+    });
+
+    // Lobby count
+    socket.on('lobbyUpdate', (data) => {
+      document.getElementById('playerCountBadge').textContent =
+        `Players: ${data.playerCount}/${data.maxPlayers}`;
+      applyDifficultyUI(data && data.difficulty, !myConfirmedRole);
+    });
+
+    // Role state broadcast
+    socket.on('roleUpdate', (data) => {
+      const taken = data.takenRoles || [];
+      applyDifficultyUI(data && data.difficulty, !myConfirmedRole);
+
+      if (data.playerCount !== undefined) {
+        document.getElementById('playerCountBadge').textContent =
+          `Players: ${data.playerCount}/${data.maxPlayers}`;
+      }
+
+      ALL_ROLES.forEach(role => {
+        const card = document.getElementById('card-' + role);
+        if (!card) return;
+
+        if (taken.includes(role)) {
+          // Role is taken
+          card.classList.add('taken');
+          card.classList.remove('selected');
+
+          // If I had clicked it but not confirmed, clear my pick
+          if (mySelectedRole === role && !myConfirmedRole) {
+            mySelectedRole = null;
+            disableContinue();
+          }
+        } else {
+          // Role is available again (e.g., player disconnected)
+          if (!myConfirmedRole) card.classList.remove('taken');
+        }
+      });
+
+      // If I already confirmed, keep my card highlighted and others locked
+      if (myConfirmedRole) {
+        ALL_ROLES.forEach(role => {
+          const card = document.getElementById('card-' + role);
+          if (role === myConfirmedRole) {
+            card.classList.add('selected', 'confirmed');
+            card.classList.remove('taken');
+          } else {
+            card.classList.add('taken');
+          }
+        });
+      }
+    });
+
+    // Server rejected my pick (generic)
+    socket.on('roleError', (data) => {
+      // If we had already applied optimistic lock, undo it
+      if (myConfirmedRole) {
+        ALL_ROLES.forEach(role => {
+          document.getElementById('card-' + role).classList.remove('confirmed', 'taken', 'selected');
+        });
+        myConfirmedRole = null;
+        mySelectedRole = null;
+        disableContinue();
+      } else {
+        // Just clear current selection
+        mySelectedRole = null;
+        ALL_ROLES.forEach(role => {
+          document.getElementById('card-' + role).classList.remove('selected');
+        });
+        disableContinue();
+      }
+      alert(data?.message || 'That role is no longer available.');
+    });
+
+    socket.on('difficultyUpdate', (data) => {
+      if (!data) return;
+      applyDifficultyUI(data.difficulty, !myConfirmedRole);
+      if (!data.ok && data.message) alert(data.message);
+    });
+    socket.on('lobbyReset', (data) => {
+      mySelectedRole = null;
+      myConfirmedRole = null;
+      ALL_ROLES.forEach((role) => {
+        const card = document.getElementById('card-' + role);
+        if (!card) return;
+        card.classList.remove('selected', 'confirmed', 'taken');
+      });
+      disableContinue();
+      requestLobbySeat();
+      if (data && data.message) alert(data.message);
+    });
+
+    // All 3 roles filled → navigate
+    socket.on('gameReady', (data) => {
+      alert(data.message || 'All roles selected. Starting…');
+      const role = myConfirmedRole || '';
+      window.location.href = 'game.html?role=' + encodeURIComponent(role);
+    });
+
+    // ────────── Local UI functions ──────────
+    function selectRole(cardEl, role) {
+      // If already confirmed, do nothing
+      if (myConfirmedRole) return;
+
+      // Card is taken? safety net (pointer-events: none already blocks)
+      if (cardEl.classList.contains('taken')) return;
+
+      // Deselect previous
+      ALL_ROLES.forEach(r => {
+        document.getElementById('card-' + r).classList.remove('selected');
+      });
+
+      // Select this one
+      cardEl.classList.add('selected');
+      mySelectedRole = role;
+      enableContinue();
+    }
+
+    function confirmSelection() {
+      if (!mySelectedRole || myConfirmedRole) return;
+
+      // Ask server
+      socket.emit('selectRole', mySelectedRole);
+
+      // Optimistic lock
+      myConfirmedRole = mySelectedRole;
+
+      // Lock UI for this player
+      ALL_ROLES.forEach(role => {
+        const card = document.getElementById('card-' + role);
+        if (!card) return;
+        if (role === myConfirmedRole) {
+          card.classList.add('confirmed', 'selected');
+          card.classList.remove('taken');
+        } else {
+          card.classList.add('taken');
+        }
+      });
+
+      const btn = document.getElementById('continueBtn');
+      btn.textContent = `✓ ${myConfirmedRole} — Waiting for others…`;
+      btn.disabled = true;
+      btn.classList.add('btn-disabled');
+      btn.classList.remove('enabled');
+    }
+
+    document.getElementById('difficultySelect')?.addEventListener('change', (e) => {
+      const selected = (e && e.target && e.target.value) || 'normal';
+      const difficulty = selected === 'beginner' ? 'beginner' : 'normal';
+      applyDifficultyUI(difficulty, !myConfirmedRole);
+      socket.emit('setDifficulty', { difficulty });
+    });
+
+    function enableContinue() {
+      const btn = document.getElementById('continueBtn');
+      btn.disabled = false;
+      btn.classList.remove('btn-disabled');
+      btn.classList.add('enabled');
+      btn.textContent = 'CONTINUE →';
+    }
+
+    function disableContinue() {
+      const btn = document.getElementById('continueBtn');
+      btn.disabled = true;
+      btn.classList.add('btn-disabled');
+      btn.classList.remove('enabled');
+      btn.textContent = 'CONTINUE →';
+    }
+
+    function goBack(){ window.history.back(); }
+    function resetLobby() {
+      if (!confirm('Reset lobby now? This will clear current role selections for everyone.')) return;
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        alert('Reset request did not return. Please restart server, then try Reset again.');
+      }, 1500);
+      socket.emit('resetLobby', {}, (res) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (!res || !res.ok) {
+          alert('Reset failed. Please restart server and try again.');
+        }
+      });
+    }
+  </script>
+</body>
+</html>

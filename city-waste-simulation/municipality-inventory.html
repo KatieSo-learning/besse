@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Municipality – City Inventory &amp; Material Stock</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="player-menu.css" />
+  <link rel="stylesheet" href="ui-fonts.css" />
+  <style>
+    body { background: #e8e3d3; min-height: 100vh; }
+    .topbar {
+      background: #2f5a47;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+    }
+    .status-strip {
+      position: fixed;
+      bottom: 10px;
+      left: 24px;
+      right: 24px;
+      z-index: 9990;
+    }
+    @media (max-width: 768px) {
+      .status-strip { left: 12px; right: 12px; }
+    }
+    .record-bar { background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%); }
+    .dashed-panel { border-radius: 1.25rem; }
+    .paper-card { background: #ffffff; border: 1px solid rgba(0,0,0,.14); box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08); }
+    .mat-card {
+      background: #ffffff;
+      border: 1px solid rgba(0,0,0,.35);
+      border-radius: .75rem;
+      padding: .75rem;
+    }
+    .mat-card-btn {
+      width: 100%;
+      margin-top: .75rem;
+      border-radius: .5rem;
+      padding: .35rem .5rem;
+      font-weight: 800;
+      border: 1px solid #4f7a4f;
+      color: #4f7a4f;
+      background: #ffffff;
+    }
+    .mat-card-btn.selected {
+      background: #4f7a4f;
+      border-color: #4f7a4f;
+      color: #ffffff;
+    }
+    .grade-pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 9999px;
+      padding: .1rem .45rem;
+      font-size: .72rem;
+      font-weight: 800;
+      border: 1px solid transparent;
+      line-height: 1.1;
+    }
+    .grade-pill-a {
+      background: #dbeafe;
+      color: #1e40af;
+      border-color: #93c5fd;
+    }
+    .grade-pill-b {
+      background: #dcfce7;
+      color: #166534;
+      border-color: #86efac;
+    }
+    .grade-pill-c {
+      background: #fef3c7;
+      color: #92400e;
+      border-color: #fde68a;
+    }
+    .grade-pill-f {
+      background: #fee2e2;
+      color: #991b1b;
+      border-color: #fecaca;
+    }
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 9999px;
+      display: inline-block;
+      flex: 0 0 auto;
+    }
+
+    /* Right panel switching is handled by JS for reliability */
+  </style>
+    <style>
+      :root {
+        --ink:#1a2f25;
+        --ink-2:#244635;
+        --panel:#9bb38f;
+        --paper:#e3dfd2;
+        --card:#ffffff;
+        --muted:#6b7280;
+        --accent:#2f6f43;
+        --accent-2:#3e7d51;
+        --radius-xl: 20px;
+        --shadow-1: 0 12px 24px rgba(0,0,0,.12);
+      }
+      html, body { height: 100%; }
+      body { background: #e8e3d3 !important; color: #1f2937 !important; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace !important; }
+      .app-header { background: var(--ink-2) !important; color: #fff !important; box-shadow: var(--shadow-1) !important; }
+      .stage { background: var(--panel) !important; border-radius: 26px !important; box-shadow: var(--shadow-1) !important; border: 2px solid rgba(0,0,0,.06) !important; }
+      .stage-head { background: var(--ink) !important; color: #e8f3ec !important; }
+      /* Avoid overriding generic rounding utility classes (buttons/modals also use rounded-*) */
+      .card, .role-card { background: var(--card) !important; }
+      .btn-ink { background: var(--ink) !important; color:#fff !important; }
+      .btn-main { background:#fff !important; color:#111827 !important; border: 2px solid #e9e5d6 !important; }
+      .record-bar { background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%) !important; }
+      .status-normal { background: linear-gradient(135deg, #059669 0%, #047857 100%) !important; }
+      .status-full { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; }
+      .status-overflowing { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important; }
+    </style>
+    <!-- GREEN-THEME-OVERRIDE -->
+</head>
+<body class="min-h-screen text-slate-800 pt-20">
+  <div class="mx-auto">
+    <header class="topbar w-full px-6 py-4 text-white shadow flex items-center justify-between">
+      <div class="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+        <button onclick="goHub()" class="bg-white text-slate-800 hover:bg-slate-100 rounded-full w-10 h-10 text-lg font-bold leading-none shrink-0">←</button>
+        <div class="hidden md:flex items-center rounded-full bg-[#f1f1ea] text-slate-700 border border-black/15 px-4 py-2 text-sm font-extrabold tracking-wide">
+          <span id="clockText">10:00 a.m.</span>
+          <span class="mx-2">|</span>
+          <span id="dateText">01 November 2025</span>
+        </div>
+        <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="游戏日进度">Day – / –</span>
+      </div>
+      <h1 class="text-3xl font-extrabold tracking-wider">Inventory</h1>
+      <div class="flex items-center gap-3 pr-2">
+        <button
+          id="playerBadgeBtn"
+          data-player-menu-trigger="Municipality"
+          type="button"
+          class="bg-white rounded-full px-5 py-2 text-sm hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-300/60 text-slate-800 max-w-[min(360px,48vw)]"
+        >
+          <span class="font-semibold truncate">@Player, Municipality</span>
+          <span class="ml-2">📦</span>
+          <span id="invCapacityBadge" class="ml-1 text-xs text-slate-600 whitespace-nowrap hidden">–/– tons</span>
+        </button>
+      </div>
+    </header>
+
+    <section class="hidden mb-4 bg-white/80 rounded-2xl p-4 shadow-sm border border-emerald-100">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <h2 class="font-semibold text-slate-800">Game Hub Summary</h2>
+      </div>
+      <div class="mt-3 grid gap-3 md:grid-cols-2">
+        <div class="bg-white rounded-xl border border-slate-200 p-3">
+          <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+            <div class="text-slate-500">Budget (HKD)</div><div class="text-right font-medium" id="hubBudget">–</div>
+            <div class="text-slate-500">City Health</div><div class="text-right font-medium" id="hubHealth">–%</div>
+            <div class="text-slate-500">Buffer Level</div><div class="text-right font-medium" id="hubBuffer">–</div>
+            <div class="text-slate-500">Transport Time</div><div class="text-right font-medium">x<span id="hubTransport">–</span></div>
+            <div class="text-slate-500">Waste</div><div class="text-right font-medium"><span id="hubWasteTotal">–</span>/<span id="hubWasteLimit">–</span> t</div>
+            <div class="text-slate-500">Carbon</div><div class="text-right font-medium"><span id="hubCarbon">–</span>/<span id="hubCarbonLimit">–</span>%</div>
+            <div class="text-slate-500">Day</div><div class="text-right font-medium"><span id="hubDay">–</span>/<span id="hubMaxDay">–</span></div>
+          </div>
+          <p class="mt-2 text-xs text-slate-600" id="hubDistricts">Districts: –</p>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 p-3">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-semibold">Municipality Inventory</p>
+            <p class="text-xs text-slate-500"><span id="hubInvTotal">–</span>/<span id="hubInvCap">–</span> t</p>
+          </div>
+          <p class="mt-2 text-xs text-slate-600">Showing total only (consistent across pages).</p>
+        </div>
+      </div>
+    </section>
+
+    <main class="px-6 pt-2 pb-72">
+      <div id="pendingTransitNote" class="hidden mb-3 text-xs text-slate-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2"></div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <section class="rounded-xl overflow-hidden border border-slate-300 bg-white shadow-sm">
+          <div class="bg-[#2f5a47] px-5 py-3 text-white text-2xl font-extrabold flex items-center justify-between gap-3">
+            <span>Material Quality</span>
+            <div class="flex items-center gap-2 text-xs">
+              <button id="qualityModeMaterialsBtn" type="button" class="px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 font-extrabold">
+                Materials (A/B/C)
+              </button>
+              <button id="qualityModeWasteBtn" type="button" class="px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 font-extrabold opacity-80">
+                Waste (B/C/F)
+              </button>
+            </div>
+          </div>
+          <div class="p-5">
+            <div class="hidden">
+              <p id="budgetHKD">–</p>
+              <p id="cityHealth">–%</p>
+              <p id="carbonValue">–%</p>
+              <p><span id="currentDay">–</span>/<span id="maxDay">–</span></p>
+            </div>
+
+            <div class="w-full h-72 flex items-center justify-center">
+              <canvas id="materialsPie" class="w-full h-full"></canvas>
+            </div>
+
+            <div id="materialSummary" class="mt-4 text-sm text-slate-700">
+              <p class="text-slate-400">No waste yet.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="rounded-xl overflow-hidden border border-slate-300 bg-white shadow-sm">
+          <div class="p-5">
+            <div class="bg-[#2f5a47] -mx-5 -mt-5 mb-5 px-5 py-3 text-white text-2xl font-extrabold text-center">
+              <span id="rightPanelTitleText">Material List</span>
+            </div>
+
+            <div id="materialListPanel">
+              <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <p class="text-xs text-slate-500"><span id="materialListTotal">0</span> t total</p>
+                <p class="text-xs text-slate-500"><span id="materialSelectedTotal">0</span> t selected</p>
+              </div>
+              <div id="materialListBody" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[440px] overflow-y-auto">
+                <div class="col-span-full text-center py-8 text-slate-400 border border-slate-200 rounded-xl">
+                  No materials in inventory yet.
+                </div>
+              </div>
+              <div class="hidden mt-5 flex justify-center">
+                <button id="materialSendToBrokerBtn" type="button" class="bg-[#6b994c] hover:bg-[#5b8640] font-bold text-base px-8 py-2 rounded-xl shadow disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                  Send to Broker
+                </button>
+              </div>
+            </div>
+
+            <div id="wasteListPanel" class="hidden">
+              <div class="flex items-center justify-between mb-3">
+                <p class="text-xs text-slate-500"><span id="wasteListTotal">0</span> t total</p>
+                <p class="text-xs text-slate-500"><span id="wasteSelectedTotal">0</span> t selected</p>
+              </div>
+              <div id="wasteListBody" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[440px] overflow-y-auto">
+                <div class="col-span-full text-center py-8 text-slate-400 border border-slate-200 rounded-xl">
+                  No waste in inventory yet.
+                </div>
+              </div>
+              <div class="hidden mt-5 flex justify-center">
+                <button id="wasteSendToBrokerBtn" type="button" class="bg-[#6b994c] hover:bg-[#5b8640] font-bold text-base px-8 py-2 rounded-xl shadow disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                  Send to Broker
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div id="muniBrokerSendSection" class="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-4 rounded-xl border border-slate-300 bg-white shadow-sm p-5">
+        <div class="lg:col-span-8 min-w-0">
+          <p class="text-xs font-semibold text-slate-600 mb-1">Selected to send to Broker</p>
+          <p class="text-xs text-slate-500 mb-2">Material / Waste — combined before sending</p>
+          <div class="unified-send-selection-text text-sm text-slate-700 font-mono rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 min-h-[2.5rem]">No items selected.</div>
+        </div>
+        <div class="lg:col-span-4 flex items-end justify-end">
+          <button type="button" class="unified-send-to-broker-btn w-full sm:w-auto bg-[#6b994c] hover:bg-[#5b8640] font-bold text-base px-8 py-2 rounded-xl shadow disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+            Send to Broker
+          </button>
+        </div>
+      </div>
+
+      <div class="status-strip grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
+        <div class="lg:col-span-1 rounded-xl overflow-hidden border border-slate-300 bg-white shadow-sm">
+          <div class="record-bar px-4 py-3 text-white text-2xl font-bold flex items-center gap-2">
+            <span>📎</span><span>Record</span>
+          </div>
+          <div id="recordLog" class="bg-white px-4 py-3 max-h-40 overflow-y-auto text-m md:text-base text-slate-800 leading-relaxed">
+            No events yet.
+          </div>
+        </div>
+
+        <div class="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between">
+            <span class="text-xl">💰</span>
+            <span id="statusBudget" class="font-extrabold text-slate-900">–</span>
+          </div>
+          <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
+            <span class="text-xl">❤️</span>
+            <div class="flex-1 h-3 rounded-full bg-slate-200 overflow-hidden border border-black/10">
+              <div id="statusHealthBar" class="h-full bg-red-400" style="width: 0%"></div>
+            </div>
+            <span id="statusHealth" class="font-extrabold text-slate-900 whitespace-nowrap">–</span>
+          </div>
+          <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between">
+            <span class="text-xl">🗑️</span>
+            <span id="statusInventory" class="font-extrabold text-slate-900">–</span>
+          </div>
+          <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
+            <span class="text-xl">🌳</span>
+            <div class="flex-1 h-3 rounded-full bg-slate-200 overflow-hidden border border-black/10">
+              <div id="statusCO2Bar" class="h-full bg-red-500" style="width: 0%"></div>
+            </div>
+            <span id="statusCO2" class="font-extrabold text-slate-900 whitespace-nowrap">–</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Legacy send UI kept for functionality (hidden) -->
+      <div id="legacySendPanel" class="hidden">
+        <div class="mt-4 border border-slate-200 rounded-2xl overflow-hidden bg-white">
+          <table class="w-full text-xs md:text-sm">
+            <thead class="bg-slate-50 text-slate-500">
+              <tr>
+                <th class="px-3 py-2 text-left">Material</th>
+                <th class="px-3 py-2 text-left">Grade</th>
+                <th class="px-3 py-2 text-right">Available (t)</th>
+                <th class="px-3 py-2 text-right">Send (t)</th>
+              </tr>
+            </thead>
+            <tbody id="wasteSelectableBody" class="bg-white">
+              <tr>
+                <td colspan="4" class="px-3 py-3 text-center text-slate-400">No waste in inventory yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mt-3 bg-white rounded-2xl border border-slate-200 p-3">
+          <h3 class="text-sm font-semibold mb-2">Impact preview</h3>
+          <div class="grid grid-cols-2 gap-3 text-sm">
+            <div><p class="text-xs text-slate-500">Inventory change</p><p class="font-semibold text-slate-800"><span id="impactInvDelta">0</span> t</p></div>
+            <div><p class="text-xs text-slate-500">After send (est.)</p><p class="font-semibold text-slate-800"><span id="impactInvAfter">–</span>/<span id="impactInvCap">–</span> t</p></div>
+            <div><p class="text-xs text-slate-500">Budget impact (est.)</p><p class="font-semibold text-emerald-700"><span id="impactBudget">0</span> HKD</p></div>
+            <div><p class="text-xs text-slate-500">CO₂ impact (est.)</p><p class="font-semibold text-slate-700"><span id="impactCO2">0</span>%</p></div>
+          </div>
+          <p class="text-xs text-slate-500 mt-2">
+            Notes: This preview shows one-time changes when you click “Send to Broker”.
+            Sending to Broker is currently a request/placeholder, so Budget/CO₂ do not change immediately on send.
+          </p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="player-menu.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const role = params.get('role') || 'Municipality';
+
+    function goHub() {
+      const url = new URL('game.html', window.location.origin);
+      url.searchParams.set('role', role);
+      window.location.href = url.toString();
+    }
+
+    // Socket.IO is optional: if CDN fails to load, keep page functional
+    // by relying on the /state polling below.
+    let socket = null;
+    if (typeof io !== 'undefined') {
+      socket = io();
+    }
+    let latestState = null;
+    let materialsChart = null;
+    let lastInvTotal = 0;
+    let lastInvCap = 200;
+    /** Which material:grade rows exist (not amounts) — used to avoid rebuilding table while typing */
+    let lastWasteSendRowKeys = '';
+    let lastWasteListRowKeys = '';
+    let lastMaterialListRowKeys = '';
+
+    function isEditingAnyWasteSendInput() {
+      const ae = document.activeElement;
+      return !!(
+        ae &&
+        ae.tagName === 'INPUT' &&
+        ae.closest &&
+        (ae.closest('#wasteListBody') || ae.closest('#wasteSelectableBody'))
+      );
+    }
+
+    function isEditingAnyMaterialSendInput() {
+      const ae = document.activeElement;
+      return !!(ae && ae.tagName === 'INPUT' && ae.closest && ae.closest('#materialListBody'));
+    }
+
+    function listInputTonnes(mat, grade) {
+      const el = document.querySelector(
+        `#wasteListBody input[data-waste-card-tons="1"][data-material="${mat}"][data-grade="${grade}"]`
+      );
+      return el ? Math.max(0, Math.floor(Number(el.value) || 0)) : 0;
+    }
+
+    function materialListInputTonnes(mat, grade) {
+      const el = document.querySelector(
+        `#materialListBody input[data-material-card-tons="1"][data-material="${mat}"][data-grade="${grade}"]`
+      );
+      return el ? Math.max(0, Math.floor(Number(el.value) || 0)) : 0;
+    }
+
+    function tableInputTonnes(mat, grade) {
+      const el = document.querySelector(
+        `#wasteSelectableBody input[data-material="${mat}"][data-grade="${grade}"]`
+      );
+      return el ? Math.max(0, Math.floor(Number(el.value) || 0)) : 0;
+    }
+
+    function effectiveSendTonnesForRow(mat, grade, maxAvail) {
+      const cap = Math.max(0, Math.floor(Number(maxAvail) || 0));
+      if (cap <= 0) return 0;
+      return Math.min(cap, Math.max(listInputTonnes(mat, grade), tableInputTonnes(mat, grade)));
+    }
+
+    function effectiveMaterialSendTonnesForRow(mat, grade, maxAvail) {
+      const cap = Math.max(0, Math.floor(Number(maxAvail) || 0));
+      if (cap <= 0) return 0;
+      return Math.min(cap, materialListInputTonnes(mat, grade));
+    }
+
+    function syncWasteListCardInputs(inv) {
+      if (!inv || !inv.waste) return;
+      document.querySelectorAll('#wasteListBody [data-waste-card-row="1"]').forEach((row) => {
+        const mat = row.dataset.material;
+        const grade = row.dataset.grade;
+        if (!mat || !grade) return;
+        const amount = Math.max(0, Math.floor(Number((inv.waste[mat] && inv.waste[mat][grade]) || 0)));
+        const input = row.querySelector('input[type="number"]');
+        if (input) {
+          input.max = amount;
+          const v = Math.floor(Number(input.value) || 0);
+          if (v > amount) input.value = String(amount);
+        }
+      });
+    }
+
+    function syncMaterialListCardInputs(inv) {
+      if (!inv || !inv.materials) return;
+      document.querySelectorAll('#materialListBody [data-material-card-row="1"]').forEach((row) => {
+        const mat = row.dataset.material;
+        const grade = row.dataset.grade;
+        if (!mat || !grade) return;
+        const amount = Math.max(0, Math.floor(Number((inv.materials[mat] && inv.materials[mat][grade]) || 0)));
+        const input = row.querySelector('input[type="number"]');
+        if (input) {
+          input.max = amount;
+          const v = Math.floor(Number(input.value) || 0);
+          if (v > amount) input.value = String(amount);
+        }
+      });
+    }
+
+    function wasteSendTableRowKeys(inv) {
+      if (!inv || !inv.waste) return '';
+      const parts = [];
+      Object.keys(inv.waste).sort().forEach((mat) => {
+        const g = inv.waste[mat];
+        ['B', 'C', 'F'].forEach((gr) => {
+          if ((g[gr] || 0) > 0) parts.push(`${mat}:${gr}`);
+        });
+      });
+      return parts.join('|');
+    }
+
+    function materialSendTableRowKeys(inv) {
+      if (!inv || !inv.materials) return '';
+      const parts = [];
+      Object.keys(inv.materials).sort().forEach((mat) => {
+        const g = inv.materials[mat];
+        ['A', 'B', 'C'].forEach((gr) => {
+          if ((g[gr] || 0) > 0) parts.push(`${mat}:${gr}`);
+        });
+      });
+      return parts.join('|');
+    }
+
+    function syncWasteSendTableAvailable(inv) {
+      if (!inv || !inv.waste) return;
+      document.querySelectorAll('#wasteSelectableBody tr[data-send-row="1"]').forEach((tr) => {
+        const mat = tr.dataset.material;
+        const grade = tr.dataset.grade;
+        if (!mat || !grade) return;
+        const amount = Math.max(0, Math.floor(Number((inv.waste[mat] && inv.waste[mat][grade]) || 0)));
+        const availEl = tr.querySelector('.js-send-avail');
+        const input = tr.querySelector('input[type="number"]');
+        if (availEl) availEl.textContent = String(amount);
+        if (input) {
+          input.max = amount;
+          const v = Math.floor(Number(input.value) || 0);
+          if (v > amount) input.value = String(amount);
+        }
+      });
+    }
+
+    function computeSelectedSendTons() {
+      const inv = latestState?.roles?.municipality?.inventory;
+      if (!inv || !inv.waste) return 0;
+      let sum = 0;
+      Object.entries(inv.waste).forEach(([mat, grades]) => {
+        ['B', 'C', 'F'].forEach((g) => {
+          const maxAvail = Math.max(0, Math.floor(Number(grades[g] || 0)));
+          if (maxAvail <= 0) return;
+          sum += effectiveSendTonnesForRow(mat, g, maxAvail);
+        });
+      });
+      return sum;
+    }
+
+    function computeSelectedMaterialTons() {
+      const inv = latestState?.roles?.municipality?.inventory;
+      if (!inv || !inv.materials) return 0;
+      let sum = 0;
+      Object.entries(inv.materials).forEach(([mat, grades]) => {
+        ['A', 'B', 'C'].forEach((g) => {
+          const maxAvail = Math.max(0, Math.floor(Number(grades[g] || 0)));
+          if (maxAvail <= 0) return;
+          sum += effectiveMaterialSendTonnesForRow(mat, g, maxAvail);
+        });
+      });
+      return sum;
+    }
+
+    function updateImpactPreview() {
+      const sendTons = qualityMode === 'materials' ? computeSelectedMaterialTons() : computeSelectedSendTons();
+      const invAfter = Math.max(0, lastInvTotal - sendTons);
+
+      const invDeltaEl = document.getElementById('impactInvDelta');
+      const invAfterEl = document.getElementById('impactInvAfter');
+      const invCapEl = document.getElementById('impactInvCap');
+      const budgetEl = document.getElementById('impactBudget');
+      const co2El = document.getElementById('impactCO2');
+      if (!invDeltaEl || !invAfterEl || !invCapEl || !budgetEl || !co2El) return;
+
+      invDeltaEl.textContent = sendTons ? `-${sendTons}` : '0';
+      invAfterEl.textContent = invAfter;
+      invCapEl.textContent = lastInvCap;
+
+      // Municipality holding cost = 2 HKD / ton / day (server)
+      // One-time budget impact is 0 for now (send is a placeholder request).
+      budgetEl.textContent = '0';
+
+      // Sending request itself does not change CO2 immediately (placeholder action)
+      co2El.textContent = '0';
+    }
+
+    function formatMaterialDisplayName(mat) {
+      if (!mat) return '';
+      if (mat === 'material6') return 'Material 6';
+      return mat.charAt(0).toUpperCase() + mat.slice(1);
+    }
+
+    function buildUnifiedSendItems(inv) {
+      if (!inv) return [];
+      return [
+        ...gatherMunicipalityMaterialSendItems(inv),
+        ...gatherMunicipalityWasteSendItems(inv)
+      ];
+    }
+
+    function updateUnifiedSendSelectionSummary(inv) {
+      const textEls = document.querySelectorAll('.unified-send-selection-text');
+      const btns = document.querySelectorAll('.unified-send-to-broker-btn');
+      if (!textEls.length || !btns.length) return;
+      const items = buildUnifiedSendItems(inv);
+      if (!items.length) {
+        textEls.forEach((el) => {
+          el.textContent = 'No items selected.';
+        });
+        btns.forEach((b) => {
+          b.disabled = true;
+        });
+        return;
+      }
+      const lines = items.map((it) => {
+        const kind = it.kind === 'waste' ? 'Waste' : 'Material';
+        return `${kind} · ${formatMaterialDisplayName(it.material)} · Grade ${it.grade} · ${it.tonnes} t`;
+      });
+      const html = lines.join('<br />');
+      textEls.forEach((el) => {
+        el.innerHTML = html;
+      });
+      btns.forEach((b) => {
+        b.disabled = false;
+      });
+    }
+
+    function updateWasteSendButtonState(inv) {
+      const btn = document.getElementById('wasteSendToBrokerBtn');
+      const selectedEl = document.getElementById('wasteSelectedTotal');
+      if (!btn || !selectedEl) return;
+      let selectedTotal = 0;
+      if (inv && inv.waste) {
+        Object.entries(inv.waste).forEach(([mat, grades]) => {
+          ['B', 'C', 'F'].forEach((g) => {
+            const maxAvail = Math.max(0, Math.floor(Number(grades[g] || 0)));
+            if (maxAvail <= 0) return;
+            selectedTotal += effectiveSendTonnesForRow(mat, g, maxAvail);
+          });
+        });
+      }
+      selectedEl.textContent = String(selectedTotal);
+      btn.disabled = selectedTotal <= 0;
+      updateUnifiedSendSelectionSummary(inv);
+    }
+
+    function gatherMunicipalityWasteSendItems(inv) {
+      const items = [];
+      if (!inv || !inv.waste) return items;
+      Object.entries(inv.waste).forEach(([mat, grades]) => {
+        ['B', 'C', 'F'].forEach((g) => {
+          const maxAvail = Math.max(0, Math.floor(Number(grades[g] || 0)));
+          if (maxAvail <= 0) return;
+          const tonnes = effectiveSendTonnesForRow(mat, g, maxAvail);
+          if (tonnes > 0) items.push({ material: mat, grade: g, tonnes, kind: 'waste' });
+        });
+      });
+      return items;
+    }
+
+    function gatherMunicipalityMaterialSendItems(inv) {
+      const items = [];
+      if (!inv || !inv.materials) return items;
+      Object.entries(inv.materials).forEach(([mat, grades]) => {
+        ['A', 'B', 'C'].forEach((g) => {
+          const maxAvail = Math.max(0, Math.floor(Number(grades[g] || 0)));
+          if (maxAvail <= 0) return;
+          const tonnes = effectiveMaterialSendTonnesForRow(mat, g, maxAvail);
+          if (tonnes > 0) items.push({ material: mat, grade: g, tonnes, kind: 'material' });
+        });
+      });
+      return items;
+    }
+
+    function updateDayDisplay(payload) {
+      document.getElementById('currentDay').textContent = payload.day;
+      document.getElementById('maxDay').textContent = payload.maxDay;
+      if (window.BesseGameCalendar && payload) {
+        window.BesseGameCalendar.updateDom({ day: payload.day, maxDay: payload.maxDay });
+      }
+      if (window.BesseSyncHeaderDayChip) window.BesseSyncHeaderDayChip(payload.day, payload.maxDay);
+    }
+
+    let qualityMode = 'materials'; // 'materials' | 'waste'
+
+    // Robust right-panel switching (independent of Socket/Chart)
+    window.__setRightPanel = function(mode) {
+      qualityMode = mode === 'waste' ? 'waste' : 'materials';
+      const isWaste = mode === 'waste';
+      const materialPanel = document.getElementById('materialListPanel');
+      const wastePanel = document.getElementById('wasteListPanel');
+      const titleEl = document.getElementById('rightPanelTitleText');
+      if (materialPanel) materialPanel.classList.toggle('hidden', isWaste);
+      if (wastePanel) wastePanel.classList.toggle('hidden', !isWaste);
+      if (titleEl) titleEl.textContent = isWaste ? 'Waste List' : 'Material List';
+    };
+
+    function setQualityMode(next) {
+      const nextMode = next === 'waste' ? 'waste' : 'materials';
+      qualityMode = nextMode;
+      const mBtn = document.getElementById('qualityModeMaterialsBtn');
+      const wBtn = document.getElementById('qualityModeWasteBtn');
+      if (mBtn && wBtn) {
+        const activeCls = ['opacity-100'];
+        const inactiveCls = ['opacity-80'];
+        mBtn.classList.remove(...activeCls, ...inactiveCls);
+        wBtn.classList.remove(...activeCls, ...inactiveCls);
+        if (nextMode === 'materials') {
+          mBtn.classList.add(...activeCls);
+          wBtn.classList.add(...inactiveCls);
+        } else {
+          wBtn.classList.add(...activeCls);
+          mBtn.classList.add(...inactiveCls);
+        }
+      }
+      // Also switch the right panel to match the selected mode.
+      if (window.__setRightPanel) window.__setRightPanel(nextMode === 'waste' ? 'waste' : 'materials');
+      if (latestState?.roles?.municipality?.inventory) {
+        renderMaterialSummary(latestState.roles.municipality.inventory);
+        updateMaterialSendButtonState(latestState.roles.municipality.inventory);
+        updateWasteSendButtonState(latestState.roles.municipality.inventory);
+        updateUnifiedSendSelectionSummary(latestState.roles.municipality.inventory);
+      } else {
+        renderMaterialSummary(null);
+        updateMaterialSendButtonState(null);
+        updateWasteSendButtonState(null);
+        updateUnifiedSendSelectionSummary(null);
+      }
+    }
+
+    function renderMaterialSummary(inv) {
+      const summaryEl = document.getElementById('materialSummary');
+      if (!inv) {
+        summaryEl.innerHTML = '<p class="text-slate-400">No waste yet.</p>';
+        updateMaterialsChart(null);
+        return;
+      }
+
+      let byGrade = null;
+      let order = [];
+      let gradePalette = {};
+      let gradeLabel = {};
+
+      if (qualityMode === 'materials') {
+        byGrade = { A: 0, B: 0, C: 0 };
+        Object.values(inv.materials || {}).forEach((grades) => {
+          byGrade.A += Number(grades?.A || 0);
+          byGrade.B += Number(grades?.B || 0);
+          byGrade.C += Number(grades?.C || 0);
+        });
+        order = ['A', 'B', 'C'];
+        gradePalette = { A: '#22c55e', B: '#f59e0b', C: '#ef4444' };
+        gradeLabel = { A: 'A (Excellent)', B: 'B (Average)', C: 'C (Poor)' };
+      } else {
+        byGrade = { B: 0, C: 0, F: 0 };
+        Object.values(inv.waste || {}).forEach((grades) => {
+          byGrade.B += Number(grades?.B || 0);
+          byGrade.C += Number(grades?.C || 0);
+          byGrade.F += Number(grades?.F || 0);
+        });
+        order = ['B', 'C', 'F'];
+        gradePalette = { B: '#22c55e', C: '#f59e0b', F: '#ef4444' };
+        gradeLabel = { B: 'B (Clean)', C: 'C (Dirty)', F: 'F (Unrecyclable)' };
+      }
+
+      const totalAll = order.reduce((s, g) => s + Number(byGrade[g] || 0), 0);
+      if (totalAll <= 0) {
+        summaryEl.innerHTML = `<p class="text-slate-400">No ${qualityMode === 'materials' ? 'materials' : 'waste'} yet.</p>`;
+        updateMaterialsChart(null);
+        return;
+      }
+
+      const items = order.map((g) => {
+        const t = Number(byGrade[g] || 0);
+        const pct = totalAll > 0 ? Math.round((t / totalAll) * 100) : 0;
+        const c = gradePalette[g];
+        return `
+          <div class="flex items-center gap-2">
+            <span class="legend-dot" style="background:${c}"></span>
+            <span>${gradeLabel[g]}: ${pct}%</span>
+          </div>
+        `;
+      });
+
+      summaryEl.innerHTML = `<div class="grid grid-cols-2 gap-x-6 gap-y-2">${items.join('')}</div>`;
+
+      updateMaterialsChart({ byGrade, order, gradePalette, gradeLabel });
+    }
+
+    function updateMaterialsChart(payload) {
+      const canvas = document.getElementById('materialsPie');
+      if (!canvas || typeof Chart === 'undefined') return;
+
+      const labels = [];
+      const data = [];
+      const colors = [];
+
+      const hasPayload = !!(payload && payload.byGrade && payload.order);
+      if (hasPayload) {
+        const { byGrade, order, gradePalette, gradeLabel } = payload;
+        order.forEach((g) => {
+          const t = Number(byGrade && byGrade[g] ? byGrade[g] : 0);
+          if (t <= 0) return;
+          labels.push(gradeLabel[g] || g);
+          data.push(t);
+          colors.push(gradePalette[g] || '#a78bfa');
+        });
+      }
+
+      const hasData = data.some((n) => n > 0);
+      const chartData = hasData ? data : [1];
+      const chartLabels = hasData ? labels : ['Empty'];
+      const chartColors = hasData ? colors : ['#e5e7eb'];
+
+      if (!materialsChart) {
+        materialsChart = new Chart(canvas, {
+          type: 'pie',
+          data: {
+            labels: chartLabels,
+            datasets: [{ data: chartData, backgroundColor: chartColors, borderColor: '#ffffff', borderWidth: 2 }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 0 },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => {
+                    const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                    const v = ctx.parsed || 0;
+                    const pct = total > 0 ? Math.round((v / total) * 100) : 0;
+                    return `${ctx.label}: ${v} t (${pct}%)`;
+                  }
+                }
+              }
+            }
+          }
+        });
+        return;
+      }
+
+      materialsChart.data.labels = chartLabels;
+      materialsChart.data.datasets[0].data = chartData;
+      materialsChart.data.datasets[0].backgroundColor = chartColors;
+      materialsChart.update();
+    }
+
+    function renderMaterialList(inv) {
+      const tbody = document.getElementById('materialListBody');
+      const totalEl = document.getElementById('materialListTotal');
+      if (!tbody || !totalEl) return;
+
+      const preserved = {};
+      document.querySelectorAll('#materialListBody input[data-material-card-tons="1"]').forEach((input) => {
+        const mat = input.dataset.material;
+        const grade = input.dataset.grade;
+        if (!mat || !grade) return;
+        preserved[`${mat}:${grade}`] = input.value;
+      });
+
+      const mats = inv?.materials || {};
+      const order = ['metal', 'paper', 'wood', 'plastic', 'glass', 'material6'];
+      const cards = [];
+      let total = 0;
+
+      order.forEach((mat) => {
+        const grades = mats[mat];
+        if (!grades) return;
+        ['A', 'B', 'C'].forEach((g) => {
+          const t = Math.max(0, Math.floor(Number(grades[g] || 0)));
+          if (t <= 0) return;
+          total += t;
+          const gradeClass = g === 'A' ? 'grade-pill-a' : g === 'B' ? 'grade-pill-b' : 'grade-pill-c';
+          const iconByMaterial = {
+            paper: '📄',
+            plastic: '🧴',
+            metal: '🔩',
+            glass: '🍾',
+            wood: '🪵',
+            material6: '📦'
+          };
+          const baseLabel = mat === 'material6' ? 'Material 6' : (mat.charAt(0).toUpperCase() + mat.slice(1));
+          const matLabel = `${iconByMaterial[mat] || '📦'} ${baseLabel}`;
+          const rowKey = `${mat}:${g}`;
+          const prev = preserved[rowKey];
+          const prevNum = Math.max(0, Math.floor(Number(prev) || 0));
+          const safePrev = Math.min(prevNum, t);
+          cards.push(`
+            <div class="mat-card" data-material-card-row="1" data-material="${mat}" data-grade="${g}">
+              <p class="text-lg font-extrabold">${matLabel}</p>
+              <p class="mt-2 text-sm text-slate-800">Quality:
+                <span class="grade-pill ${gradeClass}">${g}</span>
+              </p>
+              <p class="text-sm text-slate-800">Volume: ${t} t</p>
+              <label class="mt-3 block text-sm font-bold text-slate-700">Send (t)</label>
+              <input
+                type="number"
+                inputmode="numeric"
+                min="0"
+                max="${t}"
+                step="1"
+                value="${safePrev}"
+                data-material-card-tons="1"
+                data-material="${mat}"
+                data-grade="${g}"
+                class="mt-1 w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-right text-base text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
+              />
+            </div>
+          `);
+        });
+      });
+
+      lastMaterialListRowKeys = materialSendTableRowKeys(inv);
+
+      totalEl.textContent = String(total);
+      tbody.innerHTML = cards.length
+        ? cards.join('')
+        : `<div class="col-span-full text-center py-8 text-slate-400 border border-slate-200 rounded-xl">No materials in inventory yet.</div>`;
+
+      tbody.querySelectorAll('#materialListBody input[data-material-card-tons="1"]').forEach((input) => {
+        input.addEventListener('input', () => {
+          updateMaterialSendButtonState(latestState?.roles?.municipality?.inventory || null);
+          updateImpactPreview();
+        });
+        input.addEventListener('change', () => {
+          updateMaterialSendButtonState(latestState?.roles?.municipality?.inventory || null);
+          updateImpactPreview();
+        });
+      });
+
+      updateMaterialSendButtonState(inv);
+    }
+
+    function updateMaterialSendButtonState(inv) {
+      const btn = document.getElementById('materialSendToBrokerBtn');
+      const selectedEl = document.getElementById('materialSelectedTotal');
+      if (!btn || !selectedEl) return;
+      let selectedTotal = 0;
+      if (inv && inv.materials) {
+        Object.entries(inv.materials).forEach(([mat, grades]) => {
+          ['A', 'B', 'C'].forEach((g) => {
+            const maxAvail = Math.max(0, Math.floor(Number(grades[g] || 0)));
+            if (maxAvail <= 0) return;
+            selectedTotal += effectiveMaterialSendTonnesForRow(mat, g, maxAvail);
+          });
+        });
+      }
+      selectedEl.textContent = String(selectedTotal);
+      btn.disabled = selectedTotal <= 0;
+      updateUnifiedSendSelectionSummary(inv);
+    }
+
+    function renderWasteList(inv) {
+      const tbody = document.getElementById('wasteListBody');
+      const totalEl = document.getElementById('wasteListTotal');
+      if (!tbody || !totalEl) return;
+
+      const preserved = {};
+      document.querySelectorAll('#wasteListBody input[data-waste-card-tons="1"]').forEach((input) => {
+        const mat = input.dataset.material;
+        const grade = input.dataset.grade;
+        if (!mat || !grade) return;
+        preserved[`${mat}:${grade}`] = input.value;
+      });
+
+      const waste = inv?.waste || {};
+      const order = ['metal', 'paper', 'wood', 'plastic', 'glass', 'material6'];
+      const cards = [];
+      let total = 0;
+
+      order.forEach((mat) => {
+        const grades = waste[mat];
+        if (!grades) return;
+        ['B', 'C', 'F'].forEach((g) => {
+          const t = Math.max(0, Math.floor(Number(grades[g] || 0)));
+          if (t <= 0) return;
+          total += t;
+          const gradeClass = g === 'B' ? 'grade-pill-b' : g === 'C' ? 'grade-pill-c' : 'grade-pill-f';
+          const iconByMaterial = {
+            paper: '📄',
+            plastic: '🧴',
+            metal: '🔩',
+            glass: '🍾',
+            wood: '🪵',
+            material6: '📦'
+          };
+          const baseLabel = mat === 'material6' ? 'Material 6' : (mat.charAt(0).toUpperCase() + mat.slice(1));
+          const matLabel = `${iconByMaterial[mat] || '📦'} ${baseLabel}`;
+          const rowKey = `${mat}:${g}`;
+          const prev = preserved[rowKey];
+          const prevNum = Math.max(0, Math.floor(Number(prev) || 0));
+          const safePrev = Math.min(prevNum, t);
+          cards.push(`
+            <div class="mat-card" data-waste-card-row="1" data-material="${mat}" data-grade="${g}">
+              <p class="text-lg font-extrabold">${matLabel}</p>
+              <p class="mt-2 text-sm text-slate-800">Quality:
+                <span class="grade-pill ${gradeClass}">${g}</span>
+              </p>
+              <p class="text-sm text-slate-800">Volume: ${t} t</p>
+              <label class="mt-3 block text-sm font-bold text-slate-700">Send (t)</label>
+              <input
+                type="number"
+                inputmode="numeric"
+                min="0"
+                max="${t}"
+                step="1"
+                value="${safePrev}"
+                data-waste-card-tons="1"
+                data-material="${mat}"
+                data-grade="${g}"
+                class="mt-1 w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-right text-base text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
+              />
+            </div>
+          `);
+        });
+      });
+
+      lastWasteListRowKeys = wasteSendTableRowKeys(inv);
+
+      totalEl.textContent = String(total);
+      tbody.innerHTML = cards.length
+        ? cards.join('')
+        : `<div class="col-span-full text-center py-8 text-slate-400 border border-slate-200 rounded-xl">No waste in inventory yet.</div>`;
+
+      tbody.querySelectorAll('#wasteListBody input[data-waste-card-tons="1"]').forEach((input) => {
+        input.addEventListener('input', () => {
+          updateWasteSendButtonState(latestState?.roles?.municipality?.inventory || null);
+          updateImpactPreview();
+        });
+        input.addEventListener('change', () => {
+          updateWasteSendButtonState(latestState?.roles?.municipality?.inventory || null);
+          updateImpactPreview();
+        });
+      });
+
+      updateWasteSendButtonState(inv);
+    }
+
+    function renderSelectableWaste(inv) {
+      const tbody = document.getElementById('wasteSelectableBody');
+      if (!inv) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="4" class="px-3 py-3 text-center text-slate-500">
+              No waste in inventory yet.
+            </td>
+          </tr>
+        `;
+        lastWasteSendRowKeys = '';
+        return;
+      }
+
+      // Preserve user-entered values across live refreshes
+      const existingInputs = Array.from(document.querySelectorAll('#wasteSelectableBody input[type="number"]'));
+      const preserved = {};
+      existingInputs.forEach((input) => {
+        const mat = input.dataset.material;
+        const grade = input.dataset.grade;
+        if (!mat || !grade) return;
+        preserved[`${mat}:${grade}`] = input.value;
+      });
+
+      const rows = [];
+      // Selectable list is waste only (B/C/F) to send to Broker
+      Object.entries(inv.waste || {}).forEach(([material, grades]) => {
+        ['B', 'C', 'F'].forEach((grade) => {
+          const amount = grades[grade] || 0;
+          if (amount > 0) {
+            const id = `${material}-${grade}`;
+            const key = `${material}:${grade}`;
+            const prev = preserved[key];
+            const prevNum = Math.max(0, Math.floor(Number(prev) || 0));
+            const safePrev = Math.min(prevNum, amount);
+            rows.push(`
+              <tr class="border-t border-slate-700/60" data-send-row="1" data-material="${material}" data-grade="${grade}">
+                <td class="px-3 py-2 capitalize">${material}</td>
+                <td class="px-3 py-2">${grade}</td>
+                <td class="px-3 py-2 text-right js-send-avail">${amount}</td>
+                <td class="px-3 py-2 text-right">
+                  <input
+                    type="number"
+                    inputmode="numeric"
+                    min="0"
+                    max="${amount}"
+                    step="1"
+                    value="${safePrev}"
+                    data-material="${material}"
+                    data-grade="${grade}"
+                    class="w-20 bg-white border border-slate-300 rounded-md px-2 py-1 text-right text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
+                  />
+                </td>
+              </tr>
+            `);
+          }
+        });
+      });
+
+      if (!rows.length) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="4" class="px-3 py-3 text-center text-slate-500">
+              No waste in inventory yet.
+            </td>
+          </tr>
+        `;
+        lastWasteSendRowKeys = '';
+      } else {
+        tbody.innerHTML = rows.join('');
+      }
+
+      // Bind impact updates to inputs
+      document.querySelectorAll('#wasteSelectableBody input[type="number"]').forEach((input) => {
+        input.addEventListener('input', updateImpactPreview);
+        input.addEventListener('change', updateImpactPreview);
+      });
+      lastWasteSendRowKeys = wasteSendTableRowKeys(inv);
+      updateImpactPreview();
+    }
+
+    function renderGameState(data) {
+      if (!data) return;
+      latestState = data;
+      const shared = data.shared;
+      const roles = data.roles || {};
+      const muni = data.roles?.municipality;
+      const inv = muni?.inventory;
+
+      document.getElementById('budgetHKD').textContent = shared.budgetHKD.toLocaleString('en-HK');
+      document.getElementById('cityHealth').textContent = shared.cityHealth + '%';
+      document.getElementById('carbonValue').textContent = `${shared.carbonEmissions.value}% / ${shared.carbonEmissions.limit}%`;
+      updateDayDisplay({ day: shared.day, maxDay: shared.maxDay });
+
+      // Capacity badge: current/limit (tons)
+      const cap = inv?.capacityTonnes ?? 150;
+      let invTotal = 0;
+      if (inv) {
+        Object.values(inv.materials || {}).forEach((g) => { invTotal += (g.A || 0) + (g.B || 0) + (g.C || 0); });
+        Object.values(inv.waste || {}).forEach((g) => { invTotal += (g.B || 0) + (g.C || 0) + (g.F || 0); });
+        invTotal += (inv.unprocessedWaste || 0);
+      }
+      document.getElementById('invCapacityBadge').textContent = `${invTotal}/${cap} tons`;
+      lastInvTotal = invTotal;
+      lastInvCap = cap;
+
+      renderMaterialSummary(inv);
+      const materialKeys = materialSendTableRowKeys(inv);
+      if (isEditingAnyMaterialSendInput() && materialKeys === lastMaterialListRowKeys) {
+        syncMaterialListCardInputs(inv);
+        updateMaterialSendButtonState(inv);
+      } else {
+        renderMaterialList(inv);
+      }
+      const wasteKeys = wasteSendTableRowKeys(inv);
+      if (
+        isEditingAnyWasteSendInput() &&
+        wasteKeys === lastWasteListRowKeys &&
+        wasteKeys === lastWasteSendRowKeys
+      ) {
+        syncWasteListCardInputs(inv);
+        syncWasteSendTableAvailable(inv);
+        updateWasteSendButtonState(inv);
+      } else {
+        renderWasteList(inv);
+        renderSelectableWaste(inv);
+      }
+      updateImpactPreview();
+
+      // Incoming shipments (in transit) to Municipality
+      const pendingDel = Array.isArray(shared.pendingDeliveries) ? shared.pendingDeliveries : [];
+      const transitEl = document.getElementById('pendingTransitNote');
+      if (transitEl) {
+        const incoming = pendingDel.filter((p) => p && p.targetRole === 'municipality');
+        if (incoming.length) {
+          const sumT = (items) =>
+            (Array.isArray(items) ? items : []).reduce((s, it) => s + Math.max(0, Number(it?.tonnes || 0)), 0);
+          transitEl.textContent =
+            'Incoming (in transit): ' +
+            incoming
+              .map((p) => {
+                const t = Math.round(sumT(p.items) * 10) / 10;
+                const via = p.transportType ? ` via ${p.transportType} x${p.transportUnits || 1}` : '';
+                return `${t} t arriving Day ${p.arriveDay}${via}`;
+              })
+              .join(' · ');
+          transitEl.classList.remove('hidden');
+        } else {
+          transitEl.classList.add('hidden');
+        }
+      }
+
+      // Record log
+      const logEl = document.getElementById('recordLog');
+      if (shared.eventLog && shared.eventLog.length > 0) {
+        logEl.innerHTML = shared.eventLog.slice(-10).reverse().map((e) => `<div class="py-0.5">[Day ${e.day}] ${e.message}</div>`).join('');
+      } else {
+        logEl.textContent = 'No events yet.';
+      }
+
+      // Hub summary (same as other Municipality pages)
+      const buf = (roles && roles.municipality && roles.municipality.bufferLevel) ? roles.municipality.bufferLevel : 'Normal';
+      const tm = shared.transportTimeMultiplier ?? 1;
+      document.getElementById('hubBudget').textContent = shared.budgetHKD.toLocaleString('en-HK');
+      document.getElementById('hubHealth').textContent = shared.cityHealth + '%';
+      document.getElementById('hubBuffer').textContent = buf;
+      document.getElementById('hubTransport').textContent = tm;
+      let allInvTotal = 0;
+      let allInvCap = 0;
+      ['municipality', 'mrf', 'broker'].forEach((k) => {
+        const inv2 = roles && roles[k] ? roles[k].inventory : null;
+        if (!inv2) return;
+        allInvCap += Number(inv2.capacityTonnes || 0);
+        allInvTotal += Math.max(0, Number(inv2.unprocessedWaste || 0));
+        Object.values(inv2.materials || {}).forEach((g) => { allInvTotal += (g.A || 0) + (g.B || 0) + (g.C || 0); });
+        Object.values(inv2.waste || {}).forEach((g) => { allInvTotal += (g.B || 0) + (g.C || 0) + (g.F || 0); });
+      });
+      document.getElementById('hubWasteTotal').textContent = Math.round(allInvTotal * 10) / 10;
+      document.getElementById('hubWasteLimit').textContent = allInvCap;
+      document.getElementById('hubCarbon').textContent = shared.carbonEmissions.value;
+      document.getElementById('hubCarbonLimit').textContent = shared.carbonEmissions.limit;
+      document.getElementById('hubDay').textContent = shared.day;
+      document.getElementById('hubMaxDay').textContent = shared.maxDay;
+
+      if (shared.districts) {
+        const getDistrictTotal = (w2) => {
+          if (!w2) return 0;
+          let t2 = 0;
+          Object.values(w2).forEach((g) => { Object.values(g).forEach((n) => { t2 += n; }); });
+          return t2;
+        };
+        const getStatusText = (total) => total <= 20 ? 'Normal' : total <= 40 ? 'Full' : 'Overflowing';
+        const parts = ['residential', 'commercial', 'industrial'].map((k) => {
+          const total = getDistrictTotal(shared.districts[k] && shared.districts[k].waste);
+          return `${k.charAt(0).toUpperCase() + k.slice(1)} ${total} t (${getStatusText(total)})`;
+        });
+        document.getElementById('hubDistricts').textContent = 'Districts: ' + parts.join(' · ');
+      }
+
+      const invObj = data.roles?.municipality?.inventory;
+      if (invObj) {
+        let invTotal2 = (invObj.unprocessedWaste || 0);
+        Object.values(invObj.materials || {}).forEach((g) => { invTotal2 += (g.A || 0) + (g.B || 0) + (g.C || 0); });
+        Object.values(invObj.waste || {}).forEach((g) => { invTotal2 += (g.B || 0) + (g.C || 0) + (g.F || 0); });
+        const cap = invObj.capacityTonnes ?? 150;
+        document.getElementById('hubInvTotal').textContent = invTotal2;
+        document.getElementById('hubInvCap').textContent = cap;
+        const statusInvEl = document.getElementById('statusInventory');
+        if (statusInvEl) statusInvEl.textContent = `${invTotal2}/${cap} t`;
+      }
+      const statusBudgetEl = document.getElementById('statusBudget');
+      if (statusBudgetEl) statusBudgetEl.textContent = shared.budgetHKD.toLocaleString('en-HK');
+      const statusHealthEl = document.getElementById('statusHealth');
+      if (statusHealthEl) statusHealthEl.textContent = `${shared.cityHealth}%`;
+      const statusHealthBarEl = document.getElementById('statusHealthBar');
+      if (statusHealthBarEl) {
+        const hp = Math.max(0, Math.min(100, Number(shared.cityHealth) || 0));
+        statusHealthBarEl.style.width = `${hp}%`;
+      }
+      const statusCO2El = document.getElementById('statusCO2');
+      const co2v = shared.carbonEmissions?.value;
+      if (statusCO2El) statusCO2El.textContent = `${co2v ?? '–'}%`;
+      const statusCO2BarEl = document.getElementById('statusCO2Bar');
+      if (statusCO2BarEl) {
+        const p = Math.max(0, Math.min(100, Number(co2v) || 0));
+        statusCO2BarEl.style.width = `${p}%`;
+      }
+    }
+
+    (function initQualityModeControls() {
+      const mBtn = document.getElementById('qualityModeMaterialsBtn');
+      const wBtn = document.getElementById('qualityModeWasteBtn');
+      if (mBtn) mBtn.addEventListener('click', () => setQualityMode('materials'));
+      if (wBtn) wBtn.addEventListener('click', () => setQualityMode('waste'));
+      setQualityMode('materials');
+    })();
+
+    // Toggle legacy send panel (table-based UI) from '?' button
+    (function setupLegacySendToggle() {
+      const btn = document.getElementById('openSendPanelBtn');
+      const panel = document.getElementById('legacySendPanel');
+      if (!btn || !panel) return;
+      btn.addEventListener('click', () => {
+        panel.classList.toggle('hidden');
+        if (!panel.classList.contains('hidden')) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    })();
+
+    if (socket) {
+      socket.on('gameStateUpdate', renderGameState);
+      socket.on('dayUpdate', updateDayDisplay);
+      socket.on('gameOver', (payload) => {
+        if (payload && payload.state) renderGameState(payload.state);
+      });
+      if (typeof besseAttachRestartUI === 'function') besseAttachRestartUI(socket);
+    }
+
+    // Note: send actions below rely on socket; keep it safe if socket is missing.
+
+    let pendingSendToBroker = false;
+
+    document.getElementById('materialSendToBrokerBtn')?.addEventListener('click', () => {
+      if (!socket) {
+        alert('Socket.IO not available; cannot send to Broker right now.');
+        return;
+      }
+      if (!latestState) {
+        alert('No game state yet.');
+        return;
+      }
+      const inv = latestState?.roles?.municipality?.inventory;
+      const items = gatherMunicipalityMaterialSendItems(inv);
+      if (!items.length) {
+        alert('Please enter tonnes to send for at least one material grade.');
+        return;
+      }
+
+      socket.emit('municipalitySendToBroker', {
+        role: 'Municipality',
+        items
+      });
+      pendingSendToBroker = true;
+    });
+
+    document.getElementById('wasteSendToBrokerBtn')?.addEventListener('click', () => {
+      if (!socket) {
+        alert('Socket.IO not available; cannot send to Broker right now.');
+        return;
+      }
+      const inv = latestState?.roles?.municipality?.inventory;
+      if (!inv || !inv.waste) {
+        alert('No game state yet.');
+        return;
+      }
+
+      const items = gatherMunicipalityWasteSendItems(inv);
+      if (!items.length) {
+        alert('Please enter tonnes to send for at least one waste item.');
+        return;
+      }
+
+      socket.emit('municipalitySendToBroker', {
+        role: 'Municipality',
+        items
+      });
+      pendingSendToBroker = true;
+    });
+
+    document.querySelectorAll('.unified-send-to-broker-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (!socket) {
+          alert('Socket.IO not available; cannot send to Broker right now.');
+          return;
+        }
+        const inv = latestState?.roles?.municipality?.inventory;
+        if (!inv) {
+          alert('No game state yet.');
+          return;
+        }
+        const items = buildUnifiedSendItems(inv);
+        if (!items.length) {
+          alert('Please enter tonnes for at least one material or waste item.');
+          return;
+        }
+        socket.emit('municipalitySendToBroker', {
+          role: 'Municipality',
+          items
+        });
+        pendingSendToBroker = true;
+      });
+    });
+
+    socket.on('inventoryTransferResult', (payload) => {
+      if (!payload) return;
+      if (!payload.ok && payload.error) {
+        alert(payload.error);
+        pendingSendToBroker = false;
+        return;
+      }
+      const isMunicipalityToBroker =
+        payload.ok &&
+        payload.from === 'Municipality' &&
+        payload.to === 'Broker';
+      const isPendingGenericSuccess = payload.ok && pendingSendToBroker;
+      if (isMunicipalityToBroker || isPendingGenericSuccess) {
+        document.querySelectorAll('#wasteSelectableBody input[type="number"]').forEach((input) => {
+          input.value = '0';
+        });
+        document.querySelectorAll('#wasteListBody input[data-waste-card-tons="1"]').forEach((input) => {
+          input.value = '0';
+        });
+        document.querySelectorAll('#materialListBody input[data-material-card-tons="1"]').forEach((input) => {
+          input.value = '0';
+        });
+        updateWasteSendButtonState(latestState?.roles?.municipality?.inventory || null);
+        updateMaterialSendButtonState(latestState?.roles?.municipality?.inventory || null);
+        updateUnifiedSendSelectionSummary(latestState?.roles?.municipality?.inventory || null);
+        updateImpactPreview();
+        pendingSendToBroker = false;
+        alert('Request sent to Broker successfully.');
+      }
+    });
+
+    (async function init() {
+      // Live state (HTTP polling) so it works even if Socket.IO is flaky.
+      async function pollState() {
+        const res = await fetch('/state').catch(() => null);
+        if (!res || !res.ok) return;
+        const data = await res.json().catch(() => null);
+        if (data && data.shared && data.roles) renderGameState(data);
+      }
+      await pollState();
+      setInterval(pollState, 1000);
+    })();
+  </script>
+</body>
+</html>
+
+

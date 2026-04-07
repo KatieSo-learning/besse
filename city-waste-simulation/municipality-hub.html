@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Municipality – City Hub &amp; Navigation | City Waste Simulation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <link rel="stylesheet" href="ui-fonts.css" />
+  <link rel="stylesheet" href="player-menu.css" />
+  <style>
+      body { background: var(--paper); min-height: 100vh; }
+      .topbar { background: var(--ink-2); }
+      .panel { background: #a8b995; }
+      .panel-head { background: var(--ink); }
+      .record-bar { background: linear-gradient(90deg, #16a34a 0%, #047857 100%); }
+      .cardShadow { box-shadow: var(--shadow-1); }
+  </style>
+  <style>
+      :root {
+        --ink:#1a2f25;
+        --ink-2:#244635;
+        --panel:#9bb38f;
+        --paper:#e3dfd2;
+        --card:#ffffff;
+        --muted:#6b7280;
+        --accent:#2f6f43;
+        --accent-2:#3e7d51;
+        --radius-xl: 20px;
+        --shadow-1: 0 12px 24px rgba(0,0,0,.12);
+      }
+      html, body { height: 100%; }
+      body { background: var(--paper) !important; color: #1f2937 !important; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji" !important; }
+      .app-header { background: var(--ink-2) !important; color: #fff !important; box-shadow: var(--shadow-1) !important; }
+      .stage { background: var(--panel) !important; border-radius: 26px !important; box-shadow: var(--shadow-1) !important; border: 2px solid rgba(0,0,0,.06) !important; }
+      .stage-head { background: var(--ink) !important; color: #e8f3ec !important; }
+      /* Avoid overriding generic rounding utility classes (buttons/modals also use rounded-*) */
+      .card, .role-card { background: var(--card) !important; }
+      .btn-ink { background: var(--ink) !important; color:#fff !important; }
+      .btn-main { background:#fff !important; color:#111827 !important; border: 2px solid #e9e5d6 !important; }
+      .record-bar { background: linear-gradient(90deg, #16a34a 0%, #047857 100%) !important; }
+      .status-normal { background: linear-gradient(135deg, #059669 0%, #047857 100%) !important; }
+      .status-full { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; }
+      .status-overflowing { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important; }
+
+      /* Match event log title style with game.html */
+      .subhead{
+        font-weight:800;
+        letter-spacing:.05em;
+        color: var(--ink);
+      }
+    </style>
+    <!-- GREEN-THEME-OVERRIDE -->
+</head>
+<body class="min-h-screen text-slate-800">
+  <div class="mx-auto px-0">
+    <header class="app-header w-full position: fixed z-index:9999">
+      <div class="topbar px-6 py-3 text-white shadow flex items-center justify-between">
+      <div class="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+        <!-- <button onclick="window.location.href='index.html'" class="bg-white text-slate-800 hover:bg-slate-100 rounded-full w-10 h-10 text-lg font-bold leading-none shrink-0">←</button> -->
+        <div class="hidden md:flex items-center rounded-full bg-[#f1f1ea] text-slate-700 border border-black/15 px-4 py-2 text-sm font-extrabold tracking-wide">
+          <span id="clockText">10:00 a.m.</span>
+          <span class="mx-2">|</span>
+          <span id="dateText">01 November 2025</span>
+        </div>
+        <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="游戏日进度">Day – / –</span>
+      </div>
+      <div class="text-center">
+        <h1 class="text-3xl md:text-5xl font-extrabold tracking-wide">Municipality - Game View</h1>
+      </div>
+      <div class="flex items-center gap-2">
+        <button
+          id="playerBadgeBtn"
+          data-player-menu-trigger="Municipality"
+          type="button"
+          class="bg-white rounded-full px-5 py-2 text-sm hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-300/60 text-slate-800"
+        >
+          <span id="headerPlayerName" class="font-semibold">@Player, Municipality</span>
+          <span class="ml-2">📦</span>
+          
+        </button>
+      </div>
+    </header>
+
+    <main class="px-4 pt-20 pb-8 md:px-6">
+      <div class="panel rounded-[22px] p-4 md:p-6 cardShadow">
+        <div class="panel-head rounded-2xl px-6 py-6 text-white text-center mb-6">
+          <h2 class="text-2xl md:text-3xl font-extrabold tracking-widest">GAME PANEL</h2>
+          <p class="text-100 mt-1 text-sm md:text-base">Team state, your inventory and actions</p>
+        </div>
+
+          <script src="player-menu.js"></script>
+
+        <section id="summaryPanel" class="grid gap-6 md:grid-cols-2 mb-6">
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 cardShadow">
+            <div class="flex items-center justify-between gap-3 mb-4">
+              <h2 class="text-xl font-extrabold">Team Shared State</h2>
+              <a
+                id="dashboardNavBtn"
+                href="dashboard.html"
+                target="_top"
+                class="inline-flex items-center justify-center !text-white font-bold px-3 py-1.5 rounded-full !bg-[#2f6f43] border border-slate-200 text-slate-700 hover:!bg-[#244635] no-underline">
+                Dashboard
+              </a>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2"><span>Budget (HKD)</span><span id="budgetHKD" class="font-semibold">–</span></div>
+              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2"><span>City Health</span><span class="font-semibold"><span id="cityHealth">–</span>%</span></div>
+              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2"><span>Buffer Level</span><span id="bufferLevel" class="font-semibold">–</span></div>
+              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2"><span>Transport Time</span><span class="font-semibold">x<span id="transportMultiplier">–</span></span></div>
+              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2"><span>Waste</span><span class="font-semibold"><span id="wasteTotal">–</span> t / <span id="wasteLimit">–</span> t</span></div>
+              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2"><span>Carbon</span><span class="font-semibold"><span id="carbonValue">–</span>% / <span id="carbonLimit">–</span>%</span></div>
+              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2 sm:col-span-2"><span>Day</span><span class="font-semibold"><span id="currentDay">–</span> / <span id="maxDay">–</span></span></div>
+            </div>
+
+            <div id="districtsLines" class="hidden mt-3 space-y-1 text-xs">
+              <div class="text-slate-600">Residential: –</div>
+              <div class="text-slate-600">Commercial: –</div>
+              <div class="text-slate-600">Industrial: –</div>
+            </div>
+            <button type="button" id="districtsSummaryBtn" class="hidden mt-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-800 border border-slate-200 hover:bg-slate-50">View details</button>
+          </div>
+
+          <div id="myInventoryPanel" class="bg-white rounded-2xl p-5 border border-slate-200 cardShadow">
+            <div class="mb-4 flex items-center justify-between gap-3">
+              <h2 class="text-xl font-extrabold">My Inventory – <span id="myInventoryRoleName">Municipality</span></h2>
+              <div id="myInventoryCapBadge" class="text-2xl font-extrabold text-slate-700">0/150 t</div>
+            </div>
+            <div class="rounded-xl border border-slate-200 overflow-hidden">
+              <div class="grid grid-cols-[1fr_120px_1.6fr] bg-slate-50 text-slate-600 text-xs font-semibold px-4 py-2">
+                <div>Type</div><div class="text-right pr-6">Total (t)</div><div class="text-left pl-4">Details</div>
+              </div>
+              <div class="px-4 py-4 text-sm text-slate-700 space-y-2" id="myInventoryRows">
+                <div class="grid grid-cols-[1fr_120px_1.6fr] gap-2 border-b border-slate-200/70 pb-2">
+                  <div>Material</div>
+                  <div class="text-right pr-6" id="myInventoryMaterialTotal">0</div>
+                  <div class="text-slate-600 pl-4" id="myInventoryMaterialDetails">A:0, B:0, C:0</div>
+                </div>
+                <div class="grid grid-cols-[1fr_120px_1.6fr] gap-2">
+                  <div>Waste</div>
+                  <div class="text-right pr-6" id="myInventoryWasteTotal">0</div>
+                  <div class="text-slate-600 pl-4" id="myInventoryWasteDetails">B:0, C:0, F:0</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="grid gap-6 md:grid-cols-2 mb-6">
+          <button class="w-full bg-slate-50  rounded-2xl p-5 text-left border border-slate-200 cardShadow" onclick="navigate('municipality-inventory.html')">
+            <h3 class="text-xl font-extrabold mb-2">Inventory</h3>
+            <p class="text-sm text-slate-600">Inspect and track municipal inventory.</p>
+          </button>
+          <button class="w-full bg-slate-50 hover:bg-white rounded-2xl p-5 text-left border border-slate-200 cardShadow" onclick="navigate('municipality-marketplace.html')">
+            <h3 class="text-xl font-extrabold mb-2">Marketplace</h3>
+            <p class="text-sm text-slate-600">Buy and sell materials in the market.</p>
+          </button>
+          <button class="w-full bg-slate-50 hover:bg-white rounded-2xl p-5 text-left border border-slate-200 cardShadow" onclick="navigate('municipality-residential.html')">
+            <h3 class="text-xl font-extrabold mb-2">Residential</h3>
+            <p class="text-sm text-slate-600">Focus on residential areas and impacts.</p>
+          </button>
+          <button class="w-full bg-slate-50 hover:bg-white rounded-2xl p-5 text-left border border-slate-200 cardShadow" onclick="navigate('municipality-commercial.html')">
+            <h3 class="text-xl font-extrabold mb-2">Commercial</h3>
+            <p class="text-sm text-slate-600">Monitor commercial activity and waste.</p>
+          </button>
+          <button class="w-full bg-slate-50 hover:bg-white rounded-2xl p-5 text-left border border-slate-200 cardShadow" onclick="navigate('municipality-industrial.html')">
+            <h3 class="text-xl font-extrabold mb-2">Industrial</h3>
+            <p class="text-sm text-slate-600">Review industrial zones and emissions.</p>
+          </button>
+          <button class="w-full bg-slate-50 hover:bg-white rounded-2xl p-5 text-left border border-slate-200 cardShadow" onclick="navigate('municipality-projects.html')">
+            <h3 class="text-xl font-extrabold mb-2">City Project</h3>
+            <p class="text-sm text-slate-600">Plan and manage city-wide projects.</p>
+          </button>
+        </section>
+
+        <section>
+          <h3 class="subhead text-base mb-2">Event Log</h3>
+          <div id="hubEventLog" class="bg-white rounded-2xl border border-slate-200 p-4 text-[12px] font-mono max-h-64 overflow-y-auto shadow-sm">
+            No events yet.
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- District status popup -->
+  <div id="districtPopup" class="fixed inset-0 hidden items-center justify-center bg-black/40 p-4">
+    <div class="w-full max-w-md rounded-2xl bg-white shadow-xl border border-slate-200">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+        <h3 class="text-sm font-semibold text-slate-800">District Status</h3>
+        <button type="button" id="districtPopupClose" class="text-slate-500 hover:text-slate-800 px-2 py-1">✕</button>
+      </div>
+      <div class="p-4 space-y-3" id="districtPopupBody">
+        <!-- Filled by script -->
+      </div>
+    </div>
+  </div>
+
+  <!-- <script src="player-menu.js"></script> -->
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const role = params.get('role') || 'Municipality';
+
+    (function setupDashboardNav() {
+      const el = document.getElementById('dashboardNavBtn');
+      if (!el) return;
+      const u = new URL('dashboard.html', window.location.href);
+      const r = params.get('role') || 'Municipality';
+      u.searchParams.set('role', r);
+      try { localStorage.setItem('besseLastRole', r); } catch (_e) {}
+      el.setAttribute('href', u.toString());
+    })();
+
+    function navigate(path) {
+      const url = new URL(path, window.location.origin);
+      url.searchParams.set('role', role);
+      const dest = url.toString();
+      if (window.self !== window.top) {
+        window.top.location.href = dest;
+      } else {
+        window.location.href = dest;
+      }
+    }
+
+    // ─── Live metrics: reuse game state from server ───
+    const socket = io();
+    if (typeof besseAttachRestartUI === 'function') besseAttachRestartUI(socket);
+
+    function updateDayDisplay(payload) {
+      document.getElementById('currentDay').textContent = payload.day;
+      document.getElementById('maxDay').textContent = payload.maxDay;
+      if (window.BesseGameCalendar && payload) {
+        window.BesseGameCalendar.updateDom({ day: payload.day, maxDay: payload.maxDay });
+      }
+      if (window.BesseSyncHeaderDayChip) window.BesseSyncHeaderDayChip(payload.day, payload.maxDay);
+    }
+
+    function getInventoryTotal(inv) {
+      if (!inv) return 0;
+      let total = Math.max(0, Number(inv.unprocessedWaste || 0));
+      Object.values(inv.materials || {}).forEach((g) => { total += (g.A || 0) + (g.B || 0) + (g.C || 0); });
+      Object.values(inv.waste || {}).forEach((g) => { total += (g.B || 0) + (g.C || 0) + (g.F || 0); });
+      return Math.round(total * 10) / 10;
+    }
+
+    function getAllRolesInventoryStats(roles) {
+      const roleKeys = ['municipality', 'mrf', 'broker'];
+      let total = 0;
+      let capacity = 0;
+      roleKeys.forEach((k) => {
+        const inv = roles && roles[k] ? roles[k].inventory : null;
+        total += getInventoryTotal(inv);
+        capacity += Number(inv && inv.capacityTonnes ? inv.capacityTonnes : 0);
+      });
+      return { total: Math.round(total * 10) / 10, capacity };
+    }
+
+    function renderMyInventory(roles) {
+      const panel = document.getElementById('myInventoryPanel');
+      const nameSpan = document.getElementById('myInventoryRoleName');
+      const capBadgeEl = document.getElementById('myInventoryCapBadge');
+      const matTotalEl = document.getElementById('myInventoryMaterialTotal');
+      const wasteTotalEl = document.getElementById('myInventoryWasteTotal');
+      const matDetailsEl = document.getElementById('myInventoryMaterialDetails');
+      const wasteDetailsEl = document.getElementById('myInventoryWasteDetails');
+      if (!roles || !panel || !nameSpan || !capBadgeEl || !matTotalEl || !wasteTotalEl || !matDetailsEl || !wasteDetailsEl) return;
+
+      const roleKey = 'municipality';
+      const roleObj = roles[roleKey];
+      if (!roleObj || !roleObj.inventory) return;
+
+      nameSpan.textContent = roleObj.roleName || 'Municipality';
+      const inv = roleObj.inventory;
+
+      let matA = 0; let matB = 0; let matC = 0;
+      let wasteB = 0; let wasteC = 0; let wasteF = 0;
+      const unprocessed = Math.max(0, Number(inv.unprocessedWaste || 0));
+      Object.values(inv.materials || {}).forEach((g) => {
+        matA += Number(g.A || 0);
+        matB += Number(g.B || 0);
+        matC += Number(g.C || 0);
+      });
+      Object.values(inv.waste || {}).forEach((g) => {
+        wasteB += Number(g.B || 0);
+        wasteC += Number(g.C || 0);
+        wasteF += Number(g.F || 0);
+      });
+      const materialTotal = Math.round((matA + matB + matC) * 10) / 10;
+      const wasteTotal = Math.round((wasteB + wasteC + wasteF + unprocessed) * 10) / 10;
+      const cap = 150;
+      const used = Math.round((materialTotal + wasteTotal) * 10) / 10;
+      capBadgeEl.textContent = `${used}/${cap} t`;
+      matTotalEl.textContent = String(materialTotal);
+      wasteTotalEl.textContent = String(wasteTotal);
+      matDetailsEl.textContent = `A:${matA}, B:${matB}, C:${matC}`;
+      wasteDetailsEl.textContent = `B:${wasteB}, C:${wasteC}, F:${wasteF}${unprocessed > 0 ? ` · Unprocessed:${unprocessed}` : ''}`;
+    }
+
+    function renderGameState(data) {
+      if (!data) return;
+      const shared = data.shared;
+      const roles = data.roles;
+
+      document.getElementById('budgetHKD').textContent = shared.budgetHKD.toLocaleString('en-HK');
+      document.getElementById('cityHealth').textContent = shared.cityHealth;
+      document.getElementById('bufferLevel').textContent =
+        (roles && roles.municipality && roles.municipality.bufferLevel) ? roles.municipality.bufferLevel : 'Normal';
+      document.getElementById('transportMultiplier').textContent = shared.transportTimeMultiplier ?? 1;
+      const inventoryWaste = getAllRolesInventoryStats(roles);
+      document.getElementById('wasteTotal').textContent = inventoryWaste.total;
+      document.getElementById('wasteLimit').textContent = inventoryWaste.capacity;
+      document.getElementById('carbonValue').textContent = shared.carbonEmissions?.value ?? '–';
+      document.getElementById('carbonLimit').textContent = shared.carbonEmissions?.limit ?? '–';
+      updateDayDisplay({ day: shared.day, maxDay: shared.maxDay });
+
+      const dsBtn = document.getElementById('districtsSummaryBtn');
+      const dsLines = document.getElementById('districtsLines');
+      if ((dsLines || dsBtn) && shared.districts) {
+        const getTotal = (w) => { if (!w) return 0; let t = 0; Object.values(w).forEach((g) => { Object.values(g).forEach((n) => { t += n; }); }); return t; };
+        const getStatus = (total) => total <= 20 ? 'Normal' : total <= 40 ? 'Full' : 'Overflowing';
+        const colorClass = (s) => s === 'Overflowing' ? 'text-red-700' : s === 'Full' ? 'text-emerald-800' : 'text-emerald-700';
+        const items = ['residential', 'commercial', 'industrial'].map((k) => {
+          const total = getTotal(shared.districts[k].waste);
+          const status = getStatus(total);
+          return { key: k, label: k.charAt(0).toUpperCase() + k.slice(1), total, status, cls: colorClass(status) };
+        });
+
+        if (dsLines) {
+          dsLines.innerHTML = items.map((it) => {
+            return `<div class="${it.cls}"><span class="font-semibold">${it.label}:</span> ${it.total} t <span class="text-slate-500">(${it.status})</span></div>`;
+          }).join('');
+        }
+      }
+
+      renderMyInventory(roles);
+
+      // Event log under dashboard buttons
+      const logEl = document.getElementById('hubEventLog');
+      if (logEl) {
+        if (shared.eventLog && shared.eventLog.length > 0) {
+          logEl.innerHTML = shared.eventLog.slice(-10).reverse().map((e) =>
+            `<div class="py-0.5">[Day ${e.day}] ${e.message}</div>`
+          ).join('');
+        } else {
+          logEl.textContent = 'No events yet.';
+        }
+      }
+
+      // Header role + title
+    (function updatePageTitleForRole() {
+      const titleEl = document.getElementById('gameTitle');
+      if (titleEl && myRole) titleEl.textContent = `${myRole} – Game View`;
+      const roleBadge = document.getElementById('myRoleBadge');
+      if (roleBadge) {
+        roleBadge.querySelector('span').textContent = myRole || 'Unknown';
+      }
+      const playerBadgeBtn = document.getElementById('playerBadgeBtn');
+      const headerPlayerName = document.getElementById('headerPlayerName');
+      if (playerBadgeBtn) playerBadgeBtn.setAttribute('data-player-menu-trigger', myRole || 'Municipality');
+      if (headerPlayerName && myRole) headerPlayerName.textContent = `@Player, ${myRole}`;
+      if ((myRole === 'Broker' || myRole === 'MRF') && roleBadge) roleBadge.classList.add('hidden');
+      if (myRole === 'Broker' || myRole === 'MRF') {
+        const pc = document.getElementById('playerCountBadge');
+        if (pc) pc.classList.add('hidden');
+      }
+    })();
+    
+      // Keep latest shared for popup
+      window.__latestShared = shared;
+    }
+
+    socket.on('gameStateUpdate', renderGameState);
+
+    socket.on('dayUpdate', updateDayDisplay);
+
+    socket.on('gameOver', (payload) => {
+      if (payload && payload.state) {
+        renderGameState(payload.state);
+      }
+    });
+
+    // Fallback: initial static JSON (for first load before socket update)
+    (async function init() {
+      const res = await fetch('gameState.json').catch(() => null);
+      if (res && res.ok) {
+        const data = await res.json();
+        const team = data.teams[0];
+        renderGameState({ shared: team.shared, roles: team.roles });
+      }
+    })();
+
+    function openDistrictPopup() {
+      const shared = window.__latestShared;
+      const popup = document.getElementById('districtPopup');
+      const body = document.getElementById('districtPopupBody');
+      if (!popup || !body || !shared || !shared.districts) return;
+
+      const getTotal = (w) => { if (!w) return 0; let t = 0; Object.values(w).forEach((g) => { Object.values(g).forEach((n) => { t += n; }); }); return t; };
+      const getStatus = (total) => total <= 20 ? 'Normal' : total <= 40 ? 'Full' : 'Overflowing';
+      const color = (s) => s === 'Overflowing' ? 'bg-red-100 text-red-700 border-red-200' : s === 'Full' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      const label = (k) => k.charAt(0).toUpperCase() + k.slice(1);
+
+      body.innerHTML = ['residential', 'commercial', 'industrial'].map((k) => {
+        const total = getTotal(shared.districts[k]?.waste);
+        const s = getStatus(total);
+        return `
+          <div class="flex items-center justify-between rounded-xl border px-3 py-2 ${color(s)}">
+            <div class="font-medium">${label(k)}</div>
+            <div class="text-sm">${total} t · ${s}</div>
+          </div>
+        `;
+      }).join('');
+
+      popup.classList.remove('hidden');
+      popup.classList.add('flex');
+    }
+
+    function closeDistrictPopup() {
+      const popup = document.getElementById('districtPopup');
+      if (!popup) return;
+      popup.classList.add('hidden');
+      popup.classList.remove('flex');
+    }
+
+    document.getElementById('districtsSummaryBtn')?.addEventListener('click', openDistrictPopup);
+    document.getElementById('districtPopupClose')?.addEventListener('click', closeDistrictPopup);
+    document.getElementById('districtPopup')?.addEventListener('click', (e) => {
+      if (e.target && e.target.id === 'districtPopup') closeDistrictPopup();
+    });
+  </script>
+</body>
+</html>
+
+

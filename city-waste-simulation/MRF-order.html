@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MRF – Processing Orders &amp; Work Queue</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <link rel="stylesheet" href="player-menu.css" />
+  <link rel="stylesheet" href="ui-fonts.css" />
+  <script src="page-placeholder-banner.js" defer></script>
+  <style>
+    body { background: #e8e3d3; min-height: 100vh; }
+    .topbar { background: #2f5a47; }
+    .record-bar { background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%); }
+    .cardShadow { box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08); }
+  </style>
+    <style>
+      :root {
+        --ink:#1a2f25;
+        --ink-2:#244635;
+        --panel:#9bb38f;
+        --paper:#e3dfd2;
+        --card:#ffffff;
+        --muted:#6b7280;
+        --accent:#2f6f43;
+        --accent-2:#3e7d51;
+        --radius-xl: 20px;
+        --shadow-1: 0 12px 24px rgba(0,0,0,.12);
+      }
+      html, body { height: 100%; }
+      body { background: #e8e3d3 !important; color: #1f2937 !important; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace !important; }
+      .app-header { background: var(--ink-2) !important; color: #fff !important; box-shadow: var(--shadow-1) !important; }
+      .stage { background: var(--panel) !important; border-radius: 26px !important; box-shadow: var(--shadow-1) !important; border: 2px solid rgba(0,0,0,.06) !important; }
+      .stage-head { background: var(--ink) !important; color: #e8f3ec !important; }
+      /* Avoid overriding generic rounding utility classes (buttons/modals also use rounded-*) */
+      .card, .role-card { background: var(--card) !important; }
+      .btn-ink { background: var(--ink) !important; color:#fff !important; }
+      .btn-main { background:#fff !important; color:#111827 !important; border: 2px solid #e9e5d6 !important; }
+      .record-bar { background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%) !important; }
+      .status-normal { background: linear-gradient(135deg, #059669 0%, #047857 100%) !important; }
+      .status-full { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; }
+      .status-overflowing { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important; }
+    </style>
+    <!-- GREEN-THEME-OVERRIDE -->
+</head>
+<body class="min-h-screen text-slate-800" data-besse-placeholder="prototype">
+  <div class="max-w-6xl mx-auto py-6 px-4 relative">
+    <!-- Top bar -->
+    <header class="topbar rounded-2xl px-5 py-4 text-white shadow mb-4 flex items-center justify-between">
+      <div class="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+        <button onclick="goHub()" class="bg-white text-slate-800 hover:bg-slate-100 rounded-full w-10 h-10 text-lg font-bold leading-none shrink-0">←</button>
+        <div class="bg-white text-slate-800 rounded-full px-4 py-2 border border-slate-200 shadow-sm">
+          <p class="text-xs font-semibold"><span id="currentTime">10:00 am</span> | <span id="currentDate">01 Nov 2025</span></p>
+        </div>
+        <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="游戏日进度">Day – / –</span>
+      </div>
+      <div class="absolute left-1/2 -translate-x-1/2">
+        <h1 class="text-5xl font-extrabold tracking-wide text-white">ORDER</h1>
+      </div>
+      <div class="flex items-center gap-3">
+        <button
+          id="playerBadgeBtn"
+          data-player-menu-trigger="MRF"
+          type="button"
+          class="bg-white rounded-full px-5 py-2 text-sm flex items-center gap-3 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-300/60 text-slate-800"
+        >
+          <div class="flex items-center gap-2">
+            <div class="leading-tight">
+              <div class="text-sm font-semibold"><span id="mrfIdBadge">Jesse, MRF</span></div>
+            </div>
+          </div>
+          <div class="text-base">🧳</div>
+        </button>
+      </div>
+    </header>
+
+    <!-- Game Hub summary -->
+    <section class="hidden mb-4 bg-white/80 rounded-2xl p-4 shadow-sm border border-emerald-100">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <h2 class="font-semibold text-slate-800 text-sm md:text-base">Game Hub Summary</h2>
+        <div class="flex flex-wrap gap-3 text-xs md:text-sm text-slate-700">
+          <div><span class="font-semibold">Budget:</span> <span id="hubBudget">–</span> HKD</div>
+          <div><span class="font-semibold">City Health:</span> <span id="hubHealth">–</span>%</div>
+          <div><span class="font-semibold">Waste:</span> <span id="hubWasteTotal">–</span>/<span id="hubWasteLimit">–</span> t</div>
+          <div><span class="font-semibold">CO₂:</span> <span id="hubCarbon">–</span>/<span id="hubCarbonLimit">–</span>%</div>
+          <div><span class="font-semibold">Day:</span> <span id="hubDay">–</span>/<span id="hubMaxDay">–</span></div>
+        </div>
+      </div>
+      <p class="mt-2 text-xs text-slate-600" id="hubDistricts">Districts: –</p>
+    </section>
+
+    <!-- Main panel -->
+    <main class="p-0 bg-transparent border-0 shadow-none">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Left: Material Warehouse grid -->
+        <section class="lg:col-span-2 space-y-4">
+          <!-- Date / Tabs row -->
+          <div class="hidden flex flex-wrap items-start gap-3 justify-between">
+            <div class="bg-white rounded-2xl border border-slate-200 px-4 py-3 flex items-center gap-3 cardShadow">
+              <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-2xl">📅</div>
+              <div class="leading-tight">
+                <p class="text-xs text-slate-500">Date</p>
+                <p class="text-sm font-semibold" id="bessePanelDate">01 Nov 2025</p>
+              </div>
+              <div class="h-8 w-px bg-slate-200 mx-3"></div>
+              <div class="leading-tight">
+                <p class="text-xs text-slate-500">Time</p>
+                <p class="text-sm font-semibold" id="bessePanelTime">10:00 am</p>
+              </div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 px-2 py-1 flex items-center gap-2">
+              <button
+                class="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                type="button"
+              >
+                Main
+              </button>
+              <button
+                class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 text-white shadow-sm"
+                type="button"
+              >
+                Order
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-[#9caf8a] rounded-2xl border border-emerald-900/20 p-3 cardShadow">
+            <div class="flex items-center justify-between mb-4 bg-[#2f5a47] rounded-xl px-4 py-3">
+              <h2 class="text-3xl font-extrabold text-white tracking-wide">Material Warehouse</h2>
+              <p class="text-xs text-slate-500">Choose a batch to prepare for shipment.</p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              <!-- 6 placeholder slots -->
+              <div class="bg-white rounded-2xl border border-slate-300 p-3 flex flex-col">
+                <div class="flex-1 rounded-lg bg-slate-200 border border-slate-300 mb-3"></div>
+                <label class="inline-flex items-center gap-2 text-xs bg-[#5d8d5d] text-white px-2 py-1 rounded-full justify-center">
+                  <input type="radio" name="warehouseSlot" class="text-emerald-600" />
+                  <span>Select</span>
+                </label>
+              </div>
+              <div class="bg-white rounded-2xl border border-slate-300 p-3 flex flex-col">
+                <div class="flex-1 rounded-lg bg-slate-200 border border-slate-300 mb-3"></div>
+                <label class="inline-flex items-center gap-2 text-xs bg-[#5d8d5d] text-white px-2 py-1 rounded-full justify-center">
+                  <input type="radio" name="warehouseSlot" class="text-emerald-600" />
+                  <span>Select</span>
+                </label>
+              </div>
+              <div class="bg-white rounded-2xl border border-slate-300 p-3 flex flex-col">
+                <div class="flex-1 rounded-lg bg-slate-200 border border-slate-300 mb-3"></div>
+                <label class="inline-flex items-center gap-2 text-xs bg-[#5d8d5d] text-white px-2 py-1 rounded-full justify-center">
+                  <input type="radio" name="warehouseSlot" class="text-emerald-600" />
+                  <span>Select</span>
+                </label>
+              </div>
+              <div class="bg-white rounded-2xl border border-slate-300 p-3 flex flex-col">
+                <div class="flex-1 rounded-lg bg-slate-200 border border-slate-300 mb-3"></div>
+                <label class="inline-flex items-center gap-2 text-xs bg-[#5d8d5d] text-white px-2 py-1 rounded-full justify-center">
+                  <input type="radio" name="warehouseSlot" class="text-emerald-600" />
+                  <span>Select</span>
+                </label>
+              </div>
+              <div class="bg-white rounded-2xl border border-slate-300 p-3 flex flex-col">
+                <div class="flex-1 rounded-lg bg-slate-200 border border-slate-300 mb-3"></div>
+                <label class="inline-flex items-center gap-2 text-xs bg-[#5d8d5d] text-white px-2 py-1 rounded-full justify-center">
+                  <input type="radio" name="warehouseSlot" class="text-emerald-600" />
+                  <span>Select</span>
+                </label>
+              </div>
+              <div class="bg-white rounded-2xl border border-slate-300 p-3 flex flex-col">
+                <div class="flex-1 rounded-lg bg-slate-200 border border-slate-300 mb-3"></div>
+                <label class="inline-flex items-center gap-2 text-xs bg-[#5d8d5d] text-white px-2 py-1 rounded-full justify-center">
+                  <input type="radio" name="warehouseSlot" class="text-emerald-600" />
+                  <span>Select</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Right: Order List panel -->
+        <section class="bg-[#9caf8a] rounded-2xl border border-emerald-900/20 p-3 cardShadow flex flex-col">
+          <header class="mb-3">
+            <h2 class="text-3xl font-extrabold text-white bg-[#2f5a47] rounded-xl px-4 py-3 tracking-wide">Order List</h2>
+            <p class="text-xs text-slate-700 mt-1">Set the volume for each material and review impact.</p>
+          </header>
+
+          <div class="space-y-3 flex-1 text-xs text-slate-700">
+            <!-- Paper -->
+            <div class="bg-[#5d8d5d] text-white rounded-xl p-2">
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <label class="inline-flex items-center gap-2">
+                  <input type="checkbox" class="text-emerald-600" />
+                  <span class="flex items-center gap-1 text-sm font-semibold">
+                    📄 <span>Paper</span>
+                  </span>
+                </label>
+                <div class="text-right leading-tight">
+                  <p class="text-[11px] text-white/80">Volume</p>
+                  <div class="inline-flex items-center rounded-full border border-slate-300 bg-white text-xs overflow-hidden text-slate-800">
+                    <button type="button" class="px-2 py-1 border-r border-slate-300 hover:bg-slate-100">-</button>
+                    <input type="number" value="1" min="0" class="w-10 text-center bg-transparent outline-none" />
+                    <button type="button" class="px-2 py-1 border-l border-slate-300 hover:bg-slate-100">+</button>
+                    <span class="px-2 py-1 text-slate-500 border-l border-slate-300">t</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center justify-between gap-2 text-white/90">
+                <span class="text-[11px]">Degree of Completion</span>
+                <span class="text-[11px] font-semibold">80%</span>
+              </div>
+              <div class="mt-1 h-2 rounded-full bg-slate-200 overflow-hidden">
+                <div class="h-full bg-emerald-500" style="width: 80%"></div>
+              </div>
+            </div>
+
+            <!-- Wood -->
+            <div class="bg-[#5d8d5d] text-white rounded-xl p-2">
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <label class="inline-flex items-center gap-2">
+                  <input type="checkbox" class="text-emerald-600" />
+                  <span class="flex items-center gap-1 text-sm font-semibold">
+                    🪵 <span>Wood</span>
+                  </span>
+                </label>
+                <div class="text-right leading-tight">
+                  <p class="text-[11px] text-white/80">Volume</p>
+                  <div class="inline-flex items-center rounded-full border border-slate-300 bg-white text-xs overflow-hidden text-slate-800">
+                    <button type="button" class="px-2 py-1 border-r border-slate-300 hover:bg-slate-100">-</button>
+                    <input type="number" value="1" min="0" class="w-10 text-center bg-transparent outline-none" />
+                    <button type="button" class="px-2 py-1 border-l border-slate-300 hover:bg-slate-100">+</button>
+                    <span class="px-2 py-1 text-slate-500 border-l border-slate-300">t</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center justify-between gap-2 text-white/90">
+                <span class="text-[11px]">Degree of Completion</span>
+                <span class="text-[11px] font-semibold">50%</span>
+              </div>
+              <div class="mt-1 h-2 rounded-full bg-slate-200 overflow-hidden">
+                <div class="h-full bg-amber-400" style="width: 50%"></div>
+              </div>
+            </div>
+
+            <!-- Glass -->
+            <div class="bg-[#5d8d5d] text-white rounded-xl p-2">
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <label class="inline-flex items-center gap-2">
+                  <input type="checkbox" class="text-emerald-600" />
+                  <span class="flex items-center gap-1 text-sm font-semibold">
+                    🧪 <span>Glass</span>
+                  </span>
+                </label>
+                <div class="text-right leading-tight">
+                  <p class="text-[11px] text-white/80">Volume</p>
+                  <div class="inline-flex items-center rounded-full border border-slate-300 bg-white text-xs overflow-hidden text-slate-800">
+                    <button type="button" class="px-2 py-1 border-r border-slate-300 hover:bg-slate-100">-</button>
+                    <input type="number" value="1" min="0" class="w-10 text-center bg-transparent outline-none" />
+                    <button type="button" class="px-2 py-1 border-l border-slate-300 hover:bg-slate-100">+</button>
+                    <span class="px-2 py-1 text-slate-500 border-l border-slate-300">t</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center justify-between gap-2 text-white/90">
+                <span class="text-[11px]">Degree of Completion</span>
+                <span class="text-[11px] font-semibold">20%</span>
+              </div>
+              <div class="mt-1 h-2 rounded-full bg-slate-200 overflow-hidden">
+                <div class="h-full bg-red-500" style="width: 20%"></div>
+              </div>
+            </div>
+
+            <!-- Summary -->
+            <div class="pt-3 border-t border-dashed border-slate-300 space-y-1 text-xs text-slate-800">
+              <p class="font-semibold mb-1">Estimated Impact</p>
+              <div class="flex items-center justify-between">
+                <span>Budget</span>
+                <span class="font-semibold">+ $<span id="impactBudget">2,100</span></span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span>CO₂</span>
+                <span class="font-semibold">+ <span id="impactCO2">1.6</span> t</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span>Inventory</span>
+                <span class="font-semibold">- <span id="impactInventory">—</span> t</span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            id="sendToBrokerBtn"
+            disabled
+            title="本页为界面原型，操作尚未接通后端。"
+            class="mt-4 w-full rounded-xl bg-white hover:bg-slate-100 text-slate-800 font-semibold py-2.5 text-3xl shadow disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Send to Broker
+          </button>
+        </section>
+      </div>
+
+      <!-- Record and status bar -->
+      <div class="mt-4 grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
+        <!-- Record -->
+        <div class="lg:col-span-1 rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
+          <div class="record-bar px-3 py-2 flex items-center gap-2 text-white text-4xl font-bold">Record</div>
+          <div id="recordLog" class="bg-slate-50 p-3 max-h-36 overflow-y-auto text-xs font-mono text-slate-600">
+            No order events yet.
+          </div>
+        </div>
+
+        <!-- Status chips -->
+        <div class="lg:col-span-3 p-0 bg-transparent border-0 shadow-none">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+            <div class="rounded-full bg-white border border-slate-300 px-4 py-2 flex items-center justify-between gap-2">
+              <span class="font-semibold text-slate-700 text-lg">💰</span>
+              <span id="statusBudget" class="text-slate-700 font-bold text-2xl">12,332</span>
+            </div>
+            <div class="rounded-full bg-white border border-slate-300 px-4 py-2 flex items-center justify-between gap-2">
+              <span class="font-semibold text-slate-700 text-lg">❤️</span>
+              <span id="statusQuality" class="text-slate-700 font-bold text-2xl">40%</span>
+            </div>
+            <div class="rounded-full bg-white border border-slate-300 px-4 py-2 flex items-center justify-between gap-2">
+              <span class="font-semibold text-slate-700 text-lg">🗑️</span>
+              <span id="statusInventory" class="text-slate-700 font-bold text-2xl">122/150 t</span>
+            </div>
+            <div class="rounded-full bg-white border border-slate-300 px-4 py-2 flex items-center justify-between gap-2">
+              <span class="font-semibold text-slate-700 text-lg">♻️</span>
+              <span id="statusCO2" class="text-slate-700 font-bold text-2xl">90%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="player-menu.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const role = params.get('role') || 'MRF';
+
+    function goHub() {
+      const url = new URL('game.html', window.location.origin);
+      url.searchParams.set('role', role);
+      window.location.href = url.toString();
+    }
+
+
+    const socket = io();
+    if (typeof besseAttachRestartUI === 'function') besseAttachRestartUI(socket);
+    let latestState = null;
+
+    function updateDayDisplay(payload) {
+      const dayEl = document.getElementById('hubDay');
+      const maxDayEl = document.getElementById('hubMaxDay');
+      if (dayEl && maxDayEl && payload) {
+        dayEl.textContent = payload.day;
+        maxDayEl.textContent = payload.maxDay;
+      }
+      if (window.BesseGameCalendar && payload) {
+        window.BesseGameCalendar.updateDom({ day: payload.day, maxDay: payload.maxDay });
+      }
+      if (window.BesseSyncHeaderDayChip) window.BesseSyncHeaderDayChip(payload.day, payload.maxDay);
+    }
+
+    function renderGameState(data) {
+      if (!data) return;
+      latestState = data;
+      const shared = data.shared;
+      const roles = data.roles || {};
+      const mrf = roles.mrf || roles.MRF || {};
+      const inv = mrf.inventory || {};
+
+      const budget = shared.budgetHKD ?? 0;
+      const health = shared.cityHealth ?? 0;
+
+      const budgetEl = document.getElementById('hubBudget');
+      const healthEl = document.getElementById('hubHealth');
+      const wasteTotalEl = document.getElementById('hubWasteTotal');
+      const wasteLimitEl = document.getElementById('hubWasteLimit');
+      const carbonEl = document.getElementById('hubCarbon');
+      const carbonLimitEl = document.getElementById('hubCarbonLimit');
+
+      if (budgetEl) budgetEl.textContent = budget.toLocaleString('en-HK');
+      if (healthEl) healthEl.textContent = health;
+      let allInvTotal = 0;
+      let allInvCap = 0;
+      ['municipality', 'mrf', 'broker'].forEach((k) => {
+        const inv2 = roles[k] && roles[k].inventory ? roles[k].inventory : null;
+        if (!inv2) return;
+        allInvCap += Number(inv2.capacityTonnes || 0);
+        allInvTotal += Math.max(0, Number(inv2.unprocessedWaste || 0));
+        Object.values(inv2.materials || {}).forEach((g) => { allInvTotal += (g.A || 0) + (g.B || 0) + (g.C || 0); });
+        Object.values(inv2.waste || {}).forEach((g) => { allInvTotal += (g.B || 0) + (g.C || 0) + (g.F || 0); });
+      });
+      if (wasteTotalEl) wasteTotalEl.textContent = Math.round(allInvTotal * 10) / 10;
+      if (wasteLimitEl) wasteLimitEl.textContent = allInvCap;
+      if (carbonEl) carbonEl.textContent = shared.carbonEmissions?.value ?? '–';
+      if (carbonLimitEl) carbonLimitEl.textContent = shared.carbonEmissions?.limit ?? '–';
+
+      updateDayDisplay({ day: shared.day, maxDay: shared.maxDay });
+
+      let invTotal = inv.unprocessedWaste || 0;
+      Object.values(inv.materials || {}).forEach((g) => {
+        invTotal += (g.A || 0) + (g.B || 0) + (g.C || 0);
+      });
+      Object.values(inv.waste || {}).forEach((g) => {
+        invTotal += (g.B || 0) + (g.C || 0) + (g.F || 0);
+      });
+      const cap = inv.capacityTonnes ?? 150;
+
+      const mrfInvEl = document.getElementById('mrfInv');
+      const mrfInvCapEl = document.getElementById('mrfInvCap');
+      if (mrfInvEl) mrfInvEl.textContent = invTotal;
+      if (mrfInvCapEl) mrfInvCapEl.textContent = cap;
+
+      const statusInvEl = document.getElementById('statusInventory');
+      if (statusInvEl) statusInvEl.textContent = invTotal + '/' + cap + ' t';
+
+      const statusBudgetEl = document.getElementById('statusBudget');
+      if (statusBudgetEl) statusBudgetEl.textContent = budget.toLocaleString('en-HK');
+
+      const logEl = document.getElementById('recordLog');
+      if (logEl && shared.eventLog) {
+        const lines = shared.eventLog
+          .filter((e) => String(e.message || '').toLowerCase().includes('order'))
+          .slice(-10)
+          .reverse();
+        logEl.innerHTML = lines.length
+          ? lines.map((e) => `<div class="py-0.5">[Day ${e.day}] ${e.message}</div>`).join('')
+          : 'No order events yet.';
+      }
+
+      if (shared.districts) {
+        const getDistrictTotal = (w2) => {
+          if (!w2) return 0;
+          let t2 = 0;
+          Object.values(w2).forEach((g) => {
+            Object.values(g).forEach((n) => {
+              t2 += n;
+            });
+          });
+          return t2;
+        };
+        const getStatusText = (total) =>
+          total <= 20 ? 'Normal' : total <= 40 ? 'Full' : 'Overflowing';
+        const parts = ['residential', 'commercial', 'industrial'].map((k) => {
+          const total = getDistrictTotal(shared.districts[k] && shared.districts[k].waste);
+          return `${k.charAt(0).toUpperCase() + k.slice(1)} ${total} t (${getStatusText(total)})`;
+        });
+        const hubDistrictsEl = document.getElementById('hubDistricts');
+        if (hubDistrictsEl) hubDistrictsEl.textContent = 'Districts: ' + parts.join(' · ');
+      }
+    }
+
+    socket.on('gameStateUpdate', renderGameState);
+    socket.on('dayUpdate', updateDayDisplay);
+
+    socket.on('gameOver', (payload) => {
+      if (payload && payload.state) renderGameState(payload.state);
+    });
+
+    // sendToBrokerBtn: disabled prototype — see data-besse-placeholder banner
+
+    (async function init() {
+      async function pollState() {
+        const res = await fetch('/state').catch(() => null);
+        if (!res || !res.ok) return;
+        const data = await res.json().catch(() => null);
+        if (data && data.shared && data.roles) renderGameState(data);
+      }
+      await pollState();
+      setInterval(pollState, 1000);
+    })();
+  </script>
+</body>
+</html>
+
+

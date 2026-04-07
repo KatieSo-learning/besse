@@ -1,0 +1,1783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Broker – Cargo Inventory &amp; Shipments</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="player-menu.css" />
+  <link rel="stylesheet" href="ui-fonts.css" />
+  <style>
+    body { background: #e8e3d3; min-height: 100vh; }
+    .topbar {
+      background: #2f5a47;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+    }
+    .status-strip {
+      position: fixed;
+      bottom: 10px;
+      left: 24px;
+      right: 24px;
+      z-index: 9990;
+    }
+    @media (max-width: 768px) {
+      .status-strip { left: 12px; right: 12px; }
+    }
+    .record-bar { background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%); }
+    .dashed-panel { border-radius: 1.25rem; }
+    .paper-card { background: #ffffff; border: 1px solid rgba(0,0,0,.14); box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08); }
+    .mat-card {
+      background: #ffffff;
+      border: 1px solid rgba(0,0,0,.35);
+      border-radius: .75rem;
+      padding: .75rem;
+    }
+    .grade-pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 9999px;
+      padding: .1rem .45rem;
+      font-size: .72rem;
+      font-weight: 800;
+      border: 1px solid transparent;
+      line-height: 1.1;
+    }
+    .grade-pill-a { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+    .grade-pill-b { background: #dcfce7; color: #166534; border-color: #86efac; }
+    .grade-pill-c { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+    .grade-pill-f { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 9999px; display: inline-block; flex: 0 0 auto; }
+  </style>
+    <style>
+      :root {
+        --ink:#1a2f25;
+        --ink-2:#244635;
+        --panel:#9bb38f;
+        --paper:#e3dfd2;
+        --card:#ffffff;
+        --muted:#6b7280;
+        --accent:#2f6f43;
+        --accent-2:#3e7d51;
+        --radius-xl: 20px;
+        --shadow-1: 0 12px 24px rgba(0,0,0,.12);
+      }
+      html, body { height: 100%; }
+      body { background: #e8e3d3 !important; color: #1f2937 !important; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace !important; }
+      .app-header { background: #2f5a47 !important; color: #fff !important; box-shadow: var(--shadow-1) !important; }
+      .stage-head { background: var(--ink) !important; color: #e8f3ec !important; }
+      /* Avoid overriding generic rounding utility classes (buttons/modals also use rounded-*) */
+      .card, .role-card { background: var(--card) !important; }
+      .btn-ink { background: var(--ink) !important; color:#fff !important; }
+      .btn-main { background:#fff !important; color:#111827 !important; border: 2px solid #e9e5d6 !important; }
+      .record-bar { background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%) !important; }
+      .status-normal { background: linear-gradient(135deg, #059669 0%, #047857 100%) !important; }
+      .status-full { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; }
+      .status-overflowing { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important; }
+    </style>
+    <!-- GREEN-THEME-OVERRIDE -->
+</head>
+<body class="min-h-screen text-slate-800 pt-20">
+  <div class="mx-auto">
+    <header class="topbar w-full px-6 py-4 text-white shadow flex items-center justify-between">
+      <div class="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+        <button onclick="goHub()" class="bg-white text-slate-800 hover:bg-slate-100 rounded-full w-10 h-10 text-lg font-bold leading-none shrink-0">←</button>
+        <div class="hidden md:flex items-center rounded-full bg-[#f1f1ea] text-slate-700 border border-black/15 px-4 py-2 text-sm font-extrabold tracking-wide">
+          <span id="clockText">10:00 a.m.</span>
+          <span class="mx-2">|</span>
+          <span id="dateText">01 November 2025</span>
+        </div>
+        <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="游戏日进度">Day – / –</span>
+      </div>
+      <h1 class="text-3xl font-extrabold tracking-wider">Inventory</h1>
+      <div class="flex items-center gap-3 pr-2">
+        <button
+          id="playerBadgeBtn"
+          data-player-menu-trigger="Broker"
+          type="button"
+          class="bg-white rounded-full px-5 py-2 text-sm hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-300/60 text-slate-800 max-w-[min(320px,48vw)]"
+        >
+          <span class="font-semibold truncate">@Player, Broker</span>
+          <span class="ml-2">🧳</span>
+          <span id="invCapacityBadge" class="ml-1 text-xs text-slate-600 whitespace-nowrap hidden">–/– tons</span>
+        </button>
+      </div>
+    </header>
+
+    <section class="hidden mb-4 bg-white/80 rounded-2xl p-4 shadow-sm border border-emerald-100">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <h2 class="font-semibold text-slate-800">Game Hub Summary</h2>
+      </div>
+      <div class="mt-3 grid gap-3 md:grid-cols-2">
+        <div class="bg-white rounded-xl border border-slate-200 p-3">
+          <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+            <div class="text-slate-500">Budget (HKD)</div><div class="text-right font-medium" id="hubBudget">–</div>
+            <div class="text-slate-500">City Health</div><div class="text-right font-medium" id="hubHealth">–%</div>
+            <div class="text-slate-500">Buffer Level</div><div class="text-right font-medium" id="hubBuffer">–</div>
+            <div class="text-slate-500">Transport Time</div><div class="text-right font-medium">x<span id="hubTransport">–</span></div>
+            <div class="text-slate-500">Waste</div><div class="text-right font-medium"><span id="hubWasteTotal">–</span>/<span id="hubWasteLimit">–</span> t</div>
+            <div class="text-slate-500">Carbon</div><div class="text-right font-medium"><span id="hubCarbon">–</span>/<span id="hubCarbonLimit">–</span>%</div>
+            <div class="text-slate-500">Day</div><div class="text-right font-medium"><span id="hubDay">–</span>/<span id="hubMaxDay">–</span></div>
+          </div>
+          <p class="hidden mt-2 text-xs text-slate-600" id="hubDistricts">Districts: –</p>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 p-3">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-semibold">Broker Inventory</p>
+            <p class="text-xs text-slate-500"><span id="hubInvTotal">–</span>/<span id="hubInvCap">–</span> t</p>
+          </div>
+          <p class="mt-2 text-xs text-slate-600">Showing total only (same layout as Municipality inventory).</p>
+        </div>
+      </div>
+    </section>
+
+    <main class="px-4 md:px-6 pt-2 pb-72">
+      <div id="transferNotice" class="hidden mb-3 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-900 text-sm px-3 py-2"></div>
+      <div id="pendingTransitNote" class="hidden mb-3 text-xs text-slate-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2"></div>
+      <div id="mrfPartnerStrip" class="mb-3 rounded-xl border border-emerald-200 bg-emerald-50/90 px-4 py-2.5 text-sm text-slate-800 flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span class="font-bold text-emerald-900">MRF inventory</span>
+        <span id="mrfInvStatusBroker" class="font-medium tabular-nums">– / – t</span>
+        <span id="mrfInvFreeBroker" class="text-xs text-slate-600">(free –)</span>
+        <span id="mrfTransitHintBroker" class="hidden text-xs text-amber-800">In transit to MRF: – t</span>
+        <span class="text-xs text-slate-600">To move your broker waste into MRF stock: use the send panel below → <strong>To MRF</strong>.</span>
+      </div>
+      <span id="sendPanelTitle" class="hidden">Material List</span>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <section class="rounded-xl overflow-hidden border border-slate-300 bg-white shadow-sm">
+          <div class="bg-[#2f5a47] px-5 py-3 text-white text-2xl font-extrabold flex items-center justify-between gap-3 flex-wrap">
+            <span>Material Quality</span>
+            <div id="qualityToggleGroup" class="flex items-center gap-2 text-xs">
+              <button id="qualityModeMaterialsBtn" type="button" class="px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 font-extrabold"
+                      onclick="window.__setRightPanel && window.__setRightPanel('materials')">
+                Materials (A/B/C)
+              </button>
+              <button id="qualityModeWasteBtn" type="button" class="px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 font-extrabold opacity-80"
+                      onclick="window.__setRightPanel && window.__setRightPanel('waste')">
+                Waste (B/C/F)
+              </button>
+            </div>
+          </div>
+          <div class="p-5">
+            <div class="hidden">
+              <p id="budgetHKD">–</p>
+              <p id="cityHealth">–%</p>
+              <p id="carbonValue">–%</p>
+              <p><span id="currentDay">–</span>/<span id="maxDay">–</span></p>
+            </div>
+            <div class="w-full h-72 flex items-center justify-center">
+              <canvas id="materialsPie" class="w-full h-full"></canvas>
+            </div>
+            <div id="materialSummary" class="mt-4 text-sm text-slate-700">
+              <p class="text-slate-400">No waste yet.</p>
+            </div>
+            <p id="materialsPieCaption" class="hidden">Share of inventory by grade.</p>
+          </div>
+        </section>
+
+        <section class="rounded-xl overflow-hidden border border-slate-300 bg-white shadow-sm">
+          <button id="openSendPanelBtn" type="button" class="hidden absolute right-4 top-4 rounded-full bg-amber-300 hover:bg-amber-200 text-slate-900 font-extrabold border border-black/10 shadow">?</button>
+          <div class="p-5">
+            <div class="bg-[#2f5a47] -mx-5 -mt-5 mb-5 px-5 py-3 text-white text-2xl font-extrabold text-center pr-16">
+              <span id="rightPanelTitleText">Material List</span>
+            </div>
+
+            <div id="materialListPanel">
+              <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <p class="text-xs text-slate-500"><span id="materialListTotal">0</span> t total</p>
+                <p class="text-xs text-slate-500"><span id="materialSelectedTotal">0</span> t selected</p>
+              </div>
+              <div id="materialListBody" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[440px] overflow-y-auto">
+                <div class="col-span-full text-center py-8 text-slate-400 border border-slate-200 rounded-xl">
+                  No materials in inventory yet.
+                </div>
+              </div>
+            </div>
+
+            <div id="wasteListPanel" class="hidden">
+              <p id="brokerWasteIncomingNote" class="hidden mb-2 text-xs text-emerald-900 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 leading-snug"></p>
+              <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <p class="text-xs text-slate-500"><span id="wasteListTotal">0</span> t total</p>
+                <p class="text-xs text-slate-500"><span id="wasteSelectedTotal">0</span> t selected</p>
+              </div>
+              <div id="wasteListBody" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[440px] overflow-y-auto">
+                <div class="col-span-full text-center py-8 text-slate-400 border border-slate-200 rounded-xl">
+                  No waste in inventory yet.
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Same pattern as municipality-inventory: materials + waste in one summary below the lists -->
+      <div id="brokerUnifiedSelectionStrip" class="mt-6 rounded-xl border border-slate-300 bg-white shadow-sm p-5">
+        <p id="brokerUnifiedSelectionTitle" class="text-xs font-semibold text-slate-600 mb-1">Selected to send</p>
+        <p id="brokerUnifiedSelectionSubtitle" class="text-xs text-slate-500 mb-2">Material / Waste — combined before sending</p>
+        <div class="broker-unified-selection-text text-sm text-slate-700 font-mono rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 min-h-[2.5rem]">No items selected.</div>
+      </div>
+
+      <div id="brokerCollectChooserShared" class="mt-6 rounded-xl border border-slate-300 bg-white shadow-sm p-5">
+        <div id="collectModeChooser" class="hidden w-full text-xs grid grid-cols-1 lg:grid-cols-12 gap-4 lg:items-end">
+          <div class="lg:col-span-8 min-w-0">
+            <p class="text-xs font-semibold text-slate-600 mb-1">No tonnes selected</p>
+            <p class="text-xs text-slate-500">Collect materials from:</p>
+          </div>
+          <div class="lg:col-span-4 flex flex-wrap items-center justify-end gap-2">
+            <button id="collectFromMunicipalityModeBtn" type="button" class="bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-sm shadow shrink-0">From Municipality</button>
+            <button id="collectFromMrfModeBtn" type="button" class="bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-sm shadow shrink-0">From MRF</button>
+          </div>
+        </div>
+        <p class="text-xs text-slate-500 mt-3 leading-relaxed">Use the send panel below for tonnes: send to Municipality or <strong>MRF</strong> (updates MRF inventory on arrival), or collect from requests.</p>
+      </div>
+
+          <!-- Send UI -->
+          <div id="legacySendPanel" class="mt-6 dashed-panel rounded-xl p-4 border border-slate-200 bg-white/90">
+            <div class="mb-3">
+              <p id="legacySendPanelHeading" class="text-sm text-slate-700 font-semibold">Transport &amp; send to Municipality / MRF</p>
+            </div>
+
+            <p id="sendPanelHint" class="text-xs text-slate-600 mb-3"></p>
+
+            <div class="mb-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <label class="text-xs text-slate-700">
+                Transportation
+                <select id="transportTypeSelect" class="mt-1 w-full bg-white border border-slate-300 rounded-md px-2 py-1 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60">
+                  <option value="Truck">Truck</option>
+                  <option value="Airport">Airport</option>
+                  <option value="Port">Port</option>
+                </select>
+              </label>
+              <label class="text-xs text-slate-700">
+                Transportation Quantity
+                <span class="block text-[11px] font-normal text-slate-500 mt-0.5">Vehicles for this trip (max = Available above)</span>
+                <input id="transportUnitsInput" type="number" min="1" step="1" value="1" class="mt-1 w-full bg-white border border-slate-300 rounded-md px-2 py-1 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60" />
+              </label>
+            </div>
+
+            <div class="mb-3 bg-white rounded-xl border border-slate-200 p-3">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div><p class="text-slate-500 mb-1">Available</p><p id="transportActiveIcons" class="text-lg leading-6">–</p></div>
+                <div><p class="text-slate-500 mb-1">In Use</p><p id="transportInUseIcons" class="text-lg leading-6">–</p></div>
+              </div>
+              <div class="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-100 text-xs">
+                <div><p class="text-slate-500 mb-0.5">Delivery time</p><p class="font-semibold text-slate-800"><span id="transportDeliveryDays">–</span> d</p></div>
+                <div><p class="text-slate-500 mb-0.5">Return time</p><p class="font-semibold text-slate-800"><span id="transportReturnDays">–</span> d</p></div>
+              </div>
+              <p id="transportUpgradeLevels" class="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100 leading-snug"></p>
+            </div>
+
+            <!-- Legacy table (Material / Grade / Available / Send) hidden: use Waste List cards instead -->
+            <div id="legacySendTable" class="hidden border border-slate-200 rounded-2xl overflow-hidden bg-white">
+              <table class="w-full text-xs md:text-sm">
+                <thead class="bg-slate-50 text-slate-500">
+                  <tr>
+                    <th class="px-3 py-2 text-left">Material</th>
+                    <th class="px-3 py-2 text-left">Grade</th>
+                    <th class="px-3 py-2 text-right">Available (t)</th>
+                    <th id="actionTonsHeader" class="px-3 py-2 text-right">Send (t)</th>
+                  </tr>
+                </thead>
+                <tbody id="wasteSelectableBody" class="bg-white">
+                  <tr><td colspan="4" class="px-3 py-3 text-center text-slate-400">No waste in inventory yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="mt-3 bg-white rounded-2xl border border-slate-200 p-3">
+              <h3 class="text-sm font-semibold mb-2">Impact preview</h3>
+              <div class="grid grid-cols-2 gap-3 text-sm">
+                <div><p class="text-xs text-slate-500">Inventory change</p><p class="font-semibold text-slate-800"><span id="impactInvDelta">0</span> t</p></div>
+                <div><p id="impactAfterLabel" class="text-xs text-slate-500">After send (est.)</p><p class="font-semibold text-slate-800"><span id="impactInvAfter">–</span>/<span id="impactInvCap">–</span> t</p></div>
+                <div><p class="text-xs text-slate-500">Budget impact (est.)</p><p class="font-semibold text-emerald-700"><span id="impactBudget">0</span> HKD</p></div>
+                <div><p class="text-xs text-slate-500">CO₂ impact (est.)</p><p class="font-semibold text-slate-700"><span id="impactCO2">0</span>%</p></div>
+                <div><p class="text-xs text-slate-500">Transport status</p><p class="font-semibold text-slate-700"><span id="impactTransportStatus">–</span></p></div>
+                <div><p class="text-xs text-slate-500">Max load this trip</p><p class="font-semibold text-slate-700"><span id="impactMaxLoad">–</span> t</p></div>
+                <div><p class="text-xs text-slate-500">Delivery time</p><p class="font-semibold text-slate-800"><span id="impactDeliveryDays">–</span> d</p></div>
+                <div><p class="text-xs text-slate-500">Return time</p><p class="font-semibold text-slate-800"><span id="impactReturnDays">–</span> d</p></div>
+              </div>
+              <div class="mt-3 pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-end gap-3">
+                <p id="pendingRequestNote" class="hidden text-xs text-slate-600 leading-relaxed flex-1 min-w-0"></p>
+                <div id="primarySendActions" class="flex flex-wrap items-center justify-end gap-2 shrink-0 self-end sm:self-auto sm:ml-auto w-full sm:w-auto">
+                  <button id="sendToMunicipalityBtn" class="bg-[#6b994c] hover:bg-[#5b8640] text-white font-bold px-4 py-2 rounded-xl text-base shadow disabled:opacity-50 disabled:cursor-not-allowed">Send to Municipality</button>
+                  <button id="sendToMrfBtn" class="bg-[#5d8d5d] hover:bg-[#4f7a4f] text-white font-bold px-4 py-2 rounded-xl text-base shadow disabled:opacity-50 disabled:cursor-not-allowed">Send to MRF</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+      <div class="status-strip grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
+        <div class="lg:col-span-1 rounded-xl overflow-hidden border border-slate-300 bg-white shadow-sm">
+          <div class="record-bar px-4 py-3 text-white text-2xl font-bold flex items-center gap-2">
+            <span>📎</span><span>Record</span>
+          </div>
+          <div id="recordLog" class="bg-white px-4 py-3 max-h-40 overflow-y-auto text-m md:text-base text-slate-800 leading-relaxed">
+            No events yet.
+          </div>
+        </div>
+
+        <div class="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between">
+            <span class="text-xl">💰</span>
+            <span id="statusBudget" class="font-extrabold text-slate-900">–</span>
+          </div>
+          <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
+            <span class="text-xl">❤️</span>
+            <div class="flex-1 h-3 rounded-full bg-slate-200 overflow-hidden border border-black/10">
+              <div id="statusHealthBar" class="h-full bg-red-400" style="width: 0%"></div>
+            </div>
+            <span id="statusHealth" class="font-extrabold text-slate-900 whitespace-nowrap">–</span>
+          </div>
+          <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between">
+            <span class="text-xl">🗑️</span>
+            <span id="statusInventory" class="font-extrabold text-slate-900">–</span>
+          </div>
+          <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
+            <span class="text-xl">🌳</span>
+            <div class="flex-1 h-3 rounded-full bg-slate-200 overflow-hidden border border-black/10">
+              <div id="statusCO2Bar" class="h-full bg-red-500" style="width: 0%"></div>
+            </div>
+            <span id="statusCO2" class="font-extrabold text-slate-900 whitespace-nowrap">–</span>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="player-menu.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const role = params.get('role') || 'Broker';
+    const collectFrom = String(params.get('collectFrom') || '').toLowerCase();
+    const isCollectMode = collectFrom === 'municipality' || collectFrom === 'mrf';
+
+    (function setupHeader() {
+      const btn = document.getElementById('openSendPanelBtn');
+      const legacy = document.getElementById('legacySendPanel');
+      if (btn && legacy) {
+        btn.addEventListener('click', () => legacy.classList.toggle('hidden'));
+      }
+    })();
+
+    function goHub() {
+      const url = new URL('game.html', window.location.origin);
+      url.searchParams.set('role', role);
+      window.location.href = url.toString();
+    }
+
+    function goCollectMunicipality() {
+      const url = new URL('broker-inventory.html', window.location.origin);
+      url.searchParams.set('role', role);
+      url.searchParams.set('collectFrom', 'municipality');
+      window.location.href = url.toString();
+    }
+
+    function goCollectMrf() {
+      const url = new URL('broker-inventory.html', window.location.origin);
+      url.searchParams.set('role', role);
+      url.searchParams.set('collectFrom', 'mrf');
+      window.location.href = url.toString();
+    }
+
+    function goBrokerInventoryDefault() {
+      const url = new URL('broker-inventory.html', window.location.origin);
+      url.searchParams.set('role', role);
+      window.location.href = url.toString();
+    }
+
+    const socket = io();
+    if (typeof besseAttachRestartUI === 'function') besseAttachRestartUI(socket);
+    let latestState = null;
+
+    function getBrokerFromState(state) {
+      const roles = (state && state.roles) || {};
+      return roles.broker || roles.Broker || {};
+    }
+
+    function getTransportUpgrades(state) {
+      const ups = (getBrokerFromState(state).transportation || {}).upgrades || {};
+      return {
+        // Server uses 0..5 levels; UI must not clamp to 1..5.
+        speed: Math.max(0, Number(ups.speed || 0)),
+        capacity: Math.max(0, Number(ups.capacity || 0)),
+        green: Math.max(0, Number(ups.green || 0)),
+        fleet: Math.max(0, Number(ups.fleet || 0))
+      };
+    }
+    let materialsChart = null;
+    let lastInvTotal = 0;
+    let lastInvCap = 150;
+    let lastWasteSendRowKeys = '';
+    let lastWasteListRowKeys = '';
+    /** Broker send caps: collect source or on-hand inventory (same as legacy table). */
+    let lastBrokerTableInv = null;
+
+    /** Align with server `ensureBrokerQueueItemKind` when `kind` is missing on queued rows. */
+    function pendingTransferItemKind(it) {
+      const raw = String(it && it.kind ? it.kind : '').toLowerCase();
+      if (raw === 'material' || raw === 'waste') return raw;
+      const grade = String(it && it.grade ? it.grade : '').toUpperCase();
+      if (grade === 'A') return 'material';
+      return 'waste';
+    }
+
+    /** Server sends arrays; accept object maps too (e.g. stale cache). */
+    function normalizeBrokerTransferReqList(raw) {
+      if (Array.isArray(raw)) {
+        return raw.filter((it) => it && (Number(it.tonnes) || 0) > 0);
+      }
+      if (!raw || typeof raw !== 'object') return [];
+      const out = [];
+      for (const [key, tonnes] of Object.entries(raw)) {
+        const t = Math.max(0, Math.round(Number(tonnes) * 10) / 10);
+        if (t <= 0) continue;
+        const parts = String(key).split(':');
+        if (parts.length < 3) continue;
+        const kind = parts[0];
+        const grade = parts[parts.length - 1];
+        const material = parts.slice(1, -1).join(':');
+        out.push({ kind, material, grade, tonnes: t });
+      }
+      return out;
+    }
+    let transferNoticeTimer = null;
+
+    function isEditingAnyWasteSendInput() {
+      const ae = document.activeElement;
+      return !!(
+        ae &&
+        ae.tagName === 'INPUT' &&
+        ae.closest &&
+        (ae.closest('#wasteListBody') || ae.closest('#wasteSelectableBody'))
+      );
+    }
+
+    function brokerEffectiveSendTonnes(mat, grade, maxAvail) {
+      const cap = Math.max(0, Math.floor(Number(maxAvail) || 0));
+      if (cap <= 0) return 0;
+      const a = document.querySelector(
+        `#wasteListBody input[data-waste-card-tons="1"][data-material="${mat}"][data-grade="${grade}"]`
+      );
+      const b = document.querySelector(
+        `#wasteSelectableBody input[data-material="${mat}"][data-grade="${grade}"]`
+      );
+      const ta = a ? Math.max(0, Math.floor(Number(a.value) || 0)) : 0;
+      const tb = b ? Math.max(0, Math.floor(Number(b.value) || 0)) : 0;
+      return Math.min(cap, Math.max(ta, tb));
+    }
+
+    function brokerEffectiveMaterialSendTonnes(mat, grade, maxAvail) {
+      const cap = Math.max(0, Math.floor(Number(maxAvail) || 0));
+      if (cap <= 0) return 0;
+      const el = document.querySelector(
+        `#materialListBody input[data-material-card-tons="1"][data-material="${mat}"][data-grade="${grade}"]`
+      );
+      const t = el ? Math.max(0, Math.floor(Number(el.value) || 0)) : 0;
+      return Math.min(cap, t);
+    }
+
+    function syncWasteListBrokerCards(brokerHand) {
+      if (!brokerHand || !brokerHand.waste) return;
+      document.querySelectorAll('#wasteListBody [data-waste-card-row="1"]').forEach((row) => {
+        const mat = row.dataset.material;
+        const grade = row.dataset.grade;
+        if (!mat || !grade) return;
+        const oh = Math.max(0, Math.floor(Number((brokerHand.waste[mat] && brokerHand.waste[mat][grade]) || 0)));
+        const onHandEl = row.querySelector('.js-broker-on-hand');
+        if (onHandEl) onHandEl.textContent = `${oh} t`;
+        const input = row.querySelector('input[type="number"]');
+        if (input) {
+          input.max = oh;
+          input.disabled = oh <= 0;
+          const v = Math.floor(Number(input.value) || 0);
+          if (v > oh) input.value = String(oh);
+        }
+      });
+    }
+
+    function updateBrokerWasteSelectionTotal() {
+      const el = document.getElementById('wasteSelectedTotal');
+      if (!el) return;
+      const capInv = lastBrokerTableInv;
+      if (!capInv || !capInv.waste) {
+        el.textContent = '0';
+        updateUnifiedSendSelectionSummary();
+        return;
+      }
+      let sum = 0;
+      Object.entries(capInv.waste).forEach(([mat, grades]) => {
+        ['B', 'C', 'F'].forEach((g) => {
+          const maxAvail = Math.max(0, Math.floor(Number(grades[g] || 0)));
+          if (maxAvail <= 0) return;
+          sum += brokerEffectiveSendTonnes(mat, g, maxAvail);
+        });
+      });
+      el.textContent = String(sum);
+      updateUnifiedSendSelectionSummary();
+    }
+
+    function wasteSendTableRowKeys(inv) {
+      if (!inv || !inv.waste) return '';
+      const parts = [];
+      Object.keys(inv.waste).sort().forEach((mat) => {
+        const g = inv.waste[mat];
+        ['B', 'C', 'F'].forEach((gr) => {
+          if ((g[gr] || 0) > 0) parts.push(`${mat}:${gr}`);
+        });
+      });
+      return parts.join('|');
+    }
+
+    function syncWasteSendTableAvailable(inv) {
+      if (!inv || !inv.waste) return;
+      document.querySelectorAll('#wasteSelectableBody tr[data-send-row="1"]').forEach((tr) => {
+        const mat = tr.dataset.material;
+        const grade = tr.dataset.grade;
+        if (!mat || !grade) return;
+        const amount = Math.max(0, Math.floor(Number((inv.waste[mat] && inv.waste[mat][grade]) || 0)));
+        const availEl = tr.querySelector('.js-send-avail');
+        const input = tr.querySelector('input[type="number"]');
+        if (availEl) availEl.textContent = String(amount);
+        if (input) {
+          input.max = amount;
+          const v = Math.floor(Number(input.value) || 0);
+          if (v > amount) input.value = String(amount);
+        }
+      });
+    }
+
+    function showTransferNotice(text) {
+      const el = document.getElementById('transferNotice');
+      if (!el) return;
+      el.textContent = text;
+      el.classList.remove('hidden');
+      if (transferNoticeTimer) clearTimeout(transferNoticeTimer);
+      transferNoticeTimer = setTimeout(() => {
+        el.classList.add('hidden');
+      }, 3500);
+    }
+
+    function computeSelectedSendTons() {
+      const capInv = lastBrokerTableInv;
+      if (!capInv) return 0;
+      let sum = 0;
+      Object.entries(capInv.waste || {}).forEach(([mat, grades]) => {
+        ['B', 'C', 'F'].forEach((g) => {
+          const maxAvail = Math.max(0, Math.floor(Number(grades[g] || 0)));
+          if (maxAvail <= 0) return;
+          sum += brokerEffectiveSendTonnes(mat, g, maxAvail);
+        });
+      });
+      Object.entries(capInv.materials || {}).forEach(([mat, grades]) => {
+        ['A', 'B', 'C'].forEach((g) => {
+          const maxAvail = Math.max(0, Math.floor(Number(grades[g] || 0)));
+          if (maxAvail <= 0) return;
+          sum += brokerEffectiveMaterialSendTonnes(mat, g, maxAvail);
+        });
+      });
+      return sum;
+    }
+
+    const TRANSPORT_BASE = {
+      Truck: { deliveryDays: 3, returnDays: 3, cap: 10, co2PerTrip: 150, qty: 5, costPerTrip: 250 },
+      Airport: { deliveryDays: 1, returnDays: 1, cap: 5, co2PerTrip: 500, qty: 1, costPerTrip: 400 },
+      Port: { deliveryDays: 4, returnDays: 4, cap: 100, co2PerTrip: 75, qty: 1, costPerTrip: 25 }
+    };
+    const UPGRADE_MULT = {
+      speed: { 0: 1, 1: 0.85, 2: 0.65, 3: 0.48, 4: 0.34, 5: 0.25 },
+      capacity: { 0: 1, 1: 1.2, 2: 1.45, 3: 1.75, 4: 2.1, 5: 2.5 },
+      green: { 0: 1, 1: 0.75, 2: 0.5, 3: 0.3, 4: 0.15, 5: 0.05 },
+      fleetAdd: { 0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5 }
+    };
+
+    function getTransportConfig(type) {
+      const base = TRANSPORT_BASE[type] || TRANSPORT_BASE.Truck;
+      const u = getTransportUpgrades(latestState);
+      const speedMult = UPGRADE_MULT.speed[u.speed] || 1;
+      const capMult = UPGRADE_MULT.capacity[u.capacity] || 1;
+      const greenMult = UPGRADE_MULT.green[u.green] || 1;
+      const fleetAdd = UPGRADE_MULT.fleetAdd[u.fleet] || 0;
+      return {
+        deliveryDays: Math.max(1, Math.ceil(base.deliveryDays * speedMult)),
+        returnDays: Math.max(1, Math.ceil(base.returnDays * speedMult)),
+        cap: Math.max(1, Math.floor(base.cap * capMult)),
+        co2PerTrip: Math.max(1, Math.floor(base.co2PerTrip * greenMult)),
+        qty: Math.max(1, base.qty + fleetAdd),
+        costPerTrip: base.costPerTrip,
+        _speedMult: speedMult,
+        _rawDeliveryDays: base.deliveryDays * speedMult,
+        _rawReturnDays: base.returnDays * speedMult
+      };
+    }
+
+    function getInUseByType(type) {
+      const trips = (getBrokerFromState(latestState).transportation || {}).activeTrips || [];
+      const day = (((latestState || {}).shared || {}).day || 1);
+      return trips.reduce((sum, t) => {
+        if (t.transportType !== type) return sum;
+        if (Number(t.returnDay || 0) > day) return sum + Math.max(0, Number(t.transportUnits || 0));
+        return sum;
+      }, 0);
+    }
+
+    function getTransportIcon(type) {
+      if (type === 'Airport') return '✈️';
+      if (type === 'Port') return '🚢';
+      return '🚚';
+    }
+
+    function renderTransportActiveInUse() {
+      const typeEl = document.getElementById('transportTypeSelect');
+      const type = String(typeEl && typeEl.value ? typeEl.value : 'Truck');
+      const cfg = getTransportConfig(type);
+      const inUse = getInUseByType(type);
+      const available = Math.max(0, cfg.qty - inUse);
+      const icon = getTransportIcon(type);
+      const activeEl = document.getElementById('transportActiveIcons');
+      const inUseEl = document.getElementById('transportInUseIcons');
+      const delEl = document.getElementById('transportDeliveryDays');
+      const retEl = document.getElementById('transportReturnDays');
+      const impactDel = document.getElementById('impactDeliveryDays');
+      const impactRet = document.getElementById('impactReturnDays');
+      if (!activeEl || !inUseEl) return;
+      activeEl.textContent = available > 0 ? Array.from({ length: available }, () => icon).join(' ') : '—';
+      inUseEl.textContent = inUse > 0 ? Array.from({ length: inUse }, () => icon).join(' ') : '—';
+      const dStr = String(cfg.deliveryDays ?? '–');
+      const rStr = String(cfg.returnDays ?? '–');
+      if (delEl) delEl.textContent = dStr;
+      if (retEl) retEl.textContent = rStr;
+      if (impactDel) impactDel.textContent = dStr;
+      if (impactRet) impactRet.textContent = rStr;
+      const lvEl = document.getElementById('transportUpgradeLevels');
+      if (lvEl) {
+        const u = getTransportUpgrades(latestState);
+        const rawD = cfg._rawDeliveryDays != null ? cfg._rawDeliveryDays.toFixed(2) : '–';
+        const rawR = cfg._rawReturnDays != null ? cfg._rawReturnDays.toFixed(2) : '–';
+        lvEl.textContent =
+          `Upgrades (from server): Spd ${u.speed} · Cap ${u.capacity} · Grn ${u.green} · Flt ${u.fleet} · raw ${rawD}/${rawR} d — whole days above match server (ceil)`;
+      }
+      const unitsEl = document.getElementById('transportUnitsInput');
+      if (unitsEl) {
+        const maxUse = Math.max(1, available);
+        unitsEl.max = String(maxUse);
+        unitsEl.min = '1';
+        const cur = Math.max(1, Math.floor(Number(unitsEl.value) || 1));
+        if (cur > maxUse) unitsEl.value = String(maxUse);
+      }
+    }
+
+    function updateImpactPreview() {
+      renderTransportActiveInUse();
+      const transport = getTransportationSelection();
+      const cfg = getTransportConfig(transport.transportType);
+
+      const sendTons = computeSelectedSendTons();
+      const invAfter = isCollectMode ? (lastInvTotal + sendTons) : Math.max(0, lastInvTotal - sendTons);
+      const inUse = getInUseByType(transport.transportType);
+      const available = Math.max(0, cfg.qty - inUse);
+      const maxLoad = cfg.cap * transport.transportUnits;
+      const canDispatch = transport.transportUnits <= available;
+      /** Server allows only one dispatch per action; load must be ≤ maxLoad (see server.js broker handlers). */
+      const oneTripFeasible = sendTons > 0 && sendTons <= maxLoad && canDispatch;
+
+      const invDeltaEl = document.getElementById('impactInvDelta');
+      const invAfterEl = document.getElementById('impactInvAfter');
+      const invCapEl = document.getElementById('impactInvCap');
+      const budgetEl = document.getElementById('impactBudget');
+      const co2El = document.getElementById('impactCO2');
+      const statusEl = document.getElementById('impactTransportStatus');
+      const maxLoadEl = document.getElementById('impactMaxLoad');
+      if (!invDeltaEl || !invAfterEl || !invCapEl || !budgetEl || !co2El || !statusEl || !maxLoadEl) return;
+
+      invDeltaEl.textContent = sendTons ? (isCollectMode ? `+${sendTons}` : `-${sendTons}`) : '0';
+      invAfterEl.textContent = invAfter;
+      invCapEl.textContent = lastInvCap;
+
+      const estCost = oneTripFeasible ? cfg.costPerTrip * transport.transportUnits : sendTons > 0 ? null : 0;
+      const estCo2Pct = oneTripFeasible
+        ? Math.round((cfg.co2PerTrip * transport.transportUnits * 0.1) * 10) / 10
+        : sendTons > 0
+          ? null
+          : 0;
+      budgetEl.textContent = estCost === null ? '—' : String(estCost);
+      co2El.textContent = estCo2Pct === null ? '—' : String(estCo2Pct);
+      statusEl.textContent = `${transport.transportType} ${available}/${cfg.qty} available`;
+      maxLoadEl.textContent = String(maxLoad);
+      updatePrimaryActionButtons();
+      updateCollectModePrimaryButtonLabel();
+    }
+
+    /** In MRF collect mode with 0 t selected, main action becomes exit without collecting. */
+    function updateCollectModePrimaryButtonLabel() {
+      const btn = document.getElementById('sendToMunicipalityBtn');
+      if (!btn || !isCollectMode) return;
+      const srcLabel = collectFrom === 'municipality' ? 'Municipality' : 'MRF';
+      const tons = computeSelectedSendTons();
+      if (collectFrom === 'mrf' && tons <= 0) {
+        btn.textContent = 'Do not Collect from MRF';
+      } else {
+        btn.textContent = `Collect Selected from ${srcLabel}`;
+      }
+    }
+
+    function updatePrimaryActionButtons() {
+      const collectChooser = document.getElementById('collectModeChooser');
+      const sendActions = document.getElementById('primarySendActions');
+      if (!collectChooser || !sendActions) return;
+      if (isCollectMode) {
+        collectChooser.classList.add('hidden');
+        sendActions.classList.remove('hidden');
+        return;
+      }
+      const selected = computeSelectedSendTons();
+      const hasSelected = selected > 0;
+      collectChooser.classList.toggle('hidden', hasSelected);
+      sendActions.classList.toggle('hidden', !hasSelected);
+    }
+
+    function updateDayDisplay(payload) {
+      document.getElementById('currentDay').textContent = payload.day;
+      document.getElementById('maxDay').textContent = payload.maxDay;
+      if (window.BesseGameCalendar && payload) {
+        window.BesseGameCalendar.updateDom({ day: payload.day, maxDay: payload.maxDay });
+      }
+      if (window.BesseSyncHeaderDayChip) window.BesseSyncHeaderDayChip(payload.day, payload.maxDay);
+    }
+
+    window.__setRightPanel = function(mode) {
+      const isWaste = mode === 'waste';
+      const materialPanel = document.getElementById('materialListPanel');
+      const wastePanel = document.getElementById('wasteListPanel');
+      const titleEl = document.getElementById('rightPanelTitleText');
+      if (materialPanel) materialPanel.classList.toggle('hidden', isWaste);
+      if (wastePanel) wastePanel.classList.toggle('hidden', !isWaste);
+      if (titleEl) titleEl.textContent = isWaste ? 'Waste List' : 'Material List';
+    };
+    // Default panel: in collect mode, the actionable list is Waste.
+    window.__setRightPanel(isCollectMode ? 'waste' : 'materials');
+
+    let qualityMode = 'materials';
+
+    function setQualityMode(next) {
+      qualityMode = next === 'waste' ? 'waste' : 'materials';
+      const mBtn = document.getElementById('qualityModeMaterialsBtn');
+      const wBtn = document.getElementById('qualityModeWasteBtn');
+      if (mBtn && wBtn) {
+        const activeCls = ['opacity-100'];
+        const inactiveCls = ['opacity-80'];
+        mBtn.classList.remove(...activeCls, ...inactiveCls);
+        wBtn.classList.remove(...activeCls, ...inactiveCls);
+        if (qualityMode === 'materials') {
+          mBtn.classList.add(...activeCls);
+          wBtn.classList.add(...inactiveCls);
+        } else {
+          wBtn.classList.add(...activeCls);
+          mBtn.classList.add(...inactiveCls);
+        }
+      }
+      if (window.__setRightPanel) window.__setRightPanel(qualityMode === 'waste' ? 'waste' : 'materials');
+      const inv = latestState && getBrokerFromState(latestState).inventory;
+      const shared = latestState && latestState.shared;
+      const summaryInv =
+        isCollectMode && lastBrokerTableInv
+          ? lastBrokerTableInv
+          : inv && shared && !isCollectMode
+            ? buildBrokerWasteDisplay(inv, shared, false)
+            : inv;
+      renderMaterialSummary(summaryInv, isCollectMode && qualityMode === 'waste');
+    }
+
+    function renderMaterialList(inv) {
+      const tbody = document.getElementById('materialListBody');
+      const totalEl = document.getElementById('materialListTotal');
+      const selectedEl = document.getElementById('materialSelectedTotal');
+      if (!tbody || !totalEl || !selectedEl) return;
+
+      const preserved = {};
+      document.querySelectorAll('#materialListBody input[data-material-card-tons="1"]').forEach((input) => {
+        const mat = input.dataset.material;
+        const grade = input.dataset.grade;
+        if (!mat || !grade) return;
+        preserved[`${mat}:${grade}`] = input.value;
+      });
+
+      const mats = inv?.materials || {};
+      const order = ['metal', 'paper', 'wood', 'plastic', 'glass', 'material6'];
+      const cards = [];
+      let total = 0;
+      let selected = 0;
+
+      order.forEach((mat) => {
+        const grades = mats[mat];
+        if (!grades) return;
+        ['A', 'B', 'C'].forEach((g) => {
+          const t = Math.max(0, Math.floor(Number(grades[g] || 0)));
+          if (t <= 0) return;
+          total += t;
+          const gradeClass = g === 'A' ? 'grade-pill-a' : g === 'B' ? 'grade-pill-b' : 'grade-pill-c';
+          const iconByMaterial = {
+            paper: '📄',
+            plastic: '🧴',
+            metal: '🔩',
+            glass: '🍾',
+            wood: '🪵',
+            material6: '📦'
+          };
+          const baseLabel = mat === 'material6' ? 'Material 6' : (mat.charAt(0).toUpperCase() + mat.slice(1));
+          const matLabel = `${iconByMaterial[mat] || '📦'} ${baseLabel}`;
+          const rowKey = `${mat}:${g}`;
+          const prevNum = Math.max(0, Math.floor(Number(preserved[rowKey]) || 0));
+          const safePrev = Math.min(prevNum, t);
+          selected += safePrev;
+          cards.push(`
+            <div class="mat-card" data-material-card-row="1" data-material="${mat}" data-grade="${g}">
+              <p class="text-lg font-extrabold">${matLabel}</p>
+              <p class="mt-2 text-sm text-slate-800">Quality:
+                <span class="grade-pill ${gradeClass}">${g}</span>
+              </p>
+              <p class="text-sm text-slate-800">Volume: ${t} t</p>
+              <label class="mt-2 block text-sm font-bold text-slate-700">Send (t)</label>
+              <input
+                type="number"
+                inputmode="numeric"
+                min="0"
+                max="${t}"
+                step="1"
+                value="${safePrev}"
+                data-material-card-tons="1"
+                data-material="${mat}"
+                data-grade="${g}"
+                class="mt-1 w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-right text-base text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60 disabled:opacity-50"
+              />
+            </div>
+          `);
+        });
+      });
+
+      totalEl.textContent = String(total);
+      selectedEl.textContent = String(selected);
+      tbody.innerHTML = cards.length
+        ? cards.join('')
+        : `<div class="col-span-full text-center py-8 text-slate-400 border border-slate-200 rounded-xl">No materials in inventory yet.</div>`;
+
+      tbody.querySelectorAll('#materialListBody input[data-material-card-tons="1"]').forEach((input) => {
+        input.addEventListener('input', () => {
+          updateUnifiedSendSelectionSummary();
+          updateImpactPreview();
+        });
+        input.addEventListener('change', () => {
+          updateUnifiedSendSelectionSummary();
+          updateImpactPreview();
+        });
+      });
+
+      updateUnifiedSendSelectionSummary();
+    }
+
+    /** Aggregate brokerTransferRequests[].{material,grade,tonnes} into waste map */
+    function aggregateRequestItemsToWaste(reqList) {
+      const waste = {};
+      (reqList || []).forEach((it) => {
+        const material = String(it.material || '').toLowerCase();
+        const grade = String(it.grade || '').toUpperCase();
+        const tonnes = Math.max(0, Math.floor(Number(it.tonnes) || 0));
+        if (!material || !['B', 'C', 'F'].includes(grade) || tonnes <= 0) return;
+        if (!waste[material]) waste[material] = { B: 0, C: 0, F: 0 };
+        waste[material][grade] += tonnes;
+      });
+      return waste;
+    }
+
+    function mergeWasteGrades() {
+      const out = {};
+      for (let i = 0; i < arguments.length; i++) {
+        const w = arguments[i];
+        if (!w) continue;
+        Object.keys(w).forEach((mat) => {
+          if (!out[mat]) out[mat] = { B: 0, C: 0, F: 0 };
+          ['B', 'C', 'F'].forEach((g) => {
+            out[mat][g] = (out[mat][g] || 0) + (w[mat] && w[mat][g] ? w[mat][g] : 0);
+          });
+        });
+      }
+      return out;
+    }
+
+    function wasteFromPendingDeliveriesToBroker(shared) {
+      const waste = {};
+      (shared.pendingDeliveries || []).forEach((p) => {
+        if (p.targetRole !== 'broker') return;
+        const chunk = aggregateRequestItemsToWaste(p.items);
+        Object.keys(chunk).forEach((mat) => {
+          if (!waste[mat]) waste[mat] = { B: 0, C: 0, F: 0 };
+          ['B', 'C', 'F'].forEach((g) => {
+            waste[mat][g] += chunk[mat][g];
+          });
+        });
+      });
+      return waste;
+    }
+
+    /**
+     * Broker default Waste List should only show on-hand inventory.
+     * Collect requests are shown only after player enters collect mode.
+     */
+    function buildBrokerWasteDisplay(inv, shared, isCollectMode) {
+      if (isCollectMode) return inv;
+      return inv || { waste: {} };
+    }
+
+    function updateBrokerWasteIncomingNote(shared) {
+      const el = document.getElementById('brokerWasteIncomingNote');
+      if (!el) return;
+      const br = shared?.brokerTransferRequests || {};
+      const m = normalizeBrokerTransferReqList(br.municipality);
+      const r = normalizeBrokerTransferReqList(br.mrf);
+      const tr = (shared?.pendingDeliveries || []).filter((p) => p.targetRole === 'broker');
+      const parts = [];
+      if (m.length) parts.push('pickup requests from Municipality');
+      if (r.length) parts.push('pickup requests from MRF');
+      if (tr.length) parts.push('in-transit to Broker');
+      if (!parts.length) {
+        el.classList.add('hidden');
+        el.textContent = '';
+        return;
+      }
+      el.textContent =
+        'This list includes your on-hand waste plus ' +
+        parts.join(' · ') +
+        '. Open ? to dispatch collection / delivery.';
+      el.classList.remove('hidden');
+    }
+
+    function renderWasteListBroker(displayInv, brokerHand, isCollect) {
+      const tbody = document.getElementById('wasteListBody');
+      const totalEl = document.getElementById('wasteListTotal');
+      if (!tbody || !totalEl) return;
+
+      const preserved = {};
+      document.querySelectorAll('#wasteListBody input[data-waste-card-tons="1"]').forEach((input) => {
+        const mat = input.dataset.material;
+        const grade = input.dataset.grade;
+        if (!mat || !grade) return;
+        preserved[`${mat}:${grade}`] = input.value;
+      });
+
+      const waste = displayInv?.waste || {};
+      const bh = brokerHand?.waste || {};
+      const order = ['metal', 'paper', 'wood', 'plastic', 'glass', 'material6'];
+      const cards = [];
+      let total = 0;
+
+      order.forEach((mat) => {
+        const grades = waste[mat];
+        if (!grades) return;
+        ['B', 'C', 'F'].forEach((g) => {
+          const t = Math.max(0, Math.floor(Number(grades[g] || 0)));
+          if (t <= 0) return;
+          total += t;
+          const oh = Math.max(0, Math.floor(Number((bh[mat] && bh[mat][g]) || 0)));
+          const gradeClass = g === 'B' ? 'grade-pill-b' : g === 'C' ? 'grade-pill-c' : 'grade-pill-f';
+          const iconByMaterial = {
+            paper: '📄',
+            plastic: '🧴',
+            metal: '🔩',
+            glass: '🍾',
+            wood: '🪵',
+            material6: '📦'
+          };
+          const baseLabel = mat === 'material6' ? 'Material 6' : (mat.charAt(0).toUpperCase() + mat.slice(1));
+          const matLabel = `${iconByMaterial[mat] || '📦'} ${baseLabel}`;
+          const rowKey = `${mat}:${g}`;
+          const prev = preserved[rowKey];
+          const prevNum = Math.max(0, Math.floor(Number(prev) || 0));
+          const maxAct = isCollect ? t : oh;
+          const safePrev = Math.min(prevNum, maxAct);
+          const actionLabel = isCollect ? 'Collect (t)' : 'Send (t)';
+          const helperText = isCollect
+            ? `Requested (max collect): <span class="font-semibold">${t} t</span>`
+            : `On hand (max send): <span class="js-broker-on-hand font-semibold">${oh} t</span>`;
+          const sendBlock = `
+              <p class="mt-2 text-xs text-slate-600">${helperText}</p>
+              <label class="mt-2 block text-sm font-bold text-slate-700">${actionLabel}</label>
+              <input
+                type="number"
+                inputmode="numeric"
+                min="0"
+                max="${maxAct}"
+                step="1"
+                value="${safePrev}"
+                data-waste-card-tons="1"
+                data-material="${mat}"
+                data-grade="${g}"
+                ${(maxAct <= 0) ? 'disabled' : ''}
+                class="mt-1 w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-right text-base text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60 disabled:opacity-50"
+              />
+            `;
+          cards.push(`
+            <div class="mat-card" data-waste-card-row="1" data-material="${mat}" data-grade="${g}">
+              <p class="text-lg font-extrabold">${matLabel}</p>
+              <p class="mt-2 text-sm text-slate-800">Quality:
+                <span class="grade-pill ${gradeClass}">${g}</span>
+              </p>
+              <p class="text-sm text-slate-800">Volume (incl. requests / transit): ${t} t</p>
+              ${sendBlock}
+            </div>
+          `);
+        });
+      });
+
+      lastWasteListRowKeys = wasteSendTableRowKeys(displayInv);
+
+      totalEl.textContent = String(total);
+      tbody.innerHTML = cards.length
+        ? cards.join('')
+        : `<div class="col-span-full text-center py-8 text-slate-400 border border-slate-200 rounded-xl">No waste in inventory yet.</div>`;
+
+      tbody.querySelectorAll('#wasteListBody input[data-waste-card-tons="1"]').forEach((input) => {
+        input.addEventListener('input', () => {
+          updateBrokerWasteSelectionTotal();
+          updateImpactPreview();
+        });
+        input.addEventListener('change', () => {
+          updateBrokerWasteSelectionTotal();
+          updateImpactPreview();
+        });
+      });
+
+      updateBrokerWasteSelectionTotal();
+    }
+
+    function renderMaterialSummary(inv, showGradeShare) {
+      const summaryEl = document.getElementById('materialSummary');
+      if (!inv) {
+        summaryEl.innerHTML = '<p class="text-slate-400">No inventory yet.</p>';
+        updateMaterialsChart(null);
+        return;
+      }
+
+      if (showGradeShare) {
+        const acc = { B: 0, C: 0, F: 0 };
+        Object.values(inv.waste || {}).forEach((g) => {
+          acc.B += (g.B || 0);
+          acc.C += (g.C || 0);
+          acc.F += (g.F || 0);
+        });
+        const total = acc.B + acc.C + acc.F;
+        if (total <= 0) {
+          summaryEl.innerHTML = '<p class="text-slate-400">No requested waste yet.</p>';
+          updateMaterialsChart(null);
+          return;
+        }
+        summaryEl.innerHTML = ['B', 'C', 'F'].map((gr) => {
+          const t = acc[gr];
+          if (t <= 0) return '';
+          const pct = total > 0 ? Math.round((t / total) * 100) : 0;
+          return `<p>Grade ${gr}: ${t} t (${pct}%)</p>`;
+        }).filter(Boolean).join('');
+        updateMaterialsChart({
+          byGrade: acc,
+          order: ['B', 'C', 'F'],
+          gradePalette: { B: '#334155', C: '#38bdf8', F: '#16a34a' },
+          gradeLabel: { B: 'Grade B', C: 'Grade C', F: 'Grade F' }
+        });
+        return;
+      }
+
+      let byGrade = null;
+      let order = [];
+      let gradePalette = {};
+      let gradeLabel = {};
+
+      if (qualityMode === 'materials') {
+        byGrade = { A: 0, B: 0, C: 0 };
+        Object.values(inv.materials || {}).forEach((grades) => {
+          byGrade.A += Number(grades?.A || 0);
+          byGrade.B += Number(grades?.B || 0);
+          byGrade.C += Number(grades?.C || 0);
+        });
+        order = ['A', 'B', 'C'];
+        gradePalette = { A: '#22c55e', B: '#f59e0b', C: '#ef4444' };
+        gradeLabel = { A: 'A (Excellent)', B: 'B (Average)', C: 'C (Poor)' };
+      } else {
+        byGrade = { B: 0, C: 0, F: 0 };
+        Object.values(inv.waste || {}).forEach((grades) => {
+          byGrade.B += Number(grades?.B || 0);
+          byGrade.C += Number(grades?.C || 0);
+          byGrade.F += Number(grades?.F || 0);
+        });
+        order = ['B', 'C', 'F'];
+        gradePalette = { B: '#22c55e', C: '#f59e0b', F: '#ef4444' };
+        gradeLabel = { B: 'B (Clean)', C: 'C (Dirty)', F: 'F (Unrecyclable)' };
+      }
+
+      const totalAll = order.reduce((s, g) => s + Number(byGrade[g] || 0), 0);
+      if (totalAll <= 0) {
+        summaryEl.innerHTML = `<p class="text-slate-400">No ${qualityMode === 'materials' ? 'materials' : 'waste'} yet.</p>`;
+        updateMaterialsChart(null);
+        return;
+      }
+
+      const items = order.map((g) => {
+        const t = Number(byGrade[g] || 0);
+        const pct = totalAll > 0 ? Math.round((t / totalAll) * 100) : 0;
+        const c = gradePalette[g];
+        return `
+          <div class="flex items-center gap-2">
+            <span class="legend-dot" style="background:${c}"></span>
+            <span>${gradeLabel[g]}: ${pct}%</span>
+          </div>
+        `;
+      });
+
+      summaryEl.innerHTML = `<div class="grid grid-cols-2 gap-x-6 gap-y-2">${items.join('')}</div>`;
+      updateMaterialsChart({ byGrade, order, gradePalette, gradeLabel });
+    }
+
+    function updateMaterialsChart(payload) {
+      const canvas = document.getElementById('materialsPie');
+      if (!canvas || typeof Chart === 'undefined') return;
+
+      const labels = [];
+      const data = [];
+      const colors = [];
+
+      const hasPayload = !!(payload && payload.byGrade && payload.order);
+      if (hasPayload) {
+        const { byGrade, order, gradePalette, gradeLabel } = payload;
+        order.forEach((g) => {
+          const t = Number(byGrade && byGrade[g] ? byGrade[g] : 0);
+          if (t <= 0) return;
+          labels.push(gradeLabel[g] || g);
+          data.push(t);
+          colors.push(gradePalette[g] || '#a78bfa');
+        });
+      }
+
+      const hasData = data.some((n) => n > 0);
+      const chartData = hasData ? data : [1];
+      const chartLabels = hasData ? labels : ['Empty'];
+      const chartColors = hasData ? colors : ['#e5e7eb'];
+
+      if (!materialsChart) {
+        materialsChart = new Chart(canvas, {
+          type: 'pie',
+          data: {
+            labels: chartLabels,
+            datasets: [{ data: chartData, backgroundColor: chartColors, borderColor: '#ffffff', borderWidth: 2 }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 0 },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => {
+                    const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                    const v = ctx.parsed || 0;
+                    const pct = total > 0 ? Math.round((v / total) * 100) : 0;
+                    return `${ctx.label}: ${v} t (${pct}%)`;
+                  }
+                }
+              }
+            }
+          }
+        });
+        return;
+      }
+
+      materialsChart.data.labels = chartLabels;
+      materialsChart.data.datasets[0].data = chartData;
+      materialsChart.data.datasets[0].backgroundColor = chartColors;
+      materialsChart.update();
+    }
+
+    (function initQualityModeControls() {
+      const mBtn = document.getElementById('qualityModeMaterialsBtn');
+      const wBtn = document.getElementById('qualityModeWasteBtn');
+      if (mBtn) mBtn.addEventListener('click', () => setQualityMode('materials'));
+      if (wBtn) wBtn.addEventListener('click', () => setQualityMode('waste'));
+      // Collect mode defaults to waste list; pending materials use Material List + kind:'material' on collect.
+      setQualityMode(isCollectMode ? 'waste' : 'materials');
+    })();
+
+    function renderSelectableWaste(inv) {
+      const tbody = document.getElementById('wasteSelectableBody');
+      if (!inv) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="4" class="px-3 py-3 text-center text-slate-500">
+              No waste in inventory yet.
+            </td>
+          </tr>
+        `;
+        lastWasteSendRowKeys = '';
+        return;
+      }
+
+      const existingInputs = Array.from(document.querySelectorAll('#wasteSelectableBody input[type="number"]'));
+      const preserved = {};
+      existingInputs.forEach((input) => {
+        const mat = input.dataset.material;
+        const grade = input.dataset.grade;
+        if (!mat || !grade) return;
+        preserved[`${mat}:${grade}`] = input.value;
+      });
+
+      const rows = [];
+      Object.entries(inv.waste || {}).forEach(([material, grades]) => {
+        ['B', 'C', 'F'].forEach((grade) => {
+          const amount = grades[grade] || 0;
+          if (amount > 0) {
+            const key = `${material}:${grade}`;
+            const prev = preserved[key];
+            const prevNum = Math.max(0, Math.floor(Number(prev) || 0));
+            const safePrev = Math.min(prevNum, amount);
+            rows.push(`
+              <tr class="border-t border-slate-700/60" data-send-row="1" data-material="${material}" data-grade="${grade}">
+                <td class="px-3 py-2 capitalize">${material}</td>
+                <td class="px-3 py-2">${grade}</td>
+                <td class="px-3 py-2 text-right js-send-avail">${amount}</td>
+                <td class="px-3 py-2 text-right">
+                  <input
+                    type="number"
+                    inputmode="numeric"
+                    min="0"
+                    max="${amount}"
+                    step="1"
+                    value="${safePrev}"
+                    data-material="${material}"
+                    data-grade="${grade}"
+                    class="w-20 bg-white border border-slate-300 rounded-md px-2 py-1 text-right text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
+                  />
+                </td>
+              </tr>
+            `);
+          }
+        });
+      });
+
+      if (!rows.length) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="4" class="px-3 py-3 text-center text-slate-500">
+              No waste in inventory yet.
+            </td>
+          </tr>
+        `;
+        lastWasteSendRowKeys = '';
+      } else {
+        tbody.innerHTML = rows.join('');
+      }
+
+      document.querySelectorAll('#wasteSelectableBody input[type="number"]').forEach((input) => {
+        input.addEventListener('input', () => {
+          updateBrokerWasteSelectionTotal();
+          updateImpactPreview();
+        });
+        input.addEventListener('change', () => {
+          updateBrokerWasteSelectionTotal();
+          updateImpactPreview();
+        });
+      });
+      lastWasteSendRowKeys = wasteSendTableRowKeys(inv);
+      updateImpactPreview();
+    }
+
+    function sumRoleInventoryTotal(inv) {
+      if (!inv) return 0;
+      let t = Math.max(0, Number(inv.unprocessedWaste || 0));
+      Object.values(inv.materials || {}).forEach((g) => { t += (g.A || 0) + (g.B || 0) + (g.C || 0); });
+      Object.values(inv.waste || {}).forEach((g) => { t += (g.B || 0) + (g.C || 0) + (g.F || 0); });
+      return t;
+    }
+
+    function sumPendingTonnesToTarget(pending, targetRole) {
+      if (!Array.isArray(pending)) return 0;
+      return pending.reduce((sum, p) => {
+        if (p.targetRole !== targetRole) return sum;
+        const items = Array.isArray(p.items) ? p.items : [];
+        return sum + items.reduce((s, it) => s + Math.max(0, Number(it.tonnes || 0)), 0);
+      }, 0);
+    }
+
+    function updateMrfPartnerStrip(roles, shared) {
+      const mrfInv = roles.mrf && roles.mrf.inventory;
+      const mrfTotal = sumRoleInventoryTotal(mrfInv);
+      // Keep partner strip aligned with role cap setting (MRF = 150 t).
+      const mrfCap = 150;
+      const free = Math.max(0, Math.round((mrfCap - mrfTotal) * 10) / 10);
+      const elStatus = document.getElementById('mrfInvStatusBroker');
+      const elFree = document.getElementById('mrfInvFreeBroker');
+      if (elStatus) elStatus.textContent = `${Math.round(mrfTotal * 10) / 10} / ${mrfCap} t`;
+      if (elFree) elFree.textContent = `(free ${free} t)`;
+      const pendingDel = Array.isArray(shared.pendingDeliveries) ? shared.pendingDeliveries : [];
+      const toMrf = sumPendingTonnesToTarget(pendingDel, 'mrf');
+      const elTr = document.getElementById('mrfTransitHintBroker');
+      if (elTr) {
+        if (toMrf > 0) {
+          elTr.textContent = `In transit to MRF: ${Math.round(toMrf * 10) / 10} t`;
+          elTr.classList.remove('hidden');
+        } else {
+          elTr.classList.add('hidden');
+        }
+      }
+    }
+
+    function renderGameState(data) {
+      if (!data) return;
+      latestState = data;
+      const shared = data.shared;
+      if (!shared) return;
+      const roles = data.roles || {};
+      const brRaw = shared.brokerTransferRequests || {};
+      const pendingReq = {
+        municipality: normalizeBrokerTransferReqList(brRaw.municipality),
+        mrf: normalizeBrokerTransferReqList(brRaw.mrf)
+      };
+      const invRole = getBrokerFromState(data);
+      const inv = invRole?.inventory;
+
+      document.getElementById('budgetHKD').textContent = shared.budgetHKD.toLocaleString('en-HK');
+      document.getElementById('cityHealth').textContent = `${shared.cityHealth}%`;
+      document.getElementById('carbonValue').textContent = `${shared.carbonEmissions?.value ?? '–'}% / ${shared.carbonEmissions?.limit ?? '–'}%`;
+      updateDayDisplay({ day: shared.day, maxDay: shared.maxDay });
+
+      const cap = inv?.capacityTonnes ?? 150;
+      let invTotal = 0;
+      if (inv) {
+        Object.values(inv.materials || {}).forEach((g) => { invTotal += (g.A || 0) + (g.B || 0) + (g.C || 0); });
+        Object.values(inv.waste || {}).forEach((g) => { invTotal += (g.B || 0) + (g.C || 0) + (g.F || 0); });
+        invTotal += (inv.unprocessedWaste || 0);
+      }
+      document.getElementById('invCapacityBadge').textContent = `${invTotal}/${cap} tons`;
+      lastInvTotal = invTotal;
+      lastInvCap = cap;
+
+      const statusBudgetEl = document.getElementById('statusBudget');
+      if (statusBudgetEl) statusBudgetEl.textContent = shared.budgetHKD.toLocaleString('en-HK');
+      const statusHealthEl = document.getElementById('statusHealth');
+      if (statusHealthEl) statusHealthEl.textContent = `${shared.cityHealth}%`;
+      const statusHealthBarEl = document.getElementById('statusHealthBar');
+      if (statusHealthBarEl) statusHealthBarEl.style.width = `${Math.max(0, Math.min(100, Number(shared.cityHealth) || 0))}%`;
+      const statusInventoryEl = document.getElementById('statusInventory');
+      if (statusInventoryEl) statusInventoryEl.textContent = `${invTotal}/${cap} t`;
+      const statusCO2El = document.getElementById('statusCO2');
+      if (statusCO2El) statusCO2El.textContent = `${shared.carbonEmissions?.value ?? '–'}%`;
+      const statusCO2BarEl = document.getElementById('statusCO2Bar');
+      if (statusCO2BarEl) statusCO2BarEl.style.width = `${Math.max(0, Math.min(100, Number(shared.carbonEmissions?.value) || 0))}%`;
+
+      let collectSourceInv = null;
+      if (isCollectMode) {
+        const reqList = Array.isArray(pendingReq[collectFrom]) ? pendingReq[collectFrom] : [];
+        const reqMaterials = {};
+        const reqWaste = {};
+        reqList.forEach((it) => {
+          const material = String(it.material || '').toLowerCase();
+          const grade = String(it.grade || '').toUpperCase();
+          const tonnes = Math.max(0, Math.floor(Number(it.tonnes) || 0));
+          if (!material || tonnes <= 0) return;
+          const kind = pendingTransferItemKind(it);
+          if (kind === 'material') {
+            if (!['A', 'B', 'C'].includes(grade)) return;
+            if (!reqMaterials[material]) reqMaterials[material] = { A: 0, B: 0, C: 0 };
+            reqMaterials[material][grade] += tonnes;
+          } else {
+            if (!['B', 'C', 'F'].includes(grade)) return;
+            if (!reqWaste[material]) reqWaste[material] = { B: 0, C: 0, F: 0 };
+            reqWaste[material][grade] += tonnes;
+          }
+        });
+        collectSourceInv = { materials: reqMaterials, waste: reqWaste };
+      }
+      const tableInv = collectSourceInv || inv;
+      lastBrokerTableInv = tableInv;
+      const brokerDisplayInv = isCollectMode
+        ? tableInv
+        : buildBrokerWasteDisplay(inv, shared, false);
+      // Allow switching Materials/Waste lists even in collect mode.
+      document.getElementById('qualityToggleGroup')?.classList.remove('hidden');
+      renderMaterialSummary(isCollectMode ? tableInv : brokerDisplayInv, isCollectMode && qualityMode === 'waste');
+      renderMaterialList(isCollectMode ? tableInv : inv);
+      const wasteListDisplay = isCollectMode && collectSourceInv ? collectSourceInv : brokerDisplayInv;
+      const listKeys = wasteSendTableRowKeys(wasteListDisplay);
+      if (!isCollectMode && isEditingAnyWasteSendInput() && listKeys === lastWasteListRowKeys) {
+        syncWasteListBrokerCards(inv);
+        updateBrokerWasteSelectionTotal();
+      } else {
+        renderWasteListBroker(wasteListDisplay, inv, isCollectMode);
+      }
+      updateBrokerWasteIncomingNote(shared);
+      updateMrfPartnerStrip(roles, shared);
+      const rowKeys = wasteSendTableRowKeys(tableInv);
+      if (isEditingAnyWasteSendInput() && rowKeys === lastWasteSendRowKeys) {
+        syncWasteSendTableAvailable(tableInv);
+      } else {
+        renderSelectableWaste(tableInv);
+      }
+      updateImpactPreview();
+
+      const pendingDel = Array.isArray(shared.pendingDeliveries) ? shared.pendingDeliveries : [];
+      const transitEl = document.getElementById('pendingTransitNote');
+      if (transitEl) {
+        if (pendingDel.length) {
+          const label = (r) => (r === 'municipality' ? 'Municipality' : r === 'mrf' ? 'MRF' : 'Broker');
+          transitEl.textContent =
+            'In transit (not yet delivered): ' +
+            pendingDel
+              .map((p) => `→ ${label(p.targetRole)}, arrival Day ${p.arriveDay}`)
+              .join(' · ');
+          transitEl.classList.remove('hidden');
+        } else {
+          transitEl.classList.add('hidden');
+        }
+      }
+
+      const logEl = document.getElementById('recordLog');
+      if (shared.eventLog && shared.eventLog.length > 0) {
+        logEl.innerHTML = shared.eventLog.slice(-10).reverse().map((e) => `<div class="py-0.5">[Day ${e.day}] ${e.message}</div>`).join('');
+      } else {
+        logEl.textContent = 'No events yet.';
+      }
+
+      const muniReqTotal = (Array.isArray(pendingReq.municipality) ? pendingReq.municipality : [])
+        .reduce((sum, it) => sum + Math.max(0, Number(it.tonnes || 0)), 0);
+      const mrfReqTotal = (Array.isArray(pendingReq.mrf) ? pendingReq.mrf : [])
+        .reduce((sum, it) => sum + Math.max(0, Number(it.tonnes || 0)), 0);
+      const pendingNoteEl = document.getElementById('pendingRequestNote');
+      if (pendingNoteEl) {
+        if (isCollectMode) {
+          pendingNoteEl.classList.add('hidden');
+        } else if (muniReqTotal > 0 || mrfReqTotal > 0) {
+          const bits = [];
+          if (muniReqTotal > 0) bits.push(`Municipality ${muniReqTotal} t`);
+          if (mrfReqTotal > 0) bits.push(`MRF ${mrfReqTotal} t`);
+          pendingNoteEl.textContent = `Pickup pending: ${bits.join(' · ')}. When Send (t) totals are zero, click From Municipality or From MRF, enter Collect (t) on the Material / Waste lists, then use the main collect button.`;
+          pendingNoteEl.classList.remove('hidden');
+        } else {
+          pendingNoteEl.classList.add('hidden');
+        }
+      }
+
+      const buf = (roles && roles.broker && roles.broker.bufferLevel) ? roles.broker.bufferLevel : 'Normal';
+      const tm = shared.transportTimeMultiplier ?? 1;
+      document.getElementById('hubBudget').textContent = shared.budgetHKD.toLocaleString('en-HK');
+      document.getElementById('hubHealth').textContent = shared.cityHealth + '%';
+      document.getElementById('hubBuffer').textContent = buf;
+      document.getElementById('hubTransport').textContent = tm;
+      let allInvTotal = 0;
+      let allInvCap = 0;
+      ['municipality', 'mrf', 'broker'].forEach((k) => {
+        const inv2 = roles && roles[k] ? roles[k].inventory : null;
+        if (!inv2) return;
+        allInvCap += Number(inv2.capacityTonnes || 0);
+        allInvTotal += Math.max(0, Number(inv2.unprocessedWaste || 0));
+        Object.values(inv2.materials || {}).forEach((g) => { allInvTotal += (g.A || 0) + (g.B || 0) + (g.C || 0); });
+        Object.values(inv2.waste || {}).forEach((g) => { allInvTotal += (g.B || 0) + (g.C || 0) + (g.F || 0); });
+      });
+      document.getElementById('hubWasteTotal').textContent = Math.round(allInvTotal * 10) / 10;
+      document.getElementById('hubWasteLimit').textContent = allInvCap;
+      document.getElementById('hubCarbon').textContent = shared.carbonEmissions.value;
+      document.getElementById('hubCarbonLimit').textContent = shared.carbonEmissions.limit;
+      document.getElementById('hubDay').textContent = shared.day;
+      document.getElementById('hubMaxDay').textContent = shared.maxDay;
+
+      if (shared.districts) {
+        const getDistrictTotal = (w2) => {
+          if (!w2) return 0;
+          let t2 = 0;
+          Object.values(w2).forEach((g) => { Object.values(g).forEach((n) => { t2 += n; }); });
+          return t2;
+        };
+        const getStatusText = (total) => total <= 20 ? 'Normal' : total <= 40 ? 'Full' : 'Overflowing';
+        const parts = ['residential', 'commercial', 'industrial'].map((k) => {
+          const total = getDistrictTotal(shared.districts[k] && shared.districts[k].waste);
+          return `${k.charAt(0).toUpperCase() + k.slice(1)} ${total} t (${getStatusText(total)})`;
+        });
+        document.getElementById('hubDistricts').textContent = 'Districts: ' + parts.join(' · ');
+      }
+
+      const invObj = getBrokerFromState(data).inventory;
+      if (invObj) {
+        let invTotal2 = (invObj.unprocessedWaste || 0);
+        Object.values(invObj.materials || {}).forEach((g) => { invTotal2 += (g.A || 0) + (g.B || 0) + (g.C || 0); });
+        Object.values(invObj.waste || {}).forEach((g) => { invTotal2 += (g.B || 0) + (g.C || 0) + (g.F || 0); });
+        const cap2 = invObj.capacityTonnes ?? 150;
+        document.getElementById('hubInvTotal').textContent = invTotal2;
+        document.getElementById('hubInvCap').textContent = cap2;
+      }
+    }
+
+    socket.on('gameStateUpdate', renderGameState);
+    socket.on('dayUpdate', updateDayDisplay);
+
+    socket.on('transportationUpgradeResult', (payload) => {
+      if (!payload || !payload.ok || !payload.upgrades) return;
+      latestState = latestState || { shared: {}, roles: {} };
+      latestState.roles = latestState.roles || {};
+      if (!latestState.roles.broker) latestState.roles.broker = { roleName: 'Broker', transportation: {}, inventory: {} };
+      latestState.roles.broker.transportation = latestState.roles.broker.transportation || {};
+      latestState.roles.broker.transportation.upgrades = {
+        ...(latestState.roles.broker.transportation.upgrades || {}),
+        ...payload.upgrades
+      };
+      updateImpactPreview();
+    });
+
+    socket.on('connect', () => {
+      fetch('/state')
+        .then((res) => (res && res.ok ? res.json() : null))
+        .then((data) => {
+          if (data && data.shared && data.roles) renderGameState(data);
+        })
+        .catch(() => {});
+    });
+
+    socket.on('gameOver', (payload) => {
+      if (payload && payload.state) renderGameState(payload.state);
+    });
+
+    function buildSelectedItems() {
+      const capInv = lastBrokerTableInv;
+      if (!capInv) return [];
+      const items = [];
+      Object.entries(capInv.waste || {}).forEach(([mat, grades]) => {
+        ['B', 'C', 'F'].forEach((g) => {
+          const maxAvail = Math.max(0, Math.floor(Number(grades[g] || 0)));
+          if (maxAvail <= 0) return;
+          const tonnes = brokerEffectiveSendTonnes(mat, g, maxAvail);
+          if (tonnes > 0) items.push({ material: mat, grade: g, tonnes, kind: 'waste' });
+        });
+      });
+      Object.entries(capInv.materials || {}).forEach(([mat, grades]) => {
+        ['A', 'B', 'C'].forEach((g) => {
+          const maxAvail = Math.max(0, Math.floor(Number(grades[g] || 0)));
+          if (maxAvail <= 0) return;
+          const tonnes = brokerEffectiveMaterialSendTonnes(mat, g, maxAvail);
+          if (tonnes > 0) items.push({ material: mat, grade: g, tonnes, kind: 'material' });
+        });
+      });
+      return items;
+    }
+
+    function formatMaterialDisplayName(mat) {
+      if (!mat) return '';
+      if (mat === 'material6') return 'Material 6';
+      return mat.charAt(0).toUpperCase() + mat.slice(1);
+    }
+
+    function updateUnifiedSendSelectionSummary() {
+      const els = document.querySelectorAll('.broker-unified-selection-text');
+      if (!els.length) return;
+      const items = buildSelectedItems();
+      const line = (it) =>
+        `${it.kind === 'waste' ? 'Waste' : 'Material'} · ${formatMaterialDisplayName(it.material)} · Grade ${it.grade} · ${it.tonnes} t`;
+      els.forEach((textEl) => {
+        if (!items.length) textEl.textContent = 'No items selected.';
+        else textEl.innerHTML = items.map(line).join('<br />');
+      });
+    }
+
+    function getTransportationSelection() {
+      const typeEl = document.getElementById('transportTypeSelect');
+      const unitsEl = document.getElementById('transportUnitsInput');
+      const transportType = String(typeEl && typeEl.value ? typeEl.value : 'Truck');
+      let transportUnits = Math.max(1, Math.floor(Number(unitsEl && unitsEl.value ? unitsEl.value : 1) || 1));
+      const cfg = getTransportConfig(transportType);
+      const inUse = getInUseByType(transportType);
+      const available = Math.max(0, cfg.qty - inUse);
+      if (available > 0) {
+        transportUnits = Math.min(transportUnits, available);
+      }
+      if (unitsEl) unitsEl.value = String(transportUnits);
+      return { transportType, transportUnits };
+    }
+
+    function validateMaxLoadOrAlert(items, transport) {
+      const cfg = getTransportConfig(transport.transportType);
+      const totalTons = (items || []).reduce((s, it) => s + Math.max(0, Number(it.tonnes || 0)), 0);
+      const maxLoad = cfg.cap * transport.transportUnits;
+      if (totalTons > maxLoad) {
+        alert(`Selected load ${totalTons} t exceeds Max load this trip (${maxLoad} t). Please reduce selected tonnes or increase transport units.`);
+        return false;
+      }
+      return true;
+    }
+
+    {
+      const stripTitle = document.getElementById('brokerUnifiedSelectionTitle');
+      const stripSub = document.getElementById('brokerUnifiedSelectionSubtitle');
+      if (isCollectMode) {
+        const srcLabel = collectFrom === 'municipality' ? 'Municipality' : 'MRF';
+        const panelTitle = document.getElementById('sendPanelTitle');
+        const panelHint = document.getElementById('sendPanelHint');
+        const actionHeader = document.getElementById('actionTonsHeader');
+        const afterLabel = document.getElementById('impactAfterLabel');
+        const btnMrf = document.getElementById('sendToMrfBtn');
+        if (stripTitle) stripTitle.textContent = 'Selected to collect';
+        if (stripSub) {
+          stripSub.textContent =
+            'Material / Waste — combined in one trip (set transport below, then use Collect)';
+        }
+        if (panelTitle) panelTitle.textContent = `Collect from ${srcLabel}`;
+        const legacyHead = document.getElementById('legacySendPanelHeading');
+        if (legacyHead) legacyHead.textContent = `Collect from Municipality / MRF`;
+        if (panelHint) {
+          panelHint.textContent =
+            `Pick tonnes on Material and Waste lists above, then set transport and use Collect. Goods arrive after the round trip.`;
+        }
+        if (actionHeader) actionHeader.textContent = 'Collect (t)';
+        if (afterLabel) afterLabel.textContent = 'After collect (est.)';
+        updateCollectModePrimaryButtonLabel();
+        if (btnMrf) btnMrf.classList.add('hidden');
+        const pieCaption = document.getElementById('materialsPieCaption');
+        if (pieCaption) pieCaption.textContent = `Grade share (B/C/F) of pending ${srcLabel} requests.`;
+      } else {
+        if (stripTitle) stripTitle.textContent = 'Selected to send';
+        if (stripSub) {
+          stripSub.textContent = 'Material / Waste — combined before sending (same as Municipality inventory)';
+        }
+        const panelTitle = document.getElementById('sendPanelTitle');
+        const panelHint = document.getElementById('sendPanelHint');
+        const actionHeader = document.getElementById('actionTonsHeader');
+        const afterLabel = document.getElementById('impactAfterLabel');
+        const btnMrf = document.getElementById('sendToMrfBtn');
+        const legacyHead = document.getElementById('legacySendPanelHeading');
+        if (legacyHead) legacyHead.textContent = 'Transport & send to Municipality / MRF';
+        if (panelTitle) panelTitle.textContent = 'Send from Broker inventory';
+        if (panelHint) {
+          panelHint.textContent =
+            'Select tonnes on Material and Waste lists above, then set transport and send to Municipality or MRF.';
+        }
+        if (actionHeader) actionHeader.textContent = 'Send (t)';
+        if (afterLabel) afterLabel.textContent = 'After send (est.)';
+        if (btnMrf) btnMrf.classList.remove('hidden');
+        document.getElementById('legacySendTable')?.classList.add('hidden');
+      }
+    }
+
+    (function setupCollectSourceChooser() {
+      const chooseMuniBtn = document.getElementById('collectFromMunicipalityModeBtn');
+      const chooseMrfBtn = document.getElementById('collectFromMrfModeBtn');
+      if (!chooseMuniBtn || !chooseMrfBtn) return;
+      chooseMuniBtn.addEventListener('click', goCollectMunicipality);
+      chooseMrfBtn.addEventListener('click', goCollectMrf);
+      updatePrimaryActionButtons();
+    })();
+
+    document.getElementById('transportTypeSelect')?.addEventListener('change', updateImpactPreview);
+    document.getElementById('transportUnitsInput')?.addEventListener('input', updateImpactPreview);
+    document.getElementById('transportUnitsInput')?.addEventListener('change', updateImpactPreview);
+
+    document.getElementById('sendToMunicipalityBtn').addEventListener('click', () => {
+      const items = buildSelectedItems();
+      if (!items) return;
+      if (!items.length) {
+        if (isCollectMode) {
+          if (collectFrom === 'mrf') {
+            goBrokerInventoryDefault();
+            return;
+          }
+          alert('Please enter tonnes to collect for at least one material or waste item.');
+          return;
+        }
+        goCollectMunicipality();
+        return;
+      }
+      const transport = getTransportationSelection();
+      if (!validateMaxLoadOrAlert(items, transport)) return;
+      if (isCollectMode) {
+        socket.emit('brokerCollectFromRoleItems', { role: 'Broker', source: collectFrom, items, ...transport });
+      } else {
+        socket.emit('brokerSendToMunicipality', { role: 'Broker', items, ...transport });
+      }
+    });
+
+    document.getElementById('sendToMrfBtn').addEventListener('click', () => {
+      if (isCollectMode) return;
+      const items = buildSelectedItems();
+      if (!items) return;
+      if (!items.length) {
+        alert('Please enter tonnes to send for at least one material or waste item.');
+        return;
+      }
+      const transport = getTransportationSelection();
+      if (!validateMaxLoadOrAlert(items, transport)) return;
+      socket.emit('brokerSendToMrf', { role: 'Broker', items, ...transport });
+    });
+    socket.on('inventoryTransferResult', (payload) => {
+      if (!payload) return;
+      if (!payload.ok && payload.error) alert(payload.error);
+      if (payload.ok) {
+        const t = getTransportationSelection();
+        const routeText = payload.from && payload.to ? `${payload.from} -> ${payload.to}` : 'Transfer completed';
+        if (payload.dispatchedOnly && payload.arriveDay != null) {
+          showTransferNotice(
+            `Dispatched: ${t.transportType} x${t.transportUnits} | ${routeText} | Cargo arrives Day ${payload.arriveDay} (vehicle returns Day ${payload.returnDay})`
+          );
+        } else {
+          showTransferNotice(`Transport dispatched: ${t.transportType} x${t.transportUnits} | ${routeText}`);
+        }
+        const brokerSentToMunicipality =
+          payload.from === 'Broker' && payload.to === 'Municipality' && payload.dispatchedOnly;
+        if (brokerSentToMunicipality) {
+          setTimeout(() => goCollectMunicipality(), 450);
+          return;
+        }
+        const brokerSentToMrf =
+          payload.from === 'Broker' && payload.to === 'MRF' && payload.dispatchedOnly;
+        if (brokerSentToMrf) {
+          setTimeout(() => goBrokerInventoryDefault(), 450);
+          return;
+        }
+        const collectedFromBrokerPartner =
+          (payload.from === 'Municipality' || payload.from === 'MRF') &&
+          payload.to === 'Broker' &&
+          payload.dispatchedOnly;
+        if (collectedFromBrokerPartner) {
+          setTimeout(() => goBrokerInventoryDefault(), 450);
+          return;
+        }
+        document.querySelectorAll('#wasteSelectableBody input[type="number"]').forEach((input) => {
+          input.value = '0';
+        });
+        document.querySelectorAll('#wasteListBody input[data-waste-card-tons="1"]').forEach((input) => {
+          input.value = '0';
+        });
+        document.querySelectorAll('#materialListBody input[data-material-card-tons="1"]').forEach((input) => {
+          input.value = '0';
+        });
+        const mSel = document.getElementById('materialSelectedTotal');
+        if (mSel) mSel.textContent = '0';
+        updateBrokerWasteSelectionTotal();
+        fetch('/state')
+          .then((res) => (res && res.ok ? res.json() : null))
+          .then((data) => {
+            if (data && data.shared && data.roles) renderGameState(data);
+          })
+          .catch(() => {});
+      }
+    });
+
+    (async function init() {
+      async function pollState() {
+        const res = await fetch('/state').catch(() => null);
+        if (!res || !res.ok) return;
+        const data = await res.json().catch(() => null);
+        if (data && data.shared && data.roles) renderGameState(data);
+      }
+      await pollState();
+      setInterval(pollState, 1000);
+    })();
+  </script>
+</body>
+</html>
+
+

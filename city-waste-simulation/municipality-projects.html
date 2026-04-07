@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Municipality – City Projects &amp; Infrastructure</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <link rel="stylesheet" href="player-menu.css" />
+  <link rel="stylesheet" href="ui-fonts.css" />
+  <style>
+    .topbar { background: #2f5a47; position: fixed; top: 0; left: 0; right: 0; z-index: 9999; }
+    .status-strip {
+      position: fixed;
+      bottom: 10px;
+      left: 24px;
+      right: 24px;
+      z-index: 9990;
+    }
+    @media (max-width: 768px) {
+      .status-strip { left: 12px; right: 12px; }
+    }
+    .cardShadow { box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08); }
+    .project-card { background:#efefef; border:1px solid #d4d4d8; border-radius:1rem; overflow:hidden; }
+    .project-body { background:#efefef; }
+    .req-dot { width:14px; height:14px; border-radius:4px; display:inline-block; }
+    .progress-rail { height:14px; background:#d4d4d8; border-radius:999px; overflow:hidden; }
+    .progress-fill { height:100%; background:#ef4444; border-radius:999px; }
+  </style>
+    <style>
+      :root {
+        --ink:#1a2f25;
+        --ink-2:#244635;
+        --panel:#9bb38f;
+        --paper:#e3dfd2;
+        --card:#ffffff;
+        --muted:#6b7280;
+        --accent:#2f6f43;
+        --accent-2:#3e7d51;
+        --radius-xl: 20px;
+        --shadow-1: 0 12px 24px rgba(0,0,0,.12);
+      }
+      html, body { height: 100%; }
+      body { background: #e8e3d3 !important; color: #1f2937 !important; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace !important; }
+      .app-header { background: var(--ink-2) !important; color: #fff !important; box-shadow: var(--shadow-1) !important; }
+      .stage { background: var(--panel) !important; border-radius: 26px !important; box-shadow: var(--shadow-1) !important; border: 2px solid rgba(0,0,0,.06) !important; }
+      .stage-head { background: var(--ink) !important; color: #e8f3ec !important; }
+      /* Avoid overriding generic rounding utility classes (buttons/modals also use rounded-*) */
+      .card, .role-card { background: var(--card) !important; }
+      .btn-ink { background: var(--ink) !important; color:#fff !important; }
+      .btn-main { background:#fff !important; color:#111827 !important; border: 2px solid #e9e5d6 !important; }
+      .record-bar { background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%) !important; }
+      .status-normal { background: linear-gradient(135deg, #059669 0%, #047857 100%) !important; }
+      .status-full { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; }
+      .status-overflowing { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important; }
+    </style>
+    <!-- GREEN-THEME-OVERRIDE -->
+</head>
+<body class="min-h-screen text-slate-800 pt-20">
+  <div class="mx-auto ">
+    <!-- Top bar -->
+    <header class="topbar w-full px-6 py-4 text-white shadow flex items-center justify-between">
+      
+      <div class="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+        <button onclick="goHub()" class="bg-white text-slate-800 hover:bg-slate-100 rounded-full w-10 h-10 text-lg font-bold leading-none shrink-0">←</button>
+        <div class="hidden md:flex items-center rounded-full bg-[#f1f1ea] text-slate-700 border border-black/15 px-4 py-2 text-sm font-extrabold tracking-wide">
+          <span id="clockText">10:00 a.m.</span>
+          <span class="mx-2">|</span>
+          <span id="dateText">01 November 2025</span>
+        </div>
+        <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="游戏日进度">Day – / –</span>
+      </div>
+      <h1 class="text-2xl md:text-3xl font-extrabold tracking-wide">City Projects</h1>
+      <div class="flex items-center gap-3">
+        <button
+          id="playerBadgeBtn"
+          data-player-menu-trigger="Municipality"
+          type="button"
+          class="bg-white rounded-full px-5 py-2 text-sm hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-300/60 text-slate-800"
+        >
+          <span class="font-semibold">@Player, Municipality</span>
+          <span class="ml-2">📦</span>
+
+        </button>
+      </div>
+    </header>
+
+    <!-- Game Hub summary (consistent across Municipality pages) -->
+    <section class="hidden mb-6 bg-white/80 rounded-3xl p-4 shadow-sm border border-emerald-100">
+      <h2 class="text-xl font-bold tracking-wide mb-3 text-slate-800">Game Hub Summary</h2>
+      <div class="grid gap-6 md:grid-cols-2">
+        <div class="bg-white rounded-2xl p-4 border border-slate-200">
+          <div class="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+            <div class="text-slate-500">Budget (HKD)</div><div class="text-right font-semibold" id="hubBudget">–</div>
+            <div class="text-slate-500">City Health</div><div class="text-right font-semibold" id="hubHealth">–%</div>
+            <div class="text-slate-500">Buffer Level</div><div class="text-right font-semibold" id="hubBuffer">–</div>
+            <div class="text-slate-500">Transport Time</div><div class="text-right font-semibold">x<span id="hubTransport">–</span></div>
+            <div class="text-slate-500">Waste</div><div class="text-right font-semibold"><span id="hubWasteTotal">–</span>/<span id="hubWasteLimit">–</span> t</div>
+            <div class="text-slate-500">Carbon</div><div class="text-right font-semibold"><span id="hubCarbon">–</span>/<span id="hubCarbonLimit">–</span>%</div>
+            <div class="text-slate-500">Day</div><div class="text-right font-semibold"><span id="hubDay">–</span>/<span id="hubMaxDay">–</span></div>
+          </div>
+          <p class="mt-3 text-xs text-slate-600" id="hubDistricts">Districts: –</p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-4 border border-slate-200">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-sm font-semibold">Municipality Inventory</p>
+            <p class="text-xs text-slate-500"><span id="hubInvTotal">–</span>/<span id="hubInvCap">–</span> t</p>
+          </div>
+          <p class="mt-2 text-xs text-slate-600">Showing total only (consistent across pages).</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Shared metrics bar (Game View info) -->
+    <section class="hidden bg-white/80 rounded-3xl p-4 mb-6 shadow-sm border border-emerald-100">
+      <div class="flex flex-wrap items-center gap-4 text-xs md:text-sm">
+        <div><span class="font-semibold">Budget:</span> <span id="budgetHKD">–</span> HKD</div>
+        <div><span class="font-semibold">City Health:</span> <span id="cityHealth">–</span>%</div>
+        <div><span class="font-semibold">Waste:</span> <span id="wasteTotal">–</span>/<span id="wasteLimit">–</span> t</div>
+        <div><span class="font-semibold">CO₂:</span> <span id="carbonValue">–</span>/<span id="carbonLimit">–</span>%</div>
+        <div class="ml-auto"><span class="font-semibold">Day:</span> <span id="currentDay">–</span>/<span id="maxDay">–</span></div>
+      </div>
+    </section>
+
+    <main class="px-6 pt-2 pb-72">
+      <div class="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <p class="text-sm text-slate-700 font-semibold">Municipality City Development</p>
+          <p class="text-xs text-slate-500 mt-1">Use good-quality materials (Grade A/B). First submission starts deadline timer.</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 px-4 py-3 text-xs text-slate-600">
+          <div class="font-semibold text-slate-800">Rule</div>
+          <div>Each submission = Cost/Health/CO₂ ÷ Required Types</div>
+        </div>
+      </div>
+
+      <div class="mt-4 grid gap-4 md:grid-cols-3" id="projectsGrid">
+        <!-- Filled by script -->
+      </div>
+
+      <div class="status-strip grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
+        <div class="lg:col-span-1 rounded-xl overflow-hidden border border-slate-300 bg-white">
+          <div class="record-bar px-3 py-2 text-white text-2xl font-bold flex items-center gap-2">📎 <span>Record</span></div>
+          <div id="projectsLog" class="bg-white p-3 max-h-36 overflow-y-auto text-base text-slate-700 leading-relaxed">No events yet.</div>
+        </div>
+        <div class="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between">
+            <span class="text-xl">💰</span>
+            <span id="statusBudget" class="font-extrabold text-slate-900">–</span>
+          </div>
+          <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
+            <span class="text-xl">❤️</span>
+            <div class="flex-1 h-3 rounded-full bg-slate-200 overflow-hidden border border-black/10">
+              <div id="statusHealthBar" class="h-full bg-red-400" style="width: 0%"></div>
+            </div>
+            <span id="statusHealth" class="font-extrabold text-slate-900 whitespace-nowrap">–</span>
+          </div>
+          <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between">
+            <span class="text-xl">🗑️</span>
+            <span id="statusInventory" class="font-extrabold text-slate-900">–</span>
+          </div>
+          <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
+            <span class="text-xl">🌳</span>
+            <div class="flex-1 h-3 rounded-full bg-slate-200 overflow-hidden border border-black/10">
+              <div id="statusCO2Bar" class="h-full bg-red-500" style="width: 0%"></div>
+            </div>
+            <span id="statusCO2" class="font-extrabold text-slate-900 whitespace-nowrap">–</span>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="player-menu.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const role = params.get('role') || 'Municipality';
+
+    function goHub() {
+      const url = new URL('game.html', window.location.origin);
+      url.searchParams.set('role', role);
+      window.location.href = url.toString();
+    }
+
+    const socket = io();
+    if (typeof besseAttachRestartUI === 'function') besseAttachRestartUI(socket);
+    let latestState = null;
+
+    const PROJECTS = {
+      park: { name: 'Park', healthGainPct: 15, co2ImpactKg: -10, costHKD: 1000, deadlineDays: 5 },
+      recyclingCentre: { name: 'Recycling Centre', healthGainPct: 20, co2ImpactKg: -25, costHKD: 3000, deadlineDays: 6 },
+      bridge: { name: 'Bridge', healthGainPct: 10, co2ImpactKg: 50, costHKD: 4000, deadlineDays: 8 },
+      airport: { name: 'Airport', healthGainPct: 15, co2ImpactKg: 200, costHKD: 12000, deadlineDays: 10 },
+      port: { name: 'Port', healthGainPct: 15, co2ImpactKg: 150, costHKD: 8000, deadlineDays: 9 }
+    };
+
+    function titleCase(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+
+    function getProjectStatus(proj, day) {
+      if (!proj) return { label: 'Not started', cls: 'bg-slate-100 text-slate-700 border-slate-200' };
+      if (proj.completedDay) return { label: 'Completed', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
+      if (!proj.startedDay || !proj.deadlineDay) return { label: 'Not started', cls: 'bg-slate-100 text-slate-700 border-slate-200' };
+      const late = Math.max(0, day - proj.deadlineDay);
+      if (late <= 0) return { label: `On Track (D-${proj.deadlineDay - day})`, cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
+      if (late <= 2) return { label: `Warning (+${late}d)`, cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
+      if (late <= 4) return { label: `Delayed (+${late}d)`, cls: 'bg-orange-100 text-orange-800 border-orange-200' };
+      return { label: `Stalled (+${late}d)`, cls: 'bg-red-100 text-red-700 border-red-200' };
+    }
+
+    function getMunicipalityGoodGradeOptions(inv) {
+      const opts = [];
+      const mats = inv?.materials || {};
+      Object.entries(mats).forEach(([mat, grades]) => {
+        const a = grades?.A || 0;
+        const b = grades?.B || 0;
+        if (a >= 1 || b >= 1) opts.push({ mat, a, b });
+      });
+      return opts;
+    }
+
+    function renderProjects(state) {
+      const grid = document.getElementById('projectsGrid');
+      if (!grid || !state) return;
+      const shared = state.shared;
+      const roles = state.roles;
+      const day = shared.day;
+      const inv = roles?.municipality?.inventory;
+      const bOpts = getMunicipalityGoodGradeOptions(inv);
+
+      const projectsState = shared.projects || {};
+
+      const headerClassByKey = {
+        park: 'bg-red-500',
+        port: 'bg-amber-400',
+        airport: 'bg-green-600',
+        bridge: 'bg-red-300',
+        recyclingCentre: 'bg-amber-200'
+      };
+
+      const iconByKey = {
+        park: '🌳',
+        port: '🚢',
+        airport: '✈️',
+        bridge: '🌉',
+        recyclingCentre: '♻️'
+      };
+
+      grid.innerHTML = Object.entries(PROJECTS).map(([key, cfg]) => {
+        const proj = projectsState[key];
+        const required = proj?.requiredTypes || [];
+        const submitted = new Set(proj?.submittedTypes || []);
+        const n = proj?.requiredCount || required.length || 1;
+        const startedDay = proj?.startedDay;
+        const deadlineDay = proj?.deadlineDay;
+        const completedDay = proj?.completedDay;
+        const status = getProjectStatus(proj, day);
+        const instance = proj?.instance || 1;
+        const regenerateOnDay = proj?.regenerateOnDay || null;
+
+        // After completion, remove card until the next day refresh generates a new instance
+        if (completedDay && regenerateOnDay && day < regenerateOnDay) {
+          return '';
+        }
+
+        const remaining = required.filter((m) => !submitted.has(m));
+
+        const perCost = (cfg.costHKD || 0) / Math.max(1, n);
+        const perHealth = (cfg.healthGainPct || 0) / Math.max(1, n);
+        const perCo2 = (cfg.co2ImpactKg || 0) / Math.max(1, n);
+
+        // Options: remaining required materials that exist in inventory as Grade A/B (>= 1t).
+        const eligible = remaining
+          .map((m) => {
+            const g = inv?.materials?.[m] || {};
+            const a = Number(g.A || 0);
+            const b = Number(g.B || 0);
+            return { mat: m, a, b, ok: a >= 1 || b >= 1 };
+          })
+          .filter((x) => x.ok);
+
+        const matOptionsHtml = eligible.length
+          ? eligible
+              .map((o) => `<option value="${o.mat}">${titleCase(o.mat)} (A ${o.a} · B ${o.b})</option>`)
+              .join('')
+          : `<option value="">No eligible materials (need Grade A/B)</option>`;
+
+        const disableOne = !!completedDay || eligible.length === 0 || remaining.length === 0;
+        const canSubmitAll =
+          remaining.length > 0 &&
+          remaining.every((m) => {
+            const g = inv?.materials?.[m] || {};
+            return Number(g.A || 0) >= 1 || Number(g.B || 0) >= 1;
+          });
+        const disableAll = !!completedDay || !canSubmitAll;
+
+        const palette = { paper: '#60a5fa', plastic: '#93c5fd', metal: '#111827', glass: '#34d399', wood: '#a16207' };
+        const blocks = required.length
+          ? required.map((m) => {
+              const done = submitted.has(m);
+              const bg = done ? (palette[m] || '#9ca3af') : '#e5e7eb';
+              const ring = done ? 'outline:2px solid #86efac;' : 'outline:1px solid #cbd5e1;';
+              return `<span class="req-dot" title="${titleCase(m)}${done ? ' (submitted)' : ''}" style="background:${bg};${ring}"></span>`;
+            }).join(' ')
+          : `<span class="text-xs text-slate-500">–</span>`;
+
+        const progressPct = n > 0 ? Math.round((submitted.size / n) * 100) : 0;
+
+        const deadlineText = completedDay
+          ? `Completed Day ${completedDay}`
+          : startedDay
+            ? `Deadline: Day ${deadlineDay}`
+            : `Deadline: ${cfg.deadlineDays} days after start`;
+
+        return `
+          <div class="project-card cardShadow">
+            <div class="${headerClassByKey[key] || 'bg-slate-700'} px-4 py-3 text-center text-white font-extrabold tracking-wide text-2xl">
+              ${cfg.name} <span class="text-white/80 text-sm font-semibold">#${instance}</span>
+            </div>
+            <div class="project-body p-5">
+              <div class="h-44 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center">
+                <div class="text-7xl">${iconByKey[key] || '🏙️'}</div>
+              </div>
+
+              <div class="mt-4">
+                <p class="text-lg font-semibold text-slate-800">Required Materials:</p>
+                <div class="mt-2 flex items-center gap-2">${blocks}</div>
+                <div class="mt-3 progress-rail">
+                  <div class="progress-fill" style="width:${progressPct}%"></div>
+                </div>
+                <div class="mt-2 flex items-center justify-between">
+                  <p class="text-xl font-semibold text-slate-800">${deadlineText}</p>
+                </div>
+                <div class="mt-2">
+                  <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${status.cls}">${status.label}</span>
+                </div>
+              </div>
+
+              <div class="mt-4 grid grid-cols-3 gap-2 text-xs">
+                <div class="rounded-xl bg-slate-50 border border-slate-200 p-2">
+                  <div class="text-slate-500">Cost</div>
+                  <div class="font-semibold text-slate-800">−${Math.round(perCost).toLocaleString()}</div>
+                </div>
+                <div class="rounded-xl bg-slate-50 border border-slate-200 p-2">
+                  <div class="text-slate-500">Health</div>
+                  <div class="font-semibold text-emerald-700">+${perHealth.toFixed(2)}%</div>
+                </div>
+                <div class="rounded-xl bg-slate-50 border border-slate-200 p-2">
+                  <div class="text-slate-500">CO₂</div>
+                  <div class="font-semibold ${perCo2 < 0 ? 'text-emerald-700' : 'text-emerald-700'}">${perCo2 < 0 ? '' : '+'}${perCo2.toFixed(2)} kg</div>
+                </div>
+              </div>
+
+              <div class="mt-4">
+                <label class="block text-xs text-slate-500 mb-1">Submit one material (Grade A/B, 1 t)</label>
+                <select id="matSel_${key}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" ${disableOne ? 'disabled' : ''}>
+                  ${matOptionsHtml}
+                </select>
+                <p class="text-xs text-slate-500 mt-1">Required remaining: ${remaining.length ? remaining.map(titleCase).join(', ') : 'None'}</p>
+              </div>
+
+              <div class="mt-3 flex gap-2">
+                <button type="button"
+                        class="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        ${disableOne ? 'disabled' : '' }
+                        onclick="submitOne('${key}')">
+                  Submit 1
+                </button>
+                <button type="button"
+                        class="flex-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        ${disableAll ? 'disabled' : '' }
+                        onclick="submitAll('${key}')">
+                  Submit all
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    window.submitOne = function (projectKey) {
+      if (!latestState) return;
+      const sel = document.getElementById('matSel_' + projectKey);
+      const mat = sel && sel.value ? sel.value : '';
+      if (!mat) { alert('No material selected.'); return; }
+      socket.emit('projectSubmitMaterial', { role: 'Municipality', projectKey, material: mat });
+    };
+
+    window.submitAll = function (projectKey) {
+      socket.emit('projectSubmitAll', { role: 'Municipality', projectKey });
+    };
+
+    function updateDayDisplay(payload) {
+      document.getElementById('currentDay').textContent = payload.day;
+      document.getElementById('maxDay').textContent = payload.maxDay;
+      if (window.BesseGameCalendar && payload) {
+        window.BesseGameCalendar.updateDom({ day: payload.day, maxDay: payload.maxDay });
+      }
+      if (window.BesseSyncHeaderDayChip) window.BesseSyncHeaderDayChip(payload.day, payload.maxDay);
+    }
+
+    function renderGameState(data) {
+      if (!data) return;
+      latestState = data;
+      const shared = data.shared;
+      const roles = data.roles;
+
+      document.getElementById('budgetHKD').textContent = shared.budgetHKD.toLocaleString('en-HK');
+      document.getElementById('cityHealth').textContent = shared.cityHealth;
+      let allInvTotal = 0;
+      let allInvCap = 0;
+      ['municipality', 'mrf', 'broker'].forEach((k) => {
+        const inv2 = roles && roles[k] ? roles[k].inventory : null;
+        if (!inv2) return;
+        allInvCap += Number(inv2.capacityTonnes || 0);
+        allInvTotal += Math.max(0, Number(inv2.unprocessedWaste || 0));
+        Object.values(inv2.materials || {}).forEach((g) => { allInvTotal += (g.A || 0) + (g.B || 0) + (g.C || 0); });
+        Object.values(inv2.waste || {}).forEach((g) => { allInvTotal += (g.B || 0) + (g.C || 0) + (g.F || 0); });
+      });
+      document.getElementById('wasteTotal').textContent = Math.round(allInvTotal * 10) / 10;
+      document.getElementById('wasteLimit').textContent = allInvCap;
+      document.getElementById('carbonValue').textContent = shared.carbonEmissions.value;
+      document.getElementById('carbonLimit').textContent = shared.carbonEmissions.limit;
+      updateDayDisplay({ day: shared.day, maxDay: shared.maxDay });
+
+      const buf = (roles && roles.municipality && roles.municipality.bufferLevel) ? roles.municipality.bufferLevel : 'Normal';
+      const tm = shared.transportTimeMultiplier ?? 1;
+      document.getElementById('hubBudget').textContent = shared.budgetHKD.toLocaleString('en-HK');
+      document.getElementById('hubHealth').textContent = shared.cityHealth + '%';
+      document.getElementById('hubBuffer').textContent = buf;
+      document.getElementById('hubTransport').textContent = tm;
+      document.getElementById('hubWasteTotal').textContent = Math.round(allInvTotal * 10) / 10;
+      document.getElementById('hubWasteLimit').textContent = allInvCap;
+      document.getElementById('hubCarbon').textContent = shared.carbonEmissions.value;
+      document.getElementById('hubCarbonLimit').textContent = shared.carbonEmissions.limit;
+      document.getElementById('hubDay').textContent = shared.day;
+      document.getElementById('hubMaxDay').textContent = shared.maxDay;
+
+      if (shared.districts) {
+        const getDistrictTotal = (w2) => { if (!w2) return 0; let t2 = 0; Object.values(w2).forEach((g) => { Object.values(g).forEach((n) => { t2 += n; }); }); return t2; };
+        const getStatusText = (total) => total <= 20 ? 'Normal' : total <= 40 ? 'Full' : 'Overflowing';
+        const parts = ['residential', 'commercial', 'industrial'].map((k) => {
+          const total = getDistrictTotal(shared.districts[k] && shared.districts[k].waste);
+          return `${k.charAt(0).toUpperCase() + k.slice(1)} ${total} t (${getStatusText(total)})`;
+        });
+        document.getElementById('hubDistricts').textContent = 'Districts: ' + parts.join(' · ');
+      }
+
+      const invObj = roles && roles.municipality && roles.municipality.inventory ? roles.municipality.inventory : null;
+      if (invObj) {
+        let invTotal2 = (invObj.unprocessedWaste || 0);
+          Object.values(invObj.materials || {}).forEach((g) => { invTotal2 += (g.A || 0) + (g.B || 0) + (g.C || 0); });
+          Object.values(invObj.waste || {}).forEach((g) => { invTotal2 += (g.B || 0) + (g.C || 0) + (g.F || 0); });
+        const cap = invObj.capacityTonnes ?? 150;
+        document.getElementById('hubInvTotal').textContent = invTotal2;
+        document.getElementById('hubInvCap').textContent = cap;
+        const statusInvEl = document.getElementById('statusInventory');
+        if (statusInvEl) statusInvEl.textContent = `${invTotal2}/${cap} t`;
+      }
+
+      const statusBudgetEl = document.getElementById('statusBudget');
+      if (statusBudgetEl) statusBudgetEl.textContent = shared.budgetHKD.toLocaleString('en-HK');
+      const statusHealthEl = document.getElementById('statusHealth');
+      if (statusHealthEl) statusHealthEl.textContent = `${shared.cityHealth}%`;
+      const statusHealthBarEl = document.getElementById('statusHealthBar');
+      if (statusHealthBarEl) statusHealthBarEl.style.width = `${Math.max(0, Math.min(100, Number(shared.cityHealth) || 0))}%`;
+      const statusCO2El = document.getElementById('statusCO2');
+      if (statusCO2El) statusCO2El.textContent = `${shared.carbonEmissions.value}%`;
+      const statusCO2BarEl = document.getElementById('statusCO2Bar');
+      if (statusCO2BarEl) statusCO2BarEl.style.width = `${Math.max(0, Math.min(100, Number(shared.carbonEmissions.value) || 0))}%`;
+
+      renderProjects(data);
+
+      const logEl = document.getElementById('projectsLog');
+      if (logEl) {
+        const allLogs = Array.isArray(shared.eventLog) ? shared.eventLog : [];
+        const projectLogs = allLogs.filter((e) => {
+          const msg = String(e?.message || '').toLowerCase();
+          return msg.includes('project') || msg.includes('submit') || msg.includes('material');
+        });
+        // Prefer project-related logs, fallback to latest general logs.
+        const lines = (projectLogs.length ? projectLogs : allLogs).slice(-10).reverse();
+        logEl.innerHTML = lines.length
+          ? lines.map((e) => `<div class="py-0.5">[Day ${e.day}] ${e.message}</div>`).join('')
+          : 'No events yet.';
+      }
+    }
+
+    socket.on('gameStateUpdate', renderGameState);
+    socket.on('dayUpdate', updateDayDisplay);
+    socket.on('projectSubmitError', (data) => {
+      if (data && data.message) console.warn('[projectSubmit]', data.message);
+      alert((data && data.message) || '城市專案提交失敗。');
+    });
+
+    socket.on('gameOver', (payload) => {
+      if (payload && payload.state) renderGameState(payload.state);
+    });
+
+    (async function init() {
+      async function pollState() {
+        const res = await fetch('/state').catch(() => null);
+        if (!res || !res.ok) return;
+        const data = await res.json().catch(() => null);
+        if (data && data.shared && data.roles) renderGameState(data);
+      }
+      await pollState();
+      setInterval(pollState, 1000);
+    })();
+  </script>
+</body>
+</html>
+
+

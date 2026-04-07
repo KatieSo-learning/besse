@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Broker – Deliver Waste to Municipality</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <link rel="stylesheet" href="player-menu.css" />
+  <script src="page-placeholder-banner.js" defer></script>
+  <link rel="stylesheet" href="ui-fonts.css" />
+  <style>
+    body { background: #e8e3d3; min-height: 100vh; }
+    .topbar { background: #2f5a47; }
+    .record-bar { background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%); }
+    .cardShadow { box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08); }
+  </style>
+    <style>
+      :root {
+        --ink:#1a2f25;
+        --ink-2:#244635;
+        --panel:#9bb38f;
+        --paper:#e3dfd2;
+        --card:#ffffff;
+        --muted:#6b7280;
+        --accent:#2f6f43;
+        --accent-2:#3e7d51;
+        --radius-xl: 20px;
+        --shadow-1: 0 12px 24px rgba(0,0,0,.12);
+      }
+      html, body { height: 100%; }
+      body {
+        background: #e8e3d3 !important;
+        color: #1f2937 !important;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace !important;
+      }
+      .app-header { background: #2f5a47 !important; color: #fff !important; box-shadow: var(--shadow-1) !important; }
+      .stage-head { background: var(--ink) !important; color: #e8f3ec !important; }
+      /* Avoid overriding generic rounding utility classes (buttons/modals also use rounded-*) */
+      .card, .role-card { background: var(--card) !important; }
+      .btn-ink { background: var(--ink) !important; color:#fff !important; }
+      .btn-main { background:#fff !important; color:#111827 !important; border: 2px solid #e9e5d6 !important; }
+      .record-bar { background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%) !important; }
+      .status-normal { background: linear-gradient(135deg, #059669 0%, #047857 100%) !important; }
+      .status-full { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; }
+      .status-overflowing { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important; }
+    </style>
+    <!-- GREEN-THEME-OVERRIDE -->
+</head>
+<body class="min-h-screen text-slate-800" data-besse-placeholder="prototype">
+  <div class="max-w-7xl mx-auto py-4 px-0">
+    <header class="topbar px-6 py-4 text-white shadow mb-4 flex items-center justify-between">
+      <div class="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+        <button onclick="goHub()" class="bg-white text-slate-800 hover:bg-slate-100 rounded-full w-10 h-10 text-lg font-bold leading-none shrink-0">←</button>
+        <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="游戏日进度">Day – / –</span>
+      </div>
+      <h1 class="text-3xl font-extrabold tracking-wide">Municipality</h1>
+      <div class="flex items-center gap-3 pr-2">
+        <button
+          id="playerBadgeBtn"
+          data-player-menu-trigger="Broker"
+          type="button"
+          class="bg-white rounded-full px-4 py-2 text-sm hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-300/60 text-slate-800 flex items-center gap-2 max-w-[min(300px,48vw)]"
+        >
+          <span class="text-left leading-tight min-w-0">
+            <span class="font-semibold block truncate">Broker <span id="brokerIdBadge">@ID</span></span>
+            <span class="text-xs text-slate-600 block"><span id="brokerInv">32</span>/<span id="brokerInvCap">150</span> t</span>
+          </span>
+          <span class="text-xl shrink-0">📦</span>
+        </button>
+      </div>
+    </header>
+
+    <section class="hidden mb-4 bg-white/80 rounded-2xl p-4 shadow-sm border border-emerald-100">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <h2 class="font-semibold text-slate-800">Game Hub Summary</h2>
+      </div>
+      <div class="mt-3 grid gap-3 md:grid-cols-2">
+        <div class="bg-white rounded-xl border border-slate-200 p-3">
+          <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+            <div class="text-slate-500">Budget (HKD)</div><div class="text-right font-medium" id="hubBudget">–</div>
+            <div class="text-slate-500">City Health</div><div class="text-right font-medium" id="hubHealth">–%</div>
+            <div class="text-slate-500">Buffer Level</div><div class="text-right font-medium" id="hubBuffer">–</div>
+            <div class="text-slate-500">Transport Time</div><div class="text-right font-medium">x<span id="hubTransport">–</span></div>
+            <div class="text-slate-500">Waste</div><div class="text-right font-medium"><span id="hubWasteTotal">–</span>/<span id="hubWasteLimit">–</span> t</div>
+            <div class="text-slate-500">Carbon</div><div class="text-right font-medium"><span id="hubCarbon">–</span>/<span id="hubCarbonLimit">–</span>%</div>
+            <div class="text-slate-500">Day</div><div class="text-right font-medium"><span id="hubDay">–</span>/<span id="hubMaxDay">–</span></div>
+          </div>
+          <p class="hidden mt-2 text-xs text-slate-600" id="hubDistricts">Districts: –</p>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200 p-3">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-semibold">Broker Inventory</p>
+            <p class="text-xs text-slate-500"><span id="hubInvTotal">–</span>/<span id="hubInvCap">–</span> t</p>
+          </div>
+          <p class="mt-2 text-xs text-slate-600">Showing total only (same layout as Municipality inventory).</p>
+        </div>
+      </div>
+    </section>
+
+    <main class="px-6 pb-8">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <section class="!bg-[#efefef] rounded-2xl border border-slate-300 shadow-sm overflow-hidden cardShadow flex flex-col gap-0">
+          <div class="!bg-[#2f5a47] px-4 py-3 text-white text-2xl font-extrabold">Material Quality</div>
+          <div class="p-4 flex flex-col gap-4">
+          <div>
+            <header class="flex items-center justify-between mb-3 hidden">
+              <h2 class="text-sm md:text-base font-semibold text-slate-800">Material Quality</h2>
+              <span class="inline-flex items-center gap-1 text-xs text-slate-500">
+                <span class="w-2 h-2 rounded-full bg-rose-300"></span><span>A</span>
+                <span class="w-2 h-2 rounded-full bg-slate-700 ml-2"></span><span>B</span>
+                <span class="w-2 h-2 rounded-full bg-sky-400 ml-2"></span><span>C</span>
+                <span class="w-2 h-2 rounded-full bg-emerald-600 ml-2"></span><span>F</span>
+              </span>
+            </header>
+            <div class="flex items-center gap-4">
+              <div class="relative w-40 h-40 rounded-full bg-slate-100 flex items-center justify-center">
+                <!-- Static pie approximation -->
+                <svg viewBox="0 0 32 32" class="w-32 h-32 -rotate-90">
+                  <circle r="16" cx="16" cy="16" fill="#fee2e2"></circle>
+                  <circle r="16" cx="16" cy="16" fill="transparent" stroke="#4b5563" stroke-width="32" stroke-dasharray="10 90"></circle>
+                  <circle r="16" cx="16" cy="16" fill="transparent" stroke="#38bdf8" stroke-width="32" stroke-dasharray="20 80"></circle>
+                  <circle r="16" cx="16" cy="16" fill="transparent" stroke="#0f766e" stroke-width="32" stroke-dasharray="70 30"></circle>
+                </svg>
+                <div class="absolute inset-4 bg-white rounded-full flex items-center justify-center">
+                  <p class="text-xs text-slate-500 text-center leading-tight">
+                    Quality<br /><span class="font-semibold text-slate-800">A / B / C / F</span>
+                  </p>
+                </div>
+              </div>
+              <div class="space-y-2 text-xs text-slate-600">
+                <p><span class="inline-block w-2 h-2 rounded-full bg-rose-300 mr-2"></span>A – 10%</p>
+                <p><span class="inline-block w-2 h-2 rounded-full bg-slate-700 mr-2"></span>B – 20%</p>
+                <p><span class="inline-block w-2 h-2 rounded-full bg-sky-400 mr-2"></span>C – 70%</p>
+                <p><span class="inline-block w-2 h-2 rounded-full bg-emerald-600 mr-2"></span>F – 0%</p>
+              </div>
+            </div>
+          </div>
+          </div>
+        </section>
+
+        <section class="lg:col-span-2 !bg-[#efefef] rounded-2xl border border-slate-300 shadow-sm overflow-hidden cardShadow flex flex-col">
+          <div class="!bg-[#2f5a47] px-4 py-3 text-white text-2xl font-extrabold flex items-center justify-between gap-2 flex-wrap">
+            <span>Send to Municipality</span>
+            <div class="flex items-center gap-2 text-xs">
+              <span id="step1Badge" class="px-3 py-1 rounded-full bg-white/20 text-white font-semibold">1. Select</span>
+              <span id="step2Badge" class="px-3 py-1 rounded-full bg-white/10 text-white/80 font-semibold">2. Confirm</span>
+            </div>
+          </div>
+          <div class="p-4 flex flex-col flex-1">
+
+          <!-- Step 1: Material list -->
+          <div id="step1Panel" class="flex-1 flex flex-col">
+            <h3 class="text-sm font-semibold text-slate-800 mb-3 text-center md:text-left">Material List</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4 text-xs text-slate-700">
+              <!-- 6 static cards -->
+              <div class="bg-white rounded-xl border border-slate-200 p-3 flex flex-col">
+                <div class="flex-1 mb-3 flex items-center justify-center">
+                  <div class="w-16 h-16 rounded-full border-2 border-slate-300"></div>
+                </div>
+                <p class="font-semibold text-sm mb-1">Paper</p>
+                <p>Quality:</p>
+                <p>Volume:</p>
+                <label class="mt-2 inline-flex items-center gap-2">
+                  <input type="checkbox" class="text-emerald-600" />
+                  <span>Select</span>
+                </label>
+              </div>
+              <div class="bg-white rounded-xl border border-slate-200 p-3 flex flex-col">
+                <div class="flex-1 mb-3 flex items-center justify-center">
+                  <div class="w-16 h-16 rounded-full border-2 border-slate-300"></div>
+                </div>
+                <p class="font-semibold text-sm mb-1">Paper</p>
+                <p>Quality:</p>
+                <p>Volume:</p>
+                <label class="mt-2 inline-flex items-center gap-2">
+                  <input type="checkbox" class="text-emerald-600" />
+                  <span>Select</span>
+                </label>
+              </div>
+              <div class="bg-white rounded-xl border border-slate-200 p-3 flex flex-col">
+                <div class="flex-1 mb-3 flex items-center justify-center">
+                  <div class="w-16 h-16 rounded-full border-2 border-slate-300"></div>
+                </div>
+                <p class="font-semibold text-sm mb-1">Paper</p>
+                <p>Quality:</p>
+                <p>Volume:</p>
+                <label class="mt-2 inline-flex items-center gap-2">
+                  <input type="checkbox" class="text-emerald-600" />
+                  <span>Select</span>
+                </label>
+              </div>
+              <div class="bg-white rounded-xl border border-slate-200 p-3 flex flex-col">
+                <div class="flex-1 mb-3 flex items-center justify-center">
+                  <div class="w-16 h-16 rounded-full border-2 border-slate-300"></div>
+                </div>
+                <p class="font-semibold text-sm mb-1">Paper</p>
+                <p>Quality:</p>
+                <p>Volume:</p>
+                <label class="mt-2 inline-flex items-center gap-2">
+                  <input type="checkbox" class="text-emerald-600" />
+                  <span>Select</span>
+                </label>
+              </div>
+              <div class="bg-white rounded-xl border border-slate-200 p-3 flex flex-col">
+                <div class="flex-1 mb-3 flex items-center justify-center">
+                  <div class="w-16 h-16 rounded-full border-2 border-slate-300"></div>
+                </div>
+                <p class="font-semibold text-sm mb-1">Paper</p>
+                <p>Quality:</p>
+                <p>Volume:</p>
+                <label class="mt-2 inline-flex items-center gap-2">
+                  <input type="checkbox" class="text-emerald-600" />
+                  <span>Select</span>
+                </label>
+              </div>
+              <div class="bg-white rounded-xl border border-slate-200 p-3 flex flex-col">
+                <div class="flex-1 mb-3 flex items-center justify-center">
+                  <div class="w-16 h-16 rounded-full border-2 border-slate-300"></div>
+                </div>
+                <p class="font-semibold text-sm mb-1">Paper</p>
+                <p>Quality:</p>
+                <p>Volume:</p>
+                <label class="mt-2 inline-flex items-center gap-2">
+                  <input type="checkbox" class="text-emerald-600" />
+                  <span>Select</span>
+                </label>
+              </div>
+            </div>
+            <div class="mt-auto flex justify-center">
+              <button
+                type="button"
+                id="goStep2Btn"
+                class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-10 py-2 text-sm shadow"
+              >
+                Next
+                <span>➜</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Step 2: Selected material list & summary -->
+          <div id="step2Panel" class="hidden flex-1 flex flex-col">
+            <h3 class="text-sm font-semibold text-slate-800 mb-3 text-center md:text-left">Selected Material List</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4 text-xs text-slate-700">
+              <!-- 6 cards with simple volume controls -->
+              <div class="bg-white rounded-xl border border-slate-200 p-3 flex flex-col">
+                <div class="flex-1 mb-3 flex items-center justify-center">
+                  <div class="w-16 h-16 rounded-full border-2 border-slate-300 relative">
+                    <span class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-[10px] text-white flex items-center justify-center">×</span>
+                  </div>
+                </div>
+                <p class="font-semibold text-sm mb-1">Paper</p>
+                <p>Quality:</p>
+                <p class="mt-1">
+                  Volume:
+                  <span class="inline-flex items-center rounded-full border border-slate-300 bg-white text-xs overflow-hidden ml-1">
+                    <button type="button" class="px-2 py-1 border-r border-slate-300 hover:bg-slate-100">−</button>
+                    <input type="number" value="0" min="0" class="w-10 text-center bg-transparent outline-none" />
+                    <button type="button" class="px-2 py-1 border-l border-slate-300 hover:bg-slate-100">+</button>
+                    <span class="px-2 py-1 text-slate-500 border-l border-slate-300">t</span>
+                  </span>
+                </p>
+              </div>
+              <div class="bg-white rounded-xl border border-slate-200 p-3 flex flex-col">
+                <div class="flex-1 mb-3 flex items-center justify-center">
+                  <div class="w-16 h-16 rounded-full border-2 border-slate-300"></div>
+                </div>
+                <p class="font-semibold text-sm mb-1">Paper</p>
+                <p>Quality:</p>
+                <p class="mt-1">
+                  Volume:
+                  <span class="inline-flex items-center rounded-full border border-slate-300 bg-white text-xs overflow-hidden ml-1">
+                    <button type="button" class="px-2 py-1 border-r border-slate-300 hover:bg-slate-100">−</button>
+                    <input type="number" value="1" min="0" class="w-10 text-center bg-transparent outline-none" />
+                    <button type="button" class="px-2 py-1 border-l border-slate-300 hover:bg-slate-100">+</button>
+                    <span class="px-2 py-1 text-slate-500 border-l border-slate-300">t</span>
+                  </span>
+                </p>
+              </div>
+              <div class="bg-white rounded-xl border border-slate-200 p-3 flex flex-col">
+                <div class="flex-1 mb-3 flex items-center justify-center">
+                  <div class="w-16 h-16 rounded-full border-2 border-slate-300"></div>
+                </div>
+                <p class="font-semibold text-sm mb-1">Paper</p>
+                <p>Quality:</p>
+                <p class="mt-1">
+                  Volume:
+                  <span class="inline-flex items-center rounded-full border border-slate-300 bg-white text-xs overflow-hidden ml-1">
+                    <button type="button" class="px-2 py-1 border-r border-slate-300 hover:bg-slate-100">−</button>
+                    <input type="number" value="1" min="0" class="w-10 text-center bg-transparent outline-none" />
+                    <button type="button" class="px-2 py-1 border-l border-slate-300 hover:bg-slate-100">+</button>
+                    <span class="px-2 py-1 text-slate-500 border-l border-slate-300">t</span>
+                  </span>
+                </p>
+              </div>
+              <div class="bg-white rounded-xl border border-slate-200 p-3 flex flex-col">
+                <div class="flex-1 mb-3 flex items-center justify-center">
+                  <div class="w-16 h-16 rounded-full border-2 border-slate-300"></div>
+                </div>
+                <p class="font-semibold text-sm mb-1">Paper</p>
+                <p>Quality:</p>
+                <p class="mt-1">
+                  Volume:
+                  <span class="inline-flex items-center rounded-full border border-slate-300 bg-white text-xs overflow-hidden ml-1">
+                    <button type="button" class="px-2 py-1 border-r border-slate-300 hover:bg-slate-100">−</button>
+                    <input type="number" value="1" min="0" class="w-10 text-center bg-transparent outline-none" />
+                    <button type="button" class="px-2 py-1 border-l border-slate-300 hover:bg-slate-100">+</button>
+                    <span class="px-2 py-1 text-slate-500 border-l border-slate-300">t</span>
+                  </span>
+                </p>
+              </div>
+              <div class="bg-white rounded-xl border border-slate-200 p-3 flex flex-col">
+                <div class="flex-1 mb-3 flex items-center justify-center">
+                  <div class="w-16 h-16 rounded-full border-2 border-slate-300"></div>
+                </div>
+                <p class="font-semibold text-sm mb-1">Paper</p>
+                <p>Quality:</p>
+                <p class="mt-1">
+                  Volume:
+                  <span class="inline-flex items-center rounded-full border border-slate-300 bg-white text-xs overflow-hidden ml-1">
+                    <button type="button" class="px-2 py-1 border-r border-slate-300 hover:bg-slate-100">−</button>
+                    <input type="number" value="1" min="0" class="w-10 text-center bg-transparent outline-none" />
+                    <button type="button" class="px-2 py-1 border-l border-slate-300 hover:bg-slate-100">+</button>
+                    <span class="px-2 py-1 text-slate-500 border-l border-slate-300">t</span>
+                  </span>
+                </p>
+              </div>
+              <div class="bg-white rounded-xl border border-slate-200 p-3 flex flex-col">
+                <div class="flex-1 mb-3 flex items-center justify-center">
+                  <div class="w-16 h-16 rounded-full border-2 border-slate-300"></div>
+                </div>
+                <p class="font-semibold text-sm mb-1">Paper</p>
+                <p>Quality:</p>
+                <p class="mt-1">
+                  Volume:
+                  <span class="inline-flex items-center rounded-full border border-slate-300 bg-white text-xs overflow-hidden ml-1">
+                    <button type="button" class="px-2 py-1 border-r border-slate-300 hover:bg-slate-100">−</button>
+                    <input type="number" value="1" min="0" class="w-10 text-center bg-transparent outline-none" />
+                    <button type="button" class="px-2 py-1 border-l border-slate-300 hover:bg-slate-100">+</button>
+                    <span class="px-2 py-1 text-slate-500 border-l border-slate-300">t</span>
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <!-- Summary row -->
+            <div class="mt-auto space-y-3 text-xs text-slate-700">
+              <div class="flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-slate-200 pt-3">
+                <div class="space-y-1">
+                  <p>Total Volume: <span class="font-semibold text-slate-900" id="summaryTotalVolume">— t</span> <span class="text-slate-400 font-normal">(示例)</span></p>
+                  <p class="flex items-center gap-2">
+                    Transportation:
+                    <span class="flex items-center gap-1 text-lg">
+                      🚚 🚢 ✈️
+                    </span>
+                  </p>
+                </div>
+                <div class="space-y-1">
+                  <p class="text-[11px] text-slate-500">Quantity</p>
+                  <div class="inline-flex items-center rounded-full border border-slate-300 bg-white text-xs overflow-hidden">
+                    <button type="button" class="px-2 py-1 border-r border-slate-300 hover:bg-slate-100">−</button>
+                    <span class="px-3 py-1 font-semibold" id="summaryQuantity">3</span>
+                    <button type="button" class="px-2 py-1 border-l border-slate-300 hover:bg-slate-100">+</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="bg-emerald-50 rounded-xl border border-emerald-100 px-3 py-2">
+                  <p class="text-[11px] text-slate-500">Cost (HKD)</p>
+                  <p class="font-semibold text-rose-700">− $<span id="summaryCost">2,100</span></p>
+                </div>
+                <div class="bg-emerald-50 rounded-xl border border-emerald-100 px-3 py-2">
+                  <p class="text-[11px] text-slate-500">CO₂ impact</p>
+                  <p class="font-semibold text-emerald-700">+<span id="summaryCO2">1.6</span> t</p>
+                </div>
+                <div class="bg-slate-50 rounded-xl border border-slate-200 px-3 py-2">
+                  <p class="text-[11px] text-slate-500">Inventory impact</p>
+                  <p class="font-semibold text-slate-800">−<span id="summaryInventory">— t</span> <span class="text-slate-400 font-normal text-xs">(示例)</span></p>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div class="bg-white rounded-xl border border-slate-200 px-3 py-2 flex items-center justify-between">
+                  <p class="text-[11px] text-slate-500">Delivery Time</p>
+                  <p class="text-xs font-semibold text-slate-800">—</p>
+                </div>
+                <div class="bg-white rounded-xl border border-slate-200 px-3 py-2 flex items-center justify-between">
+                  <p class="text-[11px] text-slate-500">Return Time</p>
+                  <p class="text-xs font-semibold text-slate-800">—</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-4 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                id="backStep1Btn"
+                class="rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold px-4 py-2 text-sm"
+              >
+                ← Back
+              </button>
+              <button
+                type="button"
+                id="sendToMunicipalityBtn"
+                disabled
+                title="本页为界面原型，送出尚未接通后端，不会对游戏生效。"
+                class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-6 py-2 text-sm shadow disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Send to Municipality
+                <span>➜</span>
+              </button>
+            </div>
+          </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="mt-4 grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
+        <div class="lg:col-span-1 rounded-xl overflow-hidden border border-slate-300 bg-white">
+          <div class="record-bar px-3 py-2 text-white text-3xl md:text-5xl font-bold">Record</div>
+          <div id="recordLog" class="bg-white p-3 max-h-40 overflow-y-auto text-xl md:text-3xl text-slate-700">
+            No Municipality transport events yet.
+          </div>
+        </div>
+        <div class="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-xl md:text-2xl">
+          <div class="rounded-full bg-white border border-slate-300 px-3 md:px-4 py-2 flex items-center justify-between gap-1 min-w-0"><span class="shrink-0">💰</span><span id="statusBudget" class="font-bold truncate">–</span></div>
+          <div class="rounded-full bg-white border border-slate-300 px-3 md:px-4 py-2 flex items-center justify-between gap-1 min-w-0"><span class="shrink-0">❤️</span><span id="statusHealth" class="font-bold truncate">–</span></div>
+          <div class="rounded-full bg-white border border-slate-300 px-3 md:px-4 py-2 flex items-center justify-between gap-1 min-w-0"><span class="shrink-0">🗑️</span><span id="statusInventory" class="font-bold truncate">–</span></div>
+          <div class="rounded-full bg-white border border-slate-300 px-3 md:px-4 py-2 flex items-center justify-between gap-1 min-w-0"><span class="shrink-0">♻️</span><span id="statusCO2" class="font-bold truncate">–</span></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="player-menu.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const role = params.get('role') || 'Broker';
+
+    function goHub() {
+      const url = new URL('game.html', window.location.origin);
+      url.searchParams.set('role', role);
+      window.location.href = url.toString();
+    }
+
+    // Simple two-step UI toggle (UI-only, no game logic)
+    const step1Panel = document.getElementById('step1Panel');
+    const step2Panel = document.getElementById('step2Panel');
+    const step1Badge = document.getElementById('step1Badge');
+    const step2Badge = document.getElementById('step2Badge');
+
+    document.getElementById('goStep2Btn')?.addEventListener('click', () => {
+      if (!step1Panel || !step2Panel || !step1Badge || !step2Badge) return;
+      step1Panel.classList.add('hidden');
+      step2Panel.classList.remove('hidden');
+      step1Badge.classList.remove('bg-white/20', 'text-white');
+      step1Badge.classList.add('bg-white/10', 'text-white/80');
+      step2Badge.classList.remove('bg-white/10', 'text-white/80');
+      step2Badge.classList.add('bg-white/20', 'text-white');
+    });
+
+    document.getElementById('backStep1Btn')?.addEventListener('click', () => {
+      if (!step1Panel || !step2Panel || !step1Badge || !step2Badge) return;
+      step2Panel.classList.add('hidden');
+      step1Panel.classList.remove('hidden');
+      step2Badge.classList.remove('bg-white/20', 'text-white');
+      step2Badge.classList.add('bg-white/10', 'text-white/80');
+      step1Badge.classList.remove('bg-white/10', 'text-white/80');
+      step1Badge.classList.add('bg-white/20', 'text-white');
+    });
+
+    // sendToMunicipalityBtn: disabled prototype — see data-besse-placeholder banner
+
+    // Game state wiring, mirroring other Broker pages
+    const socket = io();
+    if (typeof besseAttachRestartUI === 'function') besseAttachRestartUI(socket);
+    let latestState = null;
+
+    function updateDayDisplay(payload) {
+      const dayEl = document.getElementById('hubDay');
+      const maxDayEl = document.getElementById('hubMaxDay');
+      if (!dayEl || !maxDayEl || !payload) return;
+      dayEl.textContent = payload.day;
+      maxDayEl.textContent = payload.maxDay;
+      if (window.BesseSyncHeaderDayChip) window.BesseSyncHeaderDayChip(payload.day, payload.maxDay);
+    }
+
+    function renderGameState(data) {
+      if (!data) return;
+      latestState = data;
+      const shared = data.shared;
+      const roles = data.roles || {};
+      const broker = roles.broker || roles.Broker || {};
+      const inv = broker.inventory || {};
+
+      const budget = shared.budgetHKD ?? 0;
+      const health = shared.cityHealth ?? 0;
+
+      const budgetEl = document.getElementById('hubBudget');
+      const healthEl = document.getElementById('hubHealth');
+      const wasteTotalEl = document.getElementById('hubWasteTotal');
+      const wasteLimitEl = document.getElementById('hubWasteLimit');
+      const carbonEl = document.getElementById('hubCarbon');
+      const carbonLimitEl = document.getElementById('hubCarbonLimit');
+
+      if (budgetEl) budgetEl.textContent = budget.toLocaleString('en-HK');
+      if (healthEl) healthEl.textContent = health;
+      const hubBufferEl = document.getElementById('hubBuffer');
+      if (hubBufferEl) hubBufferEl.textContent = (roles && roles.broker && roles.broker.bufferLevel) ? roles.broker.bufferLevel : 'Normal';
+      const hubTransportEl = document.getElementById('hubTransport');
+      if (hubTransportEl) hubTransportEl.textContent = shared.transportTimeMultiplier ?? 1;
+      let allInvTotal = 0;
+      let allInvCap = 0;
+      ['municipality', 'mrf', 'broker'].forEach((k) => {
+        const inv2 = roles[k] && roles[k].inventory ? roles[k].inventory : null;
+        if (!inv2) return;
+        allInvCap += Number(inv2.capacityTonnes || 0);
+        allInvTotal += Math.max(0, Number(inv2.unprocessedWaste || 0));
+        Object.values(inv2.materials || {}).forEach((g) => { allInvTotal += (g.A || 0) + (g.B || 0) + (g.C || 0); });
+        Object.values(inv2.waste || {}).forEach((g) => { allInvTotal += (g.B || 0) + (g.C || 0) + (g.F || 0); });
+      });
+      if (wasteTotalEl) wasteTotalEl.textContent = Math.round(allInvTotal * 10) / 10;
+      if (wasteLimitEl) wasteLimitEl.textContent = allInvCap;
+      if (carbonEl) carbonEl.textContent = shared.carbonEmissions?.value ?? '–';
+      if (carbonLimitEl) carbonLimitEl.textContent = shared.carbonEmissions?.limit ?? '–';
+
+      updateDayDisplay({ day: shared.day, maxDay: shared.maxDay });
+
+      // Broker inventory roll-up (mirrors broker-inventory)
+      let invTotal = inv.unprocessedWaste || 0;
+      Object.values(inv.materials || {}).forEach((g) => {
+        invTotal += (g.A || 0) + (g.B || 0) + (g.C || 0);
+      });
+      Object.values(inv.waste || {}).forEach((g) => {
+        invTotal += (g.B || 0) + (g.C || 0) + (g.F || 0);
+      });
+      const cap = inv.capacityTonnes ?? 150;
+
+      const brokerInvEl = document.getElementById('brokerInv');
+      const brokerInvCapEl = document.getElementById('brokerInvCap');
+      if (brokerInvEl) brokerInvEl.textContent = invTotal;
+      if (brokerInvCapEl) brokerInvCapEl.textContent = cap;
+      const hubInvTotalEl = document.getElementById('hubInvTotal');
+      const hubInvCapEl = document.getElementById('hubInvCap');
+      if (hubInvTotalEl) hubInvTotalEl.textContent = invTotal;
+      if (hubInvCapEl) hubInvCapEl.textContent = cap;
+
+      const statusInvEl = document.getElementById('statusInventory');
+      if (statusInvEl) statusInvEl.textContent = `${invTotal}/${cap} t`;
+
+      const statusBudgetEl = document.getElementById('statusBudget');
+      if (statusBudgetEl) statusBudgetEl.textContent = budget.toLocaleString('en-HK');
+
+      const statusHealthEl = document.getElementById('statusHealth');
+      if (statusHealthEl) statusHealthEl.textContent = `${health}%`;
+
+      const statusCO2El = document.getElementById('statusCO2');
+      if (statusCO2El) statusCO2El.textContent = `${shared.carbonEmissions?.value ?? 0}%`;
+
+      const logEl = document.getElementById('recordLog');
+      if (logEl && shared.eventLog) {
+        const lines = shared.eventLog.slice(-10).reverse();
+        logEl.innerHTML = lines.length
+          ? lines.map((e) => `<div class="py-0.5">[Day ${e.day}] ${e.message}</div>`).join('')
+          : 'No Municipality transport events yet.';
+      }
+
+      if (shared.districts) {
+        const getDistrictTotal = (w2) => {
+          if (!w2) return 0;
+          let t2 = 0;
+          Object.values(w2).forEach((g) => {
+            Object.values(g).forEach((n) => {
+              t2 += n;
+            });
+          });
+          return t2;
+        };
+        const getStatusText = (total) =>
+          total <= 20 ? 'Normal' : total <= 40 ? 'Full' : 'Overflowing';
+        const parts = ['residential', 'commercial', 'industrial'].map((k) => {
+          const total = getDistrictTotal(shared.districts[k] && shared.districts[k].waste);
+          return `${k.charAt(0).toUpperCase() + k.slice(1)} ${total} t (${getStatusText(total)})`;
+        });
+        const hubDistrictsEl = document.getElementById('hubDistricts');
+        if (hubDistrictsEl) hubDistrictsEl.textContent = 'Districts: ' + parts.join(' · ');
+      }
+    }
+
+    socket.on('gameStateUpdate', renderGameState);
+    socket.on('dayUpdate', updateDayDisplay);
+
+    socket.on('gameOver', (payload) => {
+      if (payload && payload.state) renderGameState(payload.state);
+    });
+
+    (async function init() {
+      async function pollState() {
+        const res = await fetch('/state').catch(() => null);
+        if (!res || !res.ok) return;
+        const data = await res.json().catch(() => null);
+        if (data && data.shared && data.roles) renderGameState(data);
+      }
+      await pollState();
+      setInterval(pollState, 1000);
+    })();
+  </script>
+</body>
+</html>
+
+
