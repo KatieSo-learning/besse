@@ -733,88 +733,82 @@ function applyMrfSortingConversion(inv, batch) {
 }
 
 /**
- * Recycling Centre: secondary processing of MATERIAL Grade C → A / B material + F-grade waste (residue).
- * Mass balance per tonne C: A + B + F_waste = 1.0. Keep in sync with mrf-inventory RECYCLING_C_OUTPUT.
+ * Recycling Centre grade upgrades (step model):
+ * - C -> B (+ F residue)
+ * - B -> A (+ F residue)
+ * Mass balance per tonne per step:
+ * - C 1.0 -> B 0.5 + F 0.5
+ * - B 1.0 -> A 0.5 + F 0.5
  */
-const RECYCLING_C_OUTPUT = { A: 0.25, B: 0.5, F: 0.25 };
-
-/** Split C tonnes into A/B/F in tenths (0.1t) to avoid float / Math.round(2.5)→0.3 bugs */
-function recyclingCOutputsFromTonnes(tC) {
-  const cT = Math.max(0, Math.round(Number(tC) * 10) / 10);
-  const c100 = Math.round(cT * 100);
-  if (c100 <= 0) return { a: 0, b: 0, f: 0 };
-  const a100 = Math.floor((c100 * 25) / 100);
-  const b100 = Math.floor((c100 * 50) / 100);
-  let f100 = c100 - a100 - b100;
-  if (f100 < 0) f100 = 0;
-  return {
-    a: Math.round(a100) / 100,
-    b: Math.round(b100) / 100,
-    f: Math.round(f100) / 100
-  };
-}
+const RECYCLING_STEP_OUTPUT = {
+  cToB: { B: 0.5, F: 0.5 },
+  bToA: { A: 0.5, F: 0.5 }
+};
 
 function applyMrfRecyclingCentreConversion(inv, batch) {
   if (!inv || !batch || typeof batch !== 'object') return { ok: false, error: 'Invalid recycling batch.' };
   ensureInventoryMaterials(inv);
   ensureInventoryWaste(inv);
-  const cap = Number(inv.capacityTonnes || 0) || 150;
-
   const lines = [];
-  let totalCProcessedT = 0;
-  let netInventoryDelta = 0;
+  let totalCToBT = 0;
+  let totalBToAT = 0;
 
   for (const mat of MATERIALS) {
-    const tRaw = batch[mat];
-    const tC = Math.round(Math.max(0, Number(tRaw)) * 10) / 10;
-    if (tC <= 0) continue;
+    const raw = batch[mat];
+    const tCToB = Math.round(Math.max(0, Number((raw && typeof raw === 'object') ? raw.cToB : raw)) * 10) / 10;
+    const tBToA = Math.round(Math.max(0, Number((raw && typeof raw === 'object') ? raw.bToA : 0)) * 10) / 10;
+    if (tCToB <= 0 && tBToA <= 0) continue;
 
     const av = inv.materials[mat];
     const ww = inv.waste[mat];
     if (!av || !ww) continue;
-    if ((av.C || 0) + 1e-9 < tC) {
-      return { ok: false, error: `Insufficient ${mat} material Grade C (need ${tC} t, have ${av.C || 0}).` };
+    if ((av.C || 0) + 1e-9 < tCToB) {
+      return { ok: false, error: `Insufficient ${mat} material Grade C (need ${tCToB} t, have ${av.C || 0}).` };
+    }
+    if ((av.B || 0) + 1e-9 < tBToA) {
+      return { ok: false, error: `Insufficient ${mat} material Grade B (need ${tBToA} t, have ${av.B || 0}).` };
     }
 
-    const { a: aAdd, b: bAdd, f: fAdd } = recyclingCOutputsFromTonnes(tC);
-    const materialAdded = aAdd + bAdd;
-    const wasteAdded = fAdd;
-    netInventoryDelta += materialAdded + wasteAdded - tC;
+    const bFromC = Math.round(tCToB * RECYCLING_STEP_OUTPUT.cToB.B * 10) / 10;
+    const fFromC = Math.round(tCToB * RECYCLING_STEP_OUTPUT.cToB.F * 10) / 10;
+    const aFromB = Math.round(tBToA * RECYCLING_STEP_OUTPUT.bToA.A * 10) / 10;
+    const fFromB = Math.round(tBToA * RECYCLING_STEP_OUTPUT.bToA.F * 10) / 10;
 
-    lines.push(`${mat}: −material C${tC} → +A${aAdd} +B${bAdd} +waste F${fAdd}`);
-    totalCProcessedT += tC;
+    if (tCToB > 0) lines.push(`${mat}: −C ${tCToB} t → +B ${bFromC} t +F ${fFromC} t`);
+    if (tBToA > 0) lines.push(`${mat}: −B ${tBToA} t → +A ${aFromB} t +F ${fFromB} t`);
+    totalCToBT += tCToB;
+    totalBToAT += tBToA;
   }
 
-  if (!lines.length) return { ok: false, error: 'Enter Grade C tonnes to recycle (at least one stream).' };
-
-  const invBefore = getInventoryTotal(inv);
-  if (invBefore + netInventoryDelta > cap + 1e-6) {
-    return {
-      ok: false,
-      error: `Recycling would exceed MRF inventory capacity (${cap} t). Free space: ${Math.max(0, Math.round((cap - invBefore) * 10) / 10)} t.`
-    };
-  }
+  if (!lines.length) return { ok: false, error: 'Enter C→B or B→A tonnes to recycle (at least one stream).' };
 
   for (const mat of MATERIALS) {
-    const tRaw = batch[mat];
-    const tC = Math.round(Math.max(0, Number(tRaw)) * 10) / 10;
-    if (tC <= 0) continue;
+    const raw = batch[mat];
+    const tCToB = Math.round(Math.max(0, Number((raw && typeof raw === 'object') ? raw.cToB : raw)) * 10) / 10;
+    const tBToA = Math.round(Math.max(0, Number((raw && typeof raw === 'object') ? raw.bToA : 0)) * 10) / 10;
+    if (tCToB <= 0 && tBToA <= 0) continue;
     const av = inv.materials[mat];
     const ww = inv.waste[mat];
-    const { a: aAdd, b: bAdd, f: fAdd } = recyclingCOutputsFromTonnes(tC);
-    av.C -= tC;
-    av.A += aAdd;
-    av.B += bAdd;
-    ww.F += fAdd;
+    if (tCToB > 0) {
+      av.C -= tCToB;
+      av.B += Math.round(tCToB * RECYCLING_STEP_OUTPUT.cToB.B * 10) / 10;
+      ww.F += Math.round(tCToB * RECYCLING_STEP_OUTPUT.cToB.F * 10) / 10;
+    }
+    if (tBToA > 0) {
+      av.B -= tBToA;
+      av.A += Math.round(tBToA * RECYCLING_STEP_OUTPUT.bToA.A * 10) / 10;
+      ww.F += Math.round(tBToA * RECYCLING_STEP_OUTPUT.bToA.F * 10) / 10;
+    }
   }
 
-  if (gameState && gameState.shared && totalCProcessedT > 0) {
+  const totalProcessedT = Math.round((totalCToBT + totalBToAT) * 10) / 10;
+  if (gameState && gameState.shared && totalProcessedT > 0) {
     const shared = gameState.shared;
-    const budgetDelta = Math.round(80 * totalCProcessedT);
+    const budgetDelta = Math.round(70 * totalProcessedT);
     shared.budgetHKD = Math.max(0, Math.round(shared.budgetHKD - budgetDelta));
-    const healthDelta = Math.round(0.04 * totalCProcessedT * 10) / 10;
+    const healthDelta = Math.round(0.03 * totalProcessedT * 10) / 10;
     shared.cityHealth = Math.max(0, Math.min(100, Math.round((shared.cityHealth + healthDelta) * 10) / 10));
-    const co2Delta = Math.round(0.08 * totalCProcessedT * 10) / 10;
+    const co2Delta = Math.round(0.06 * totalProcessedT * 10) / 10;
     const co2Limit =
       shared.carbonEmissions && typeof shared.carbonEmissions.limit === 'number'
         ? shared.carbonEmissions.limit
@@ -832,7 +826,8 @@ function applyMrfRecyclingCentreConversion(inv, batch) {
       ok: true,
       summary: lines.join(' · '),
       totals: {
-        cTonnes: totalCProcessedT,
+        cToBTonnes: totalCToBT,
+        bToATonnes: totalBToAT,
         budgetDelta: -budgetDelta,
         healthDelta,
         co2Delta
@@ -840,7 +835,7 @@ function applyMrfRecyclingCentreConversion(inv, batch) {
     };
   }
 
-  return { ok: true, summary: lines.join(' · '), totals: { cTonnes: totalCProcessedT } };
+  return { ok: true, summary: lines.join(' · '), totals: { cToBTonnes: totalCToBT, bToATonnes: totalBToAT } };
 }
 
 /** Layer 1 → Layer 2 — coefficients per tonne F-grade waste (sync with mrf-inventory WASTE_TREATMENT_TREE). */
@@ -2517,7 +2512,7 @@ io.on('connection', (socket) => {
     }
     appendEventLog(gameState.shared,{
       day: currentDay,
-      message: `Recycling Centre: C-grade material → A/B + residue — ${result.summary}`
+      message: `Recycling Centre: grade upgrade (C→B / B→A) + residue — ${result.summary}`
     });
     updateBufferState();
     broadcastGameState();

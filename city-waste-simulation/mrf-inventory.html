@@ -343,24 +343,24 @@
         </div>
       </div>
 
-      <!-- Recycling Centre: upgrade Material Grade C → A / B; residue → F waste (see server RECYCLING_C_OUTPUT) -->
+      <!-- Recycling Centre: step upgrades C→B and B→A; residue → F waste -->
       <div id="recyclingCentrePanel" class="hidden mt-6 rounded-xl border border-slate-300 bg-white shadow-sm p-5 space-y-4">
         <div class="text-xs text-slate-600 space-y-1">
           <p class="font-semibold text-slate-800 leading-relaxed">
-            <strong>Recycling Centre</strong> reprocesses <strong>Material Grade C</strong> (poor-quality recyclate) into <strong>A</strong> and <strong>B</strong> for use elsewhere — e.g. Municipality City Projects only accept A/B. Part of each tonne becomes <strong>F-grade waste</strong> (residue / contaminants). <strong>All outputs stay in this MRF inventory</strong> (nothing is auto-sent to Broker — use the main Inventory page to ship).
+            <strong>Recycling Centre</strong> now uses a <strong>step upgrade</strong> model: first <strong>C→B</strong>, then <strong>B→A</strong>. Each step creates <strong>F-grade waste</strong> as residue. <strong>All outputs stay in this MRF inventory</strong> (nothing is auto-sent to Broker — use the main Inventory page to ship).
           </p>
           <p class="font-mono text-[11px] text-slate-700 leading-relaxed">
-            Per tonne C processed (each stream): +A 0.25 · +B 0.50 · +F waste 0.25 (mass balance)
+            Per tonne: C→B gives +B 0.50 +F 0.50 · B→A gives +A 0.50 +F 0.50 (mass balance)
           </p>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" id="recyclingCInputsHost"></div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" id="recyclingStepInputsHost"></div>
         <div class="flex flex-col lg:flex-row lg:items-stretch gap-4 rounded-xl border border-slate-200 bg-slate-50/90 p-4">
           <div class="flex-1 min-w-0 space-y-2 text-sm text-slate-800">
             <h3 class="text-sm font-semibold text-slate-800 mb-1">Impact preview (this batch)</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
               <div class="flex justify-between gap-2">
-                <span class="text-xs text-slate-500">C tonnes</span>
-                <span id="recyclingPreviewC" class="font-mono font-semibold text-slate-900 text-right">0</span>
+                <span class="text-xs text-slate-500">C→B / B→A tonnes</span>
+                <span id="recyclingPreviewSteps" class="font-mono font-semibold text-slate-900 text-right">0 / 0</span>
               </div>
               <div class="flex justify-between gap-2">
                 <span class="text-xs text-slate-500">≈ +A / +B (est.)</span>
@@ -386,7 +386,7 @@
           </div>
           <div class="flex shrink-0 items-center justify-center lg:justify-end lg:self-center gap-2">
             <button type="button" id="recyclingApplyBtn" class="bg-[#2f5a47] hover:bg-[#244635] text-white font-bold px-8 py-2.5 rounded-xl shadow whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
-              Recycle C batch
+              Recycle upgrade batch
             </button>
           </div>
         </div>
@@ -906,75 +906,82 @@
         el.matches('#materialListBody input[data-material-card-tons="1"]') ||
         el.matches('#wasteListBody input[data-waste-card-tons="1"]') ||
         el.matches('#wasteSelectableBody input[type="number"]') ||
-        el.matches('#recyclingCInputsHost input[data-rcy-c-input="1"]')
+        el.matches('#recyclingStepInputsHost input[data-rcy-c-input="1"]') ||
+        el.matches('#recyclingStepInputsHost input[data-rcy-b-input="1"]')
       ) {
         sanitizeWholeTonInput(el);
       }
     });
 
-    /** Split ratios 25% / 50% / remainder — match server.js recyclingCOutputsFromTonnes */
-    function recyclingCOutputsFromTonnes(tC) {
-      const cT = Math.max(0, Math.round(Number(tC) * 10) / 10);
-      const c100 = Math.round(cT * 100);
-      if (c100 <= 0) return { a: 0, b: 0, f: 0 };
-      const a100 = Math.floor((c100 * 25) / 100);
-      const b100 = Math.floor((c100 * 50) / 100);
-      let f100 = c100 - a100 - b100;
-      if (f100 < 0) f100 = 0;
-      return {
-        a: Math.round(a100) / 100,
-        b: Math.round(b100) / 100,
-        f: Math.round(f100) / 100
-      };
+    function recyclingStepOutputs(cToB, bToA) {
+      const c = Math.max(0, Math.round(Number(cToB || 0) * 10) / 10);
+      const b = Math.max(0, Math.round(Number(bToA || 0) * 10) / 10);
+      const addB = Math.round(c * 0.5 * 10) / 10;
+      const addA = Math.round(b * 0.5 * 10) / 10;
+      const addF = Math.round((c * 0.5 + b * 0.5) * 10) / 10;
+      return { addA, addB, addF };
     }
 
     function updateRecyclingImpactPreview() {
       if (!IS_RECYCLING_CENTRE) return;
       const inv = latestState?.roles?.mrf?.inventory;
       const batch = {};
-      document.querySelectorAll('#recyclingCInputsHost input[data-rcy-c-input="1"]').forEach((inp) => {
-        const mat = inp.dataset.material;
+      document.querySelectorAll('#recyclingStepInputsHost [data-recycling-step-row="1"]').forEach((row) => {
+        const mat = row.dataset.material;
         if (!mat) return;
         const maxC = invTonnes(inv?.materials?.[mat]?.C || 0);
-        let want = uiTonnes(inp.value);
-        if (want > maxC) want = maxC;
-        if (want > 0) batch[mat] = want;
+        const maxB = invTonnes(inv?.materials?.[mat]?.B || 0);
+        const cInp = row.querySelector('input[data-rcy-c-input="1"]');
+        const bInp = row.querySelector('input[data-rcy-b-input="1"]');
+        let cToB = uiTonnes(cInp && cInp.value);
+        let bToA = uiTonnes(bInp && bInp.value);
+        if (cToB > maxC) cToB = maxC;
+        if (bToA > maxB) bToA = maxB;
+        if (cInp && String(cInp.value) !== String(cToB)) cInp.value = String(cToB);
+        if (bInp && String(bInp.value) !== String(bToA)) bInp.value = String(bToA);
+        if (cToB > 0 || bToA > 0) batch[mat] = { cToB, bToA };
       });
-      let totalC = 0;
+      let totalCToB = 0;
+      let totalBToA = 0;
       let sumA = 0;
       let sumB = 0;
       let sumF = 0;
-      Object.values(batch).forEach((t) => {
-        totalC += t;
-        const { a, b, f } = recyclingCOutputsFromTonnes(t);
-        sumA += a;
-        sumB += b;
-        sumF += f;
+      Object.values(batch).forEach((st) => {
+        const cToB = invTonnes(st.cToB || 0);
+        const bToA = invTonnes(st.bToA || 0);
+        totalCToB += cToB;
+        totalBToA += bToA;
+        const out = recyclingStepOutputs(cToB, bToA);
+        sumA += out.addA;
+        sumB += out.addB;
+        sumF += out.addF;
       });
-      totalC = Math.round(totalC * 10) / 10;
+      totalCToB = Math.round(totalCToB * 10) / 10;
+      totalBToA = Math.round(totalBToA * 10) / 10;
       const setTxt = (id, t) => {
         const el = document.getElementById(id);
         if (el) el.textContent = t;
       };
-      setTxt('recyclingPreviewC', String(totalC));
-      setTxt('recyclingPreviewMat', totalC > 0 ? `+${sumA} A · +${sumB} B` : '–');
-      setTxt('recyclingPreviewF', totalC > 0 ? `+${sumF} t` : '–');
-      if (totalC <= 0) {
+      const totalProcessed = Math.round((totalCToB + totalBToA) * 10) / 10;
+      setTxt('recyclingPreviewSteps', `${totalCToB} / ${totalBToA}`);
+      setTxt('recyclingPreviewMat', totalProcessed > 0 ? `+${sumA} A · +${sumB} B` : '–');
+      setTxt('recyclingPreviewF', totalProcessed > 0 ? `+${sumF} t` : '–');
+      if (totalProcessed <= 0) {
         setTxt('recyclingPreviewBudget', '–');
         setTxt('recyclingPreviewCo2', '–');
         setTxt('recyclingPreviewHealth', '–');
       } else {
-        setTxt('recyclingPreviewBudget', `-${Math.round(80 * totalC).toLocaleString('en-HK')} HKD`);
-        setTxt('recyclingPreviewCo2', `+${Math.round(0.08 * totalC * 10) / 10}%`);
-        setTxt('recyclingPreviewHealth', `+${Math.round(0.04 * totalC * 10) / 10}%`);
+        setTxt('recyclingPreviewBudget', `-${Math.round(70 * totalProcessed).toLocaleString('en-HK')} HKD`);
+        setTxt('recyclingPreviewCo2', `+${Math.round(0.06 * totalProcessed * 10) / 10}%`);
+        setTxt('recyclingPreviewHealth', `+${Math.round(0.03 * totalProcessed * 10) / 10}%`);
       }
       const btn = document.getElementById('recyclingApplyBtn');
       /** Do not set disabled: disabled buttons do not fire click — felt like "Recycle C batch" was broken with no feedback. */
       if (btn) {
         btn.disabled = false;
         btn.title =
-          totalC <= 0
-            ? '先在上方输入至少一种材料的 Grade C 吨数（需 MRF 仓库中有 C 库存），再点此提交。'
+          totalProcessed <= 0
+            ? '先在上方输入至少一种材料的 C→B 或 B→A 吨数（且不超过 Available），再点此提交。'
             : '';
       }
     }
@@ -982,52 +989,82 @@
     function collectRecyclingBatchPayload() {
       const inv = latestState?.roles?.mrf?.inventory;
       const batch = {};
-      document.querySelectorAll('#recyclingCInputsHost input[data-rcy-c-input="1"]').forEach((inp) => {
-        const mat = inp.dataset.material;
+      document.querySelectorAll('#recyclingStepInputsHost [data-recycling-step-row="1"]').forEach((row) => {
+        const mat = row.dataset.material;
         if (!mat) return;
         const maxC = invTonnes(inv?.materials?.[mat]?.C || 0);
-        let t = uiTonnes(inp.value);
-        if (t > maxC) t = maxC;
-        if (t > 0) batch[mat] = t;
+        const maxB = invTonnes(inv?.materials?.[mat]?.B || 0);
+        const cInp = row.querySelector('input[data-rcy-c-input="1"]');
+        const bInp = row.querySelector('input[data-rcy-b-input="1"]');
+        let cToB = uiTonnes(cInp && cInp.value);
+        let bToA = uiTonnes(bInp && bInp.value);
+        if (cToB > maxC) cToB = maxC;
+        if (bToA > maxB) bToA = maxB;
+        if (cToB > 0 || bToA > 0) batch[mat] = { cToB, bToA };
       });
       return batch;
     }
 
     window.__renderRecyclingCInputs = function () {
       if (!IS_RECYCLING_CENTRE) return;
-      const host = document.getElementById('recyclingCInputsHost');
+      const host = document.getElementById('recyclingStepInputsHost');
       if (!host) return;
       const inv = latestState?.roles?.mrf?.inventory;
       const prev = {};
-      host.querySelectorAll('input[data-rcy-c-input="1"]').forEach((inp) => {
-        if (inp.dataset.material) prev[inp.dataset.material] = inp.value;
+      host.querySelectorAll('[data-recycling-step-row="1"]').forEach((row) => {
+        const mat = row.dataset.material;
+        if (!mat) return;
+        const cInp = row.querySelector('input[data-rcy-c-input="1"]');
+        const bInp = row.querySelector('input[data-rcy-b-input="1"]');
+        prev[`${mat}:cToB`] = cInp ? cInp.value : '';
+        prev[`${mat}:bToA`] = bInp ? bInp.value : '';
       });
       const iconByMaterial = { paper: '📄', plastic: '🧴', metal: '🔩', glass: '🍾', wood: '🪵' };
       const order = ['metal', 'paper', 'wood', 'plastic', 'glass'];
       host.innerHTML = order
         .map((mat) => {
           const cStock = inv?.materials?.[mat]?.C || 0;
+          const bStock = inv?.materials?.[mat]?.B || 0;
           const maxC = invTonnes(cStock);
+          const maxB = invTonnes(bStock);
           const label = mat.charAt(0).toUpperCase() + mat.slice(1);
           return `
-            <div class="rounded-xl border border-slate-200 bg-white p-3">
+            <div class="rounded-xl border border-slate-200 bg-white p-3" data-recycling-step-row="1" data-material="${mat}">
               <label class="block text-xs font-bold text-slate-700">${iconByMaterial[mat] || '📦'} ${label} · Material C</label>
-              <p class="text-[11px] text-slate-500 mt-0.5">Available: <span class="font-mono">${maxC}</span> t</p>
+              <p class="text-[11px] text-slate-500 mt-0.5">Available: C <span class="font-mono">${maxC}</span> t · B <span class="font-mono">${maxB}</span> t</p>
+              <label class="mt-2 block text-[11px] font-semibold text-slate-600">C→B (t)</label>
               <input type="number" data-rcy-c-input="1" data-material="${mat}" min="0" max="${Math.floor(maxC)}" step="1" value="0"
                 class="mt-2 w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-right text-base text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60" />
+              <label class="mt-2 block text-[11px] font-semibold text-slate-600">B→A (t)</label>
+              <input type="number" data-rcy-b-input="1" data-material="${mat}" min="0" max="${Math.floor(maxB)}" step="1" value="0"
+                class="mt-1 w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-right text-base text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60" />
             </div>`;
         })
         .join('');
-      host.querySelectorAll('input[data-rcy-c-input="1"]').forEach((inp) => {
-        const mat = inp.dataset.material;
+      host.querySelectorAll('[data-recycling-step-row="1"]').forEach((row) => {
+        const mat = row.dataset.material;
         const maxC = invTonnes(inv?.materials?.[mat]?.C || 0);
-        if (prev[mat] != null && prev[mat] !== '') {
-          let v = uiTonnes(prev[mat]);
+        const maxB = invTonnes(inv?.materials?.[mat]?.B || 0);
+        const cInp = row.querySelector('input[data-rcy-c-input="1"]');
+        const bInp = row.querySelector('input[data-rcy-b-input="1"]');
+        if (cInp && prev[`${mat}:cToB`] != null && prev[`${mat}:cToB`] !== '') {
+          let v = uiTonnes(prev[`${mat}:cToB`]);
           if (v > maxC) v = maxC;
-          inp.value = String(v);
+          cInp.value = String(v);
         }
-        inp.addEventListener('input', updateRecyclingImpactPreview);
-        inp.addEventListener('change', updateRecyclingImpactPreview);
+        if (bInp && prev[`${mat}:bToA`] != null && prev[`${mat}:bToA`] !== '') {
+          let v = uiTonnes(prev[`${mat}:bToA`]);
+          if (v > maxB) v = maxB;
+          bInp.value = String(v);
+        }
+        if (cInp) {
+          cInp.addEventListener('input', updateRecyclingImpactPreview);
+          cInp.addEventListener('change', updateRecyclingImpactPreview);
+        }
+        if (bInp) {
+          bInp.addEventListener('input', updateRecyclingImpactPreview);
+          bInp.addEventListener('change', updateRecyclingImpactPreview);
+        }
       });
       updateRecyclingImpactPreview();
     };
@@ -2292,7 +2329,7 @@
       const batch = collectRecyclingBatchPayload();
       if (!Object.keys(batch).length) {
         alert(
-          '请先在「Recycling Centre」面板为至少一种材料输入 Grade C 回收吨数（需大于 0，且不超过 Available）。若各材料 Available 均为 0，请先在游戏中积累 C 级材料库存。'
+          '请先在「Recycling Centre」面板为至少一种材料输入 C→B 或 B→A 吨数（需大于 0，且不超过 Available）。'
         );
         return;
       }
@@ -2352,7 +2389,7 @@
         if (!payload) return;
         if (!payload.ok && payload.error) alert(payload.error);
         if (payload.ok) {
-          document.querySelectorAll('#recyclingCInputsHost input[data-rcy-c-input="1"]').forEach((input) => {
+          document.querySelectorAll('#recyclingStepInputsHost input[data-rcy-c-input="1"], #recyclingStepInputsHost input[data-rcy-b-input="1"]').forEach((input) => {
             input.value = '0';
           });
           updateMaterialSendButtonState(latestState?.roles?.mrf?.inventory || null);
