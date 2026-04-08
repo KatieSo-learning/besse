@@ -596,29 +596,24 @@ function getInventoryTotal(inv) {
 }
 
 /**
- * Sorting Centre: per material stream, consume B/C/F waste → recover A/B/C material.
- * Recovery (each tonne of waste grade → material tonnes); F-grade has mass not recovered (landfill / reject).
+ * Sorting Centre: per material stream, consume B/C waste → recover A/B/C material.
+ * F-grade waste is excluded from Sorting and must be handled by Waste Treatment.
  */
 const SORT_RECOVERY_FROM_WASTE_B = { A: 0.5, B: 0.35, C: 0.15 };
 const SORT_RECOVERY_FROM_WASTE_C = { A: 0.35, B: 0.4, C: 0.25 };
-const SORT_RECOVERY_FROM_WASTE_F = { A: 0.15, B: 0.25, C: 0.15 };
 
-function sortingWasteToMaterialTonnes(wB, wC, wF) {
+function sortingWasteToMaterialTonnes(wB, wC) {
   const b = Math.max(0, Number(wB) || 0);
   const c = Math.max(0, Number(wC) || 0);
-  const f = Math.max(0, Number(wF) || 0);
   const A =
     SORT_RECOVERY_FROM_WASTE_B.A * b +
-    SORT_RECOVERY_FROM_WASTE_C.A * c +
-    SORT_RECOVERY_FROM_WASTE_F.A * f;
+    SORT_RECOVERY_FROM_WASTE_C.A * c;
   const B =
     SORT_RECOVERY_FROM_WASTE_B.B * b +
-    SORT_RECOVERY_FROM_WASTE_C.B * c +
-    SORT_RECOVERY_FROM_WASTE_F.B * f;
+    SORT_RECOVERY_FROM_WASTE_C.B * c;
   const C =
     SORT_RECOVERY_FROM_WASTE_B.C * b +
-    SORT_RECOVERY_FROM_WASTE_C.C * c +
-    SORT_RECOVERY_FROM_WASTE_F.C * f;
+    SORT_RECOVERY_FROM_WASTE_C.C * c;
   return {
     A: Math.round(A * 10) / 10,
     B: Math.round(B * 10) / 10,
@@ -626,7 +621,7 @@ function sortingWasteToMaterialTonnes(wB, wC, wF) {
   };
 }
 
-/** Sorting Centre: per material stream, consume B/C/F grade waste → produce A/B/C material (recovery model). */
+/** Sorting Centre: per material stream, consume B/C grade waste → produce A/B/C material (recovery model). */
 function applyMrfSortingConversion(inv, batch) {
   if (!inv || !batch || typeof batch !== 'object') return { ok: false, error: 'Invalid sorting batch.' };
   ensureInventoryMaterials(inv);
@@ -643,24 +638,27 @@ function applyMrfSortingConversion(inv, batch) {
     const wB = Math.round(Math.max(0, Number(b.B)) * 10) / 10;
     const wC = Math.round(Math.max(0, Number(b.C)) * 10) / 10;
     const wF = Math.round(Math.max(0, Number(b.F)) * 10) / 10;
-    if (wB + wC + wF <= 0) continue;
+    if (wF > 0) {
+      return { ok: false, error: 'Sorting accepts only B/C waste. F-grade must go to Waste Treatment.' };
+    }
+    if (wB + wC <= 0) continue;
 
     const ww = inv.waste[mat];
     if (!ww) continue;
-    if (ww.B + 1e-9 < wB || ww.C + 1e-9 < wC || ww.F + 1e-9 < wF) {
-      return { ok: false, error: `Insufficient ${mat} waste (need B ${wB} / C ${wC} / F ${wF} t).` };
+    if (ww.B + 1e-9 < wB || ww.C + 1e-9 < wC) {
+      return { ok: false, error: `Insufficient ${mat} waste (need B ${wB} / C ${wC} t).` };
     }
 
     const av = inv.materials[mat];
     if (!av) continue;
 
-    const { A: aAdd, B: bAdd, C: cAdd } = sortingWasteToMaterialTonnes(wB, wC, wF);
-    const wasteRemoved = wB + wC + wF;
+    const { A: aAdd, B: bAdd, C: cAdd } = sortingWasteToMaterialTonnes(wB, wC);
+    const wasteRemoved = wB + wC;
     const materialAdded = aAdd + bAdd + cAdd;
     netInventoryDelta += materialAdded - wasteRemoved;
 
     lines.push(
-      `${mat}: −waste B${wB} C${wC} F${wF} → +material A${aAdd} B${bAdd} C${cAdd}`
+      `${mat}: −waste B${wB} C${wC} → +material A${aAdd} B${bAdd} C${cAdd}`
     );
     totalWasteProcessedT += wasteRemoved;
   }
@@ -681,13 +679,12 @@ function applyMrfSortingConversion(inv, batch) {
     const wB = Math.round(Math.max(0, Number(b.B)) * 10) / 10;
     const wC = Math.round(Math.max(0, Number(b.C)) * 10) / 10;
     const wF = Math.round(Math.max(0, Number(b.F)) * 10) / 10;
-    if (wB + wC + wF <= 0) continue;
+    if (wB + wC <= 0) continue;
     const ww = inv.waste[mat];
     const av = inv.materials[mat];
-    const { A: aAdd, B: bAdd, C: cAdd } = sortingWasteToMaterialTonnes(wB, wC, wF);
+    const { A: aAdd, B: bAdd, C: cAdd } = sortingWasteToMaterialTonnes(wB, wC);
     ww.B -= wB;
     ww.C -= wC;
-    ww.F -= wF;
     av.A += aAdd;
     av.B += bAdd;
     av.C += cAdd;

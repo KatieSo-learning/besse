@@ -303,11 +303,11 @@
       <div id="sortingCentrePanel" class="hidden mt-6 rounded-xl border border-slate-300 bg-white shadow-sm p-5 space-y-4">
         <div class="text-xs text-slate-600 space-y-1">
           <p class="font-semibold text-slate-800 leading-relaxed">
-            In the <strong>Waste List</strong> above, tick the <strong>B / C / F waste</strong> line(s) to send through the Sorting Centre.
-            <strong>Sorting</strong> consumes that line&rsquo;s waste tonnes and <strong>recovers A / B / C material</strong> (per stream). Lower waste grades recover less usable material; some mass is not recovered (reject / residue).
+            In the <strong>Waste List</strong> above, tick the <strong>B / C waste</strong> line(s) to send through the Sorting Centre.
+            <strong>Sorting</strong> consumes selected waste tonnes and <strong>recovers A / B / C material</strong> (per stream). <strong>F-grade is excluded from Sorting</strong> and must be handled in <strong>Waste Treatment</strong>.
           </p>
           <p class="font-mono text-[11px] text-slate-700 leading-relaxed">
-            Per tonne: B-waste &rarr; A0.5 B0.35 C0.15 · C-waste &rarr; A0.35 B0.40 C0.25 · F-waste &rarr; A0.15 B0.25 C0.15 (rest not recovered)
+            Per tonne: B-waste &rarr; A0.5 B0.35 C0.15 · C-waste &rarr; A0.35 B0.40 C0.25
           </p>
         </div>
         <div class="flex flex-col lg:flex-row lg:items-stretch gap-4 rounded-xl border border-slate-200 bg-slate-50/90 p-4">
@@ -814,24 +814,19 @@
     /** Match server.js SORT_RECOVERY_FROM_WASTE_* — waste → material recovery */
     const SORT_RECOVERY_FROM_WASTE_B = { A: 0.5, B: 0.35, C: 0.15 };
     const SORT_RECOVERY_FROM_WASTE_C = { A: 0.35, B: 0.4, C: 0.25 };
-    const SORT_RECOVERY_FROM_WASTE_F = { A: 0.15, B: 0.25, C: 0.15 };
 
-    function sortingWasteToMaterialTonnes(wB, wC, wF) {
+    function sortingWasteToMaterialTonnes(wB, wC) {
       const b = Math.max(0, Number(wB) || 0);
       const c = Math.max(0, Number(wC) || 0);
-      const f = Math.max(0, Number(wF) || 0);
       const A =
         SORT_RECOVERY_FROM_WASTE_B.A * b +
-        SORT_RECOVERY_FROM_WASTE_C.A * c +
-        SORT_RECOVERY_FROM_WASTE_F.A * f;
+        SORT_RECOVERY_FROM_WASTE_C.A * c;
       const B =
         SORT_RECOVERY_FROM_WASTE_B.B * b +
-        SORT_RECOVERY_FROM_WASTE_C.B * c +
-        SORT_RECOVERY_FROM_WASTE_F.B * f;
+        SORT_RECOVERY_FROM_WASTE_C.B * c;
       const C =
         SORT_RECOVERY_FROM_WASTE_B.C * b +
-        SORT_RECOVERY_FROM_WASTE_C.C * c +
-        SORT_RECOVERY_FROM_WASTE_F.C * f;
+        SORT_RECOVERY_FROM_WASTE_C.C * c;
       return {
         A: Math.round(A * 10) / 10,
         B: Math.round(B * 10) / 10,
@@ -845,8 +840,7 @@
       Object.values(batch).forEach((g) => {
         const b = Math.max(0, Number(g.B) || 0);
         const c = Math.max(0, Number(g.C) || 0);
-        const f = Math.max(0, Number(g.F) || 0);
-        sum += b + c + f;
+        sum += b + c;
       });
       return Math.round(sum * 10) / 10;
     }
@@ -859,7 +853,7 @@
       checked.forEach((cb) => {
         const mat = cb.dataset.material;
         const grade = cb.dataset.grade;
-        if (!mat || !['B', 'C', 'F'].includes(grade)) return;
+        if (!mat || !['B', 'C'].includes(grade)) return;
         if (!SORTING_MATERIALS.includes(mat)) return;
         const w = inv.waste[mat];
         if (!w) return;
@@ -1227,14 +1221,13 @@
         wasteEl.textContent = '–';
         return;
       }
-      // Derive current batch from UI (same as actual Sorting payload): B/C/F waste per material.
+      // Derive current batch from UI (same as actual Sorting payload): B/C waste per material.
       const batch = collectSortingBatchPayload();
       let T = 0;
       Object.entries(batch).forEach(([mat, g]) => {
         const wB = Math.max(0, Number(g.B) || 0);
         const wC = Math.max(0, Number(g.C) || 0);
-        const wF = Math.max(0, Number(g.F) || 0);
-        T += wB + wC + wF;
+        T += wB + wC;
       });
 
       if (T <= 0) {
@@ -1514,7 +1507,7 @@
       if (!textEls.length || !btnEls.length) return;
       if (FACILITY_MODE === 'sorting') {
         textEls.forEach((el) => {
-          el.textContent = 'Tick B/C/F waste line(s), then press Sorting (recovers A/B/C material).';
+          el.textContent = 'Tick B/C waste line(s), then press Sorting (recovers A/B/C material). F-grade must go to Waste Treatment.';
         });
         btnEls.forEach((el) => {
           el.disabled = true;
@@ -1659,11 +1652,11 @@
                   data-sort-waste-select="1"
                   data-material="${mat}"
                   data-grade="${g}"
-                  ${sortEnabled ? '' : 'disabled'}
+                  ${sortEnabled && g !== 'F' ? '' : 'disabled'}
                   ${cbChecked}
                   class="mt-1 rounded border-slate-400 text-[#2f5a47] focus:ring-emerald-500"
                 />
-                <span class="leading-snug">${sortEnabled ? 'Check to sort this line (consumes B/C/F waste; recovers A/B/C material)' : 'This stream cannot be sorted (five main materials only)'}</span>
+                <span class="leading-snug">${sortEnabled ? (g === 'F' ? 'F-grade cannot be sorted. Use Waste Treatment facility.' : 'Check to sort this line (consumes B/C waste; recovers A/B/C material)') : 'This stream cannot be sorted (five main materials only)'}</span>
               </label>`
             : '';
           const wtChecked = preservedWtCb[mat] ? 'checked' : '';
@@ -2306,9 +2299,9 @@
       if (!Object.keys(batch).length) {
         const hasChecked = document.querySelector('#wasteListBody input[data-sort-waste-select="1"]:checked');
         if (!hasChecked) {
-          alert('Tick at least one B/C/F waste line in the Waste List.');
+          alert('Tick at least one B/C waste line in the Waste List.');
         } else {
-          alert('No B/C/F waste stock for the selected line(s) — cannot sort.');
+          alert('No B/C waste stock for the selected line(s) — cannot sort. F-grade must go to Waste Treatment.');
         }
         return;
       }
