@@ -170,7 +170,7 @@
           <span class="mx-2">|</span>
           <span id="dateText">01 November 2025</span>
         </div>
-        <span id="headerDayChip" class="text-xs md:text-sm text-white-100 font-bold whitespace-nowrap" title="游戏日进度">Day – / –</span>
+        <span id="headerDayChip" class="text-xs md:text-sm text-white-100 font-bold whitespace-nowrap" title="Game day progress">Day – / –</span>
       </div>
 
       <div class="text-center absolute left-1/2 -translate-x-1/2 pointer-events-none">
@@ -1009,7 +1009,7 @@
     socket.on('collectWasteError', (data) => alert(data.message || 'Error collecting waste.'));
     socket.on('projectSubmitError', (data) => {
       if (data && data.message) console.warn('[projectSubmit]', data.message);
-      alert((data && data.message) || '城市專案提交失敗。');
+      alert((data && data.message) || 'City project submission failed.');
     });
     socket.on('dayUpdate', updateDayDisplay);
     socket.on('gameStateUpdate', renderGameState);

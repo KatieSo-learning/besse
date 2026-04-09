@@ -262,7 +262,7 @@
     overlay = document.createElement('div');
     overlay.id = 'besseGameOverOverlay';
     overlay.className =
-      'fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50';
+      'fixed inset-0 z-[20000] flex items-center justify-center p-4 bg-black/50';
     overlay.style.display = 'none';
     overlay.style.pointerEvents = 'none';
     overlay.setAttribute('role', 'dialog');
@@ -273,7 +273,7 @@
         <h2 id="besseGameOverTitle" class="text-2xl font-extrabold tracking-wide text-[#1a2f25] mb-2">Well done!</h2>
         <p id="besseGameOverReason" class="text-slate-700 mb-6 text-sm leading-relaxed min-h-[1.25rem]"></p>
         <button type="button" id="besseGameOverRestartBtn" class="w-full rounded-xl bg-[#2f5a47] text-white font-bold py-3 px-4 shadow hover:bg-[#244635] disabled:opacity-50 disabled:cursor-not-allowed border border-black/10">
-          重新開始
+          Restart
         </button>
       </div>`;
     document.body.appendChild(overlay);
@@ -295,7 +295,7 @@
     }
     if (btn) {
       btn.disabled = false;
-      btn.textContent = '重新開始';
+      btn.textContent = 'Restart';
     }
     if (overlay) {
       overlay.style.display = 'flex';
@@ -319,7 +319,8 @@
     if (!socket || socket.__besseRestartAttached) return;
 
     // Do NOT attach restart / Game Over UI on the lobby / role selection page.
-    // That page應該只負責配對角色，不能被 Game Over 視窗遮住或觸發 restart。
+    // That page should only handle role selection; it must not be blocked by the Game Over modal
+    // or allow restart to be triggered.
     try {
       const p = String(window.location.pathname || '').toLowerCase();
       const isLobby =
@@ -347,7 +348,7 @@
       const btn = document.getElementById('besseGameOverRestartBtn');
       if (!btn) return;
       btn.disabled = true;
-      btn.textContent = '重啟中…';
+      btn.textContent = 'Restarting…';
       let role = null;
       try {
         role = new URLSearchParams(window.location.search).get('role');
@@ -357,8 +358,8 @@
       socket.emit('restartGame', { role }, (res) => {
         if (!res || !res.ok) {
           btn.disabled = false;
-          btn.textContent = '重新開始';
-          alert('重啟失敗，請再試一次。');
+          btn.textContent = 'Restart';
+          alert('Restart failed. Please try again.');
         }
       });
     }

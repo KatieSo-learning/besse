@@ -97,7 +97,7 @@
           <span class="mx-2">|</span>
           <span id="dateText">01 November 2025</span>
         </div>
-        <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="游戏日进度">Day – / –</span>
+        <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="Game day progress">Day – / –</span>
       </div>
       <h1 id="facilityPageTitle" class="text-3xl font-extrabold tracking-wider">Inventory</h1>
       <div class="flex items-center gap-3 pr-2">
@@ -975,7 +975,7 @@
         btn.disabled = false;
         btn.title =
           totalProcessed <= 0
-            ? '先在上方输入至少一种材料的 C→B 或 B→A 吨数（且不超过 Available），再点此提交。'
+            ? 'Enter C→B or B→A tonnes for at least one material above (must be > 0 and not exceed Available), then click Apply.'
             : '';
       }
     }
@@ -1538,11 +1538,11 @@
       const items = buildUnifiedSendItems(inv);
       const totalT = invTonnes(totalMrfBrokerSendTonnes(inv));
       const titleNoSelection =
-        '請在材料／廢料卡片「Send」欄輸入噸數；送出後會進入 Broker 的待收貨請求（非直接進 Broker 倉庫），需 Broker 在庫存頁領取。';
+        'Enter tonnes in the "Send" field on a material/waste card. Sending creates a pending pickup request for the Broker (not directly added to the Broker warehouse); the Broker must collect it on the inventory page.';
       const titleNeedMin = (t) =>
-        `目前合計 ${t} t，需至少 ${MIN_BROKER_SEND_TONNES} t 才會建立請求。請在「Send」欄加量。`;
+        `Current total is ${t} t. You need at least ${MIN_BROKER_SEND_TONNES} t to create a request. Add more in the "Send" field.`;
       const titleOk =
-        '送出後：MRF 庫存仍保留貨物，並向 Broker 發出待收貨請求；Broker 須在庫存頁收取後才會進入 Broker 倉。';
+        'After sending: the MRF keeps its stock and a pending pickup request is sent to the Broker. The Broker must collect it on the inventory page before it enters the Broker warehouse.';
       if (!items.length) {
         textEls.forEach((el) => { el.textContent = 'No items selected.'; });
         btnEls.forEach((el) => {
@@ -2001,9 +2001,9 @@
         if (summaryEl) {
           if (data.notStarted) {
             summaryEl.innerHTML =
-              '<p class="text-sm text-amber-900 leading-relaxed"><strong>尚未连接到对局。</strong> 请在终端运行 <code class="text-xs bg-amber-100 px-1 rounded">node server.js</code>，用浏览器打开同一来源的 <code class="text-xs">game.html</code>（例如 <code class="text-xs">http://localhost:3000/game.html</code>）并开始游戏；本页会每秒请求 <code class="text-xs">/state</code>。未开局时不会出现 MRF 废料数据。</p>';
+              '<p class="text-sm text-amber-900 leading-relaxed"><strong>Not connected to a running game.</strong> Run <code class="text-xs bg-amber-100 px-1 rounded">node server.js</code> in your terminal, open <code class="text-xs">game.html</code> from the same origin (e.g. <code class="text-xs">http://localhost:3000/game.html</code>), and start the game. This page requests <code class="text-xs">/state</code> every second. Before the game starts, MRF waste data will not appear.</p>';
           } else {
-            summaryEl.innerHTML = '<p class="text-slate-400">暂无法读取游戏状态。</p>';
+            summaryEl.innerHTML = '<p class="text-slate-400">Unable to read game state right now.</p>';
           }
         }
         updateMaterialsChart(null);
@@ -2014,7 +2014,7 @@
           const wb = document.getElementById('wasteListBody');
           if (wb) {
             wb.innerHTML =
-              '<div class="col-span-full text-center py-6 px-3 text-slate-600 border border-slate-200 rounded-xl text-sm leading-relaxed">未连接对局时这里不会有库存。<br />若<strong>已开局</strong>仍全空，说明当前 <strong>MRF 的 inventory.waste</strong>（B/C/F）在服务器上为 0——废料需经 Broker 等到港等流程进入 MRF，或其实只在市政/材料仓。</div>';
+              '<div class="col-span-full text-center py-6 px-3 text-slate-600 border border-slate-200 rounded-xl text-sm leading-relaxed">When no game is running, there will be no inventory shown here.<br />If the game <strong>has started</strong> and this is still empty, it means the server currently has <strong>MRF inventory.waste</strong> (B/C/F) at 0. Waste must enter the MRF via Broker flows (e.g. arriving at port), or it may only exist in the Municipality/materials inventory.</div>';
           }
         }
         if (window.__setRightPanel) {
@@ -2194,7 +2194,7 @@
       const summaryEl = document.getElementById('materialSummary');
       if (summaryEl) {
         summaryEl.innerHTML =
-          '<p class="text-sm text-red-900 leading-relaxed"><strong>无法连接 <span class="font-mono text-xs bg-red-50 px-1 rounded border border-red-100">/state</span>。</strong>页面无法从服务器读取游戏数据。请确认：① 已在项目目录运行 <span class="font-mono text-xs bg-red-50 px-1 rounded">node server.js</span>；② 用与服务器一致的地址打开本页（例如 <span class="font-mono text-xs bg-red-50 px-1 rounded">http://localhost:3000/mrf-inventory.html</span>）；③ 不要使用 <span class="font-mono text-xs">file://</span> 打开；④ 若走反向代理，须保证 <span class="font-mono text-xs">/state</span> 可转发到 Node。详细错误请打开开发者工具 → Console。</p>';
+          '<p class="text-sm text-red-900 leading-relaxed"><strong>Cannot reach <span class="font-mono text-xs bg-red-50 px-1 rounded border border-red-100">/state</span>.</strong> This page cannot read game data from the server. Please check: (1) you have run <span class="font-mono text-xs bg-red-50 px-1 rounded">node server.js</span> in the project directory; (2) you opened this page using the same address as the server (e.g. <span class="font-mono text-xs bg-red-50 px-1 rounded">http://localhost:3000/mrf-inventory.html</span>); (3) you are not using <span class="font-mono text-xs">file://</span>; (4) if using a reverse proxy, ensure <span class="font-mono text-xs">/state</span> is forwarded to Node. For details, open DevTools → Console.</p>';
       }
       updateMaterialsChart(null);
       renderMaterialList(null);
@@ -2204,7 +2204,7 @@
         const wb = document.getElementById('wasteListBody');
         if (wb) {
           wb.innerHTML =
-            '<div class="col-span-full text-center py-6 px-3 text-slate-600 border border-slate-200 rounded-xl text-sm leading-relaxed">无法加载状态，请检查网络与 <span class="font-mono">/state</span> 是否可用。</div>';
+            '<div class="col-span-full text-center py-6 px-3 text-slate-600 border border-slate-200 rounded-xl text-sm leading-relaxed">Unable to load state. Please check your network and whether <span class="font-mono">/state</span> is available.</div>';
         }
       }
       if (window.__setRightPanel) {
@@ -2245,30 +2245,30 @@
 
     function emitMrfUnifiedSend() {
       if (!socket) {
-        alert('Socket.IO 不可用，無法向 Broker 發送請求。');
+        alert('Socket.IO is not available. Unable to send a request to the Broker.');
         return false;
       }
       if (!socket.connected) {
         alert(
-          '尚未連線到伺服器（WebSocket）。請確認已執行 node server.js，並用 http://localhost:3000 開本頁後再試。'
+          'Not connected to the server (WebSocket). Please make sure you have run node server.js and open this page via http://localhost:3000, then try again.'
         );
         return false;
       }
       const inv = latestState?.roles?.mrf?.inventory;
       if (!inv) {
-        alert('尚無遊戲狀態，請等頁面載入對局或先從 game.html 開始遊戲。');
+        alert('No game state yet. Please wait for the session to load, or start the game from game.html first.');
         return false;
       }
       const items = buildUnifiedSendItems(inv);
       if (!items.length) {
         alert(
-          '請先在材料或廢料卡片的「Send」欄輸入要大於 0 的噸數（有庫存才會出現輸入框）。送出後會建立 Broker「待收貨」請求，Broker 需在庫存頁領取後才會進入 Broker 倉。'
+          'Enter a tonnes value greater than 0 in the "Send" field on a material or waste card (the input appears only when there is stock). Sending creates a pending Broker pickup request; the Broker must collect it on the inventory page before it enters the Broker warehouse.'
         );
         return false;
       }
       if (!brokerSendMeetsMinimum(inv)) {
         alert(
-          `合計至少 ${MIN_BROKER_SEND_TONNES} 噸才會發給 Broker（目前 ${invTonnes(totalMrfBrokerSendTonnes(inv))} t）。請在「Send」欄增加噸數。`
+          `You must send at least ${MIN_BROKER_SEND_TONNES} tonnes to the Broker (currently ${invTonnes(totalMrfBrokerSendTonnes(inv))} t). Add more in the "Send" field.`
         );
         return false;
       }
@@ -2315,14 +2315,14 @@
       }
       if (!socket.connected) {
         alert(
-          '尚未連線到伺服器（WebSocket）。請確認已執行 node server.js，並用 http://localhost:3000 開本頁；可重新整理或從 game.html 再進入。'
+          'Not connected to the server (WebSocket). Please make sure you have run node server.js and open this page via http://localhost:3000. You can refresh, or enter again from game.html.'
         );
         return;
       }
       const batch = collectRecyclingBatchPayload();
       if (!Object.keys(batch).length) {
         alert(
-          '请先在「Recycling Centre」面板为至少一种材料输入 C→B 或 B→A 吨数（需大于 0，且不超过 Available）。'
+          'In the "Recycling Centre" panel, enter C→B or B→A tonnes for at least one material (must be > 0 and not exceed Available).'
         );
         return;
       }

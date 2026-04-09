@@ -52,7 +52,7 @@
     <header class="topbar px-6 py-4 text-white shadow mb-4 flex items-center justify-between">
       <div class="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
         <button onclick="goHub()" class="bg-white text-slate-800 hover:bg-slate-100 rounded-full w-10 h-10 text-lg font-bold leading-none shrink-0">←</button>
-        <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="游戏日进度">Day – / –</span>
+        <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="Game day progress">Day – / –</span>
       </div>
       <h1 class="text-3xl font-extrabold tracking-wide">Municipality</h1>
       <div class="flex items-center gap-3 pr-2">
@@ -348,7 +348,7 @@
             <div class="mt-auto space-y-3 text-xs text-slate-700">
               <div class="flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-slate-200 pt-3">
                 <div class="space-y-1">
-                  <p>Total Volume: <span class="font-semibold text-slate-900" id="summaryTotalVolume">— t</span> <span class="text-slate-400 font-normal">(示例)</span></p>
+                  <p>Total Volume: <span class="font-semibold text-slate-900" id="summaryTotalVolume">— t</span> <span class="text-slate-400 font-normal">(example)</span></p>
                   <p class="flex items-center gap-2">
                     Transportation:
                     <span class="flex items-center gap-1 text-lg">
@@ -377,7 +377,7 @@
                 </div>
                 <div class="bg-slate-50 rounded-xl border border-slate-200 px-3 py-2">
                   <p class="text-[11px] text-slate-500">Inventory impact</p>
-                  <p class="font-semibold text-slate-800">−<span id="summaryInventory">— t</span> <span class="text-slate-400 font-normal text-xs">(示例)</span></p>
+                  <p class="font-semibold text-slate-800">−<span id="summaryInventory">— t</span> <span class="text-slate-400 font-normal text-xs">(example)</span></p>
                 </div>
               </div>
 
@@ -405,7 +405,7 @@
                 type="button"
                 id="sendToMunicipalityBtn"
                 disabled
-                title="本页为界面原型，送出尚未接通后端，不会对游戏生效。"
+                title="This page is a UI prototype. Send is not wired to the backend and will not affect the game."
                 class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-6 py-2 text-sm shadow disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Send to Municipality
