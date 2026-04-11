@@ -1,5 +1,4 @@
 {
-<<<<<<< HEAD
   "dependencies": {
     "compression": "^1.8.1",
     "express": "^5.2.1",
@@ -16,25 +15,9 @@
   },
   "engines": {
     "node": ">=20"
-=======
-  "name": "multiplayer-game",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
->>>>>>> 3c02122 (Initial commit)
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-<<<<<<< HEAD
   "type": "commonjs"
-=======
-  "type": "commonjs",
-  "dependencies": {
-    "express": "^5.2.1",
-    "socket.io": "^4.8.3"
-  }
->>>>>>> 3c02122 (Initial commit)
 }
