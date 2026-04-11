@@ -1,0 +1,11 @@
+node_modules/
+.DS_Store
+secrets/
+*.log
+.env
+
+# Accidental duplicate copy of the app (same files as parent folder)
+city-waste-simulation/
+
+# Stray empty file from editor/shell typo
+{
