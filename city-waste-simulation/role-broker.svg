@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">Broker role image</title>
+  <desc id="desc">Cargo truck and logistics route for broker role</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fde9c8"/>
+      <stop offset="100%" stop-color="#f5d39b"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="400" fill="url(#bg)"/>
+  <rect x="0" y="320" width="800" height="80" fill="#b08857"/>
+  <path d="M70 130c70-40 140-30 210-8s130 30 200 8 150-20 250 20" fill="none" stroke="#7a5d3a" stroke-width="10" stroke-dasharray="18 12"/>
+  <rect x="170" y="210" width="300" height="90" rx="8" fill="#2f5a47"/>
+  <rect x="470" y="232" width="120" height="68" rx="8" fill="#3b6b56"/>
+  <rect x="502" y="250" width="42" height="24" fill="#b8d5e5"/>
+  <rect x="202" y="236" width="56" height="38" fill="#cfe4d7"/>
+  <rect x="272" y="236" width="56" height="38" fill="#cfe4d7"/>
+  <rect x="342" y="236" width="56" height="38" fill="#cfe4d7"/>
+  <circle cx="245" cy="308" r="32" fill="#2d2d2d"/>
+  <circle cx="245" cy="308" r="14" fill="#9ca3af"/>
+  <circle cx="530" cy="308" r="32" fill="#2d2d2d"/>
+  <circle cx="530" cy="308" r="14" fill="#9ca3af"/>
+  <circle cx="120" cy="120" r="24" fill="#fef3c7"/>
+  <path d="M112 120h16M120 112v16" stroke="#f59e0b" stroke-width="4"/>
+</svg>

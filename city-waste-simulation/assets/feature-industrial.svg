@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 256" width="512" height="256" fill="none" role="img" aria-label="Industrial feature art">
+  <defs>
+    <linearGradient id="bg" x1="40" y1="18" x2="482" y2="246" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#94A3B8"/>
+      <stop offset="1" stop-color="#475569"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#0F172A" flood-opacity=".18"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="512" height="256" rx="22" fill="url(#bg)"/>
+  <circle cx="74" cy="186" r="34" fill="#E2E8F0" fill-opacity=".18"/>
+  <circle cx="440" cy="170" r="40" fill="#CBD5E1" fill-opacity=".14"/>
+  <path d="M468 210l10 10l-10 10l-10-10Z" fill="#E8F3EC" fill-opacity=".9"/>
+
+  <!-- Factory -->
+  <g filter="url(#soft)" stroke="#0B1220" stroke-opacity=".55" stroke-width="8" stroke-linejoin="round">
+    <!-- chimney -->
+    <path d="M174 78h44v72h-44z" fill="#F5F1E6"/>
+    <!-- smoke -->
+    <circle cx="196" cy="62" r="14" fill="#F1F5F9" fill-opacity=".65" stroke="none"/>
+    <circle cx="220" cy="54" r="11" fill="#F1F5F9" fill-opacity=".55" stroke="none"/>
+    <circle cx="182" cy="48" r="10" fill="#F1F5F9" fill-opacity=".45" stroke="none"/>
+
+    <!-- base -->
+    <path d="M144 152l84-56v40l76-48v40l76-48v150H144z" fill="#F5F1E6"/>
+    <!-- windows -->
+    <g stroke="none" fill="#0B1220" fill-opacity=".12">
+      <rect x="220" y="172" width="30" height="20"/>
+      <rect x="262" y="172" width="30" height="20"/>
+      <rect x="304" y="172" width="30" height="20"/>
+      <rect x="346" y="172" width="30" height="20"/>
+    </g>
+    <circle cx="380" cy="154" r="6" fill="#2F6F43" fill-opacity=".95" stroke="none"/>
+  </g>
+</svg>

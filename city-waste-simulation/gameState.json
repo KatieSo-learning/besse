@@ -1,0 +1,76 @@
+{
+  "teams": [
+    {
+      "id": "team-1",
+      "name": "Team 1",
+      "shared": {
+        "budgetHKD": 1000000,
+        "cityHealth": 100,
+        "waste": {
+          "totalTonnes": 0,
+          "capacityTonnes": 10000,
+          "processedMaterials": {
+            "paper": 0,
+            "plastic": 0,
+            "metal": 0,
+            "glass": 0,
+            "wood": 0
+          }
+        },
+        "carbonEmissions": {
+          "value": 0,
+          "limit": 100
+        },
+        "day": 1,
+        "maxDay": 180,
+        "transportTimeMultiplier": 1,
+        "buffer": { "level": "Normal", "lastPenaltyDay": 1, "disasterFinePaid": false },
+        "eventLog": [],
+        "districts": {
+          "residential": { "waste": { "paper": { "B": 0, "C": 0, "F": 0 }, "plastic": { "B": 0, "C": 0, "F": 0 }, "metal": { "B": 0, "C": 0, "F": 0 }, "glass": { "B": 0, "C": 0, "F": 0 }, "wood": { "B": 0, "C": 0, "F": 0 } } },
+          "commercial": { "waste": { "paper": { "B": 0, "C": 0, "F": 0 }, "plastic": { "B": 0, "C": 0, "F": 0 }, "metal": { "B": 0, "C": 0, "F": 0 }, "glass": { "B": 0, "C": 0, "F": 0 }, "wood": { "B": 0, "C": 0, "F": 0 } } },
+          "industrial": { "waste": { "paper": { "B": 0, "C": 0, "F": 0 }, "plastic": { "B": 0, "C": 0, "F": 0 }, "metal": { "B": 0, "C": 0, "F": 0 }, "glass": { "B": 0, "C": 0, "F": 0 }, "wood": { "B": 0, "C": 0, "F": 0 } } }
+        }
+      },
+      "roles": {
+        "municipality": {
+          "roleName": "Municipality",
+          "inventory": {
+            "waste": {
+              "paper": { "B": 0, "C": 0, "F": 0 },
+              "plastic": { "B": 0, "C": 0, "F": 0 },
+              "metal": { "B": 0, "C": 0, "F": 0 },
+              "glass": { "B": 0, "C": 0, "F": 0 },
+              "wood": { "B": 0, "C": 0, "F": 0 }
+            }
+          }
+        },
+        "mrf": {
+          "roleName": "MRF",
+          "inventory": {
+            "waste": {
+              "paper": { "B": 0, "C": 0, "F": 0 },
+              "plastic": { "B": 0, "C": 0, "F": 0 },
+              "metal": { "B": 0, "C": 0, "F": 0 },
+              "glass": { "B": 0, "C": 0, "F": 0 },
+              "wood": { "B": 0, "C": 0, "F": 0 }
+            }
+          }
+        },
+        "broker": {
+          "roleName": "Broker",
+          "inventory": {
+            "waste": {
+              "paper": { "B": 0, "C": 0, "F": 0 },
+              "plastic": { "B": 0, "C": 0, "F": 0 },
+              "metal": { "B": 0, "C": 0, "F": 0 },
+              "glass": { "B": 0, "C": 0, "F": 0 },
+              "wood": { "B": 0, "C": 0, "F": 0 }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
+

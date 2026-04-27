@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-labelledby="title desc">
+  <title id="title">MRF role image</title>
+  <desc id="desc">Materials recovery facility with recycling icon and conveyor</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d9edf7"/>
+      <stop offset="100%" stop-color="#bedbe8"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="400" fill="url(#bg)"/>
+  <rect x="0" y="315" width="800" height="85" fill="#8a9ea6"/>
+  <rect x="140" y="110" width="520" height="205" rx="8" fill="#f2f5f7" stroke="#4d6671" stroke-width="8"/>
+  <rect x="180" y="245" width="220" height="24" rx="12" fill="#4d6671"/>
+  <rect x="410" y="245" width="220" height="24" rx="12" fill="#4d6671"/>
+  <rect x="208" y="160" width="74" height="58" fill="#c9dde6"/>
+  <rect x="302" y="160" width="74" height="58" fill="#c9dde6"/>
+  <rect x="396" y="160" width="74" height="58" fill="#c9dde6"/>
+  <rect x="490" y="160" width="74" height="58" fill="#c9dde6"/>
+  <path d="M420 86l36 14-24 16a58 58 0 0 1 16 26l-22 8a35 35 0 0 0-12-18l-7 24-23-7 13-42z" fill="#2f6f43"/>
+  <path d="M356 146l-10-38 24 8a58 58 0 0 1 23-19l10 22a35 35 0 0 0-16 13l25 4-5 24-51-8z" fill="#2f6f43"/>
+  <path d="M432 174l37-9-14 21a58 58 0 0 1-39 3l5-23a35 35 0 0 0 20-1l-16-19 19-16 28 33z" fill="#2f6f43"/>
+</svg>
