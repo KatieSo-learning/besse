@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MRF – Trader Marketplace &amp; List for Sale</title>
+<title>Marketplace - MRF</title>
 <script src="/socket.io/socket.io.js"></script>
 <link rel="stylesheet" href="player-menu.css" />
   <link rel="stylesheet" href="ui-fonts.css" />
@@ -52,8 +52,21 @@
   .cards{display:flex;justify-content:center;gap:40px;margin-top:190px;flex-wrap:wrap}
   .pcard{cursor:pointer;text-align:center;transition:transform .15s}.pcard:hover{transform:scale(1.03)}
   .frame{width:200px;height:180px;background:var(--card);border:3px solid #bbb;box-shadow:var(--shadow-1);display:flex;align-items:center;justify-content:center;position:relative}
-  .frame .mp-art{position:relative;z-index:1;width:136px;height:124px;display:flex;align-items:center;justify-content:center}
-  .frame .mp-art svg{width:100%;height:100%;display:block;filter:drop-shadow(0 2px 3px rgba(26,47,37,.12))}
+  .frame .mp-art{
+    position:relative;
+    z-index:1;
+    width:136px;
+    height:124px;
+    border-radius:12px;
+    overflow:hidden;
+    background-position:center;
+    background-repeat:no-repeat;
+    background-size:cover;
+    box-shadow:0 10px 18px rgba(15,23,42,.10);
+  }
+  .mp-art.vendor{background-image:url('assets/feature-vendor.svg');background-color:#15803d}
+  .mp-art.trader{background-image:url('assets/feature-trader.svg');background-color:#0284c7}
+  .mp-art.list{background-image:url('assets/feature-list.svg');background-color:#d97706}
   .tape{width:44px;height:18px;background:rgba(180,170,140,.8);position:absolute;top:-9px;left:50%;transform:translateX(-50%);border-radius:2px;z-index:2}
   .plabel{margin-top:8px;font-size:16px;font-weight:700;color:var(--ink)}
   /* ── Overlay base ── */
@@ -192,9 +205,9 @@
   <a href="game.html?role=MRF" class="hub-link">← Hub</a>
 
   <div class="cards">
-    <div class="pcard" onclick="openOv('vendor')" title="View-only: only Municipality may purchase from the vendor"><div class="frame"><div class="tape"></div><div class="mp-art" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><ellipse cx="60" cy="108" rx="48" ry="8" fill="rgba(47,111,67,.15)"/><rect x="22" y="48" width="76" height="52" rx="4" fill="#a8c090" stroke="#2f6f43" stroke-width="2.5"/><path d="M22 48 L60 22 L98 48" fill="#c8d9b8" stroke="#2f6f43" stroke-width="2.5" stroke-linejoin="round"/><rect x="24" y="50" width="14" height="12" rx="1" fill="#e8f4ea" stroke="#5a8a5e" stroke-width="1"/><rect x="42" y="50" width="14" height="12" rx="1" fill="#e8f4ea" stroke="#5a8a5e" stroke-width="1"/><rect x="60" y="50" width="14" height="12" rx="1" fill="#e8f4ea" stroke="#5a8a5e" stroke-width="1"/><rect x="78" y="50" width="14" height="12" rx="1" fill="#e8f4ea" stroke="#5a8a5e" stroke-width="1"/><rect x="48" y="72" width="24" height="28" rx="2" fill="#e3dfd2" stroke="#2f6f43" stroke-width="2"/><circle cx="60" cy="86" r="3" fill="#2f6f43"/><rect x="52" y="38" width="16" height="14" rx="1" fill="#8b7355" stroke="#5d4e37" stroke-width="1"/></svg></div></div><div class="plabel">Vendor <span style="font-size:10px;color:#c62828">(Muni only)</span></div></div>
-    <div class="pcard" onclick="openOv('trader')"><div class="frame"><div class="tape"></div><div class="mp-art" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><ellipse cx="60" cy="108" rx="48" ry="8" fill="rgba(47,111,67,.15)"/><rect x="18" y="52" width="28" height="20" rx="3" fill="#c8e6c9" stroke="#2f6f43" stroke-width="2.5"/><rect x="74" y="52" width="28" height="20" rx="3" fill="#c8e6c9" stroke="#2f6f43" stroke-width="2.5"/><path d="M46 62H74" stroke="#2f6f43" stroke-width="3" stroke-linecap="round"/><path d="M55 52 L68 40 L81 52 M55 72 L68 84 L81 72" fill="none" stroke="#3e7d51" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="34" cy="86" r="12" fill="#ffd54f" stroke="#f9a825" stroke-width="2"/><circle cx="86" cy="86" r="12" fill="#ffd54f" stroke="#f9a825" stroke-width="2"/><text x="34" y="91" text-anchor="middle" font-size="14" font-weight="700" fill="#5d4037">$</text><text x="86" y="91" text-anchor="middle" font-size="14" font-weight="700" fill="#5d4037">$</text></svg></div></div><div class="plabel">Trader</div></div>
-    <div class="pcard" onclick="openOv('list')"><div class="frame"><div class="tape"></div><div class="mp-art" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><ellipse cx="60" cy="108" rx="48" ry="8" fill="rgba(47,111,67,.15)"/><path d="M38 28 L88 38 L78 92 L28 82 Z" fill="#ffecb3" stroke="#f57f17" stroke-width="2.5" stroke-linejoin="round"/><circle cx="42" cy="34" r="5" fill="#e3dfd2" stroke="#8d6e63" stroke-width="2"/><path d="M42 39 L42 56" stroke="#8d6e63" stroke-width="2.5" stroke-linecap="round"/><rect x="44" y="52" width="36" height="28" rx="2" fill="#fff" stroke="#2f6f43" stroke-width="2"/><path d="M50 60h24M50 68h18M50 76h22" stroke="#7cb342" stroke-width="2.5" stroke-linecap="round"/><path d="M72 44 L82 30" stroke="#c62828" stroke-width="2" stroke-linecap="round"/></svg></div></div><div class="plabel">List Item</div></div>
+    <div class="pcard" onclick="openOv('vendor')" title="View-only: only Municipality may purchase from the vendor"><div class="frame"><div class="tape"></div><div class="mp-art vendor" aria-hidden="true"></div></div><div class="plabel">Vendor <span style="font-size:10px;color:#c62828">(Muni only)</span></div></div>
+    <div class="pcard" onclick="openOv('trader')"><div class="frame"><div class="tape"></div><div class="mp-art trader" aria-hidden="true"></div></div><div class="plabel">Trader</div></div>
+    <div class="pcard" onclick="openOv('list')"><div class="frame"><div class="tape"></div><div class="mp-art list" aria-hidden="true"></div></div><div class="plabel">List Item</div></div>
   </div>
 </div>
 
@@ -289,7 +302,7 @@
       <span id="sbW" class="val">–/– t</span>
     </div>
     <div class="pill">
-      <span class="ico">🌳</span>
+      <span class="ico">☁️</span>
       <div class="bar"><div class="fill co" id="sbCB" style="width:0%"></div></div>
       <span id="sbC" class="val">–%</span>
     </div>

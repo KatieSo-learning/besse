@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Municipality – City Inventory &amp; Material Stock</title>
+  <title>Inventory - Municipality</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
@@ -132,7 +132,7 @@
           <span class="mx-2">|</span>
           <span id="dateText">01 November 2025</span>
         </div>
-        <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="游戏日进度">Day – / –</span>
+        <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="Game day progress">Day – / –</span>
       </div>
       <h1 class="text-3xl font-extrabold tracking-wider">Inventory</h1>
       <div class="flex items-center gap-3 pr-2">
@@ -221,11 +221,29 @@
                 <p class="text-xs text-slate-500"><span id="materialListTotal">0</span> t total</p>
                 <p class="text-xs text-slate-500"><span id="materialSelectedTotal">0</span> t selected</p>
               </div>
+              <div class="mb-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <select id="materialFilterType" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60">
+                  <option value="">Type: All</option>
+                  <option value="metal">⚙️ Metal</option>
+                  <option value="paper">📄 Paper</option>
+                  <option value="wood">🪵 Wood</option>
+                  <option value="plastic">🧴 Plastic</option>
+                  <option value="glass">🍾 Glass</option>
+                </select>
+                <select id="materialFilterQuality" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60">
+                  <option value="">Quality: All</option>
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                </select>
+                <input id="materialFilterMinVolume" type="number" min="0" step="1" placeholder="Min Volume (t)" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60" />
+              </div>
               <div id="materialListBody" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[440px] overflow-y-auto">
                 <div class="col-span-full text-center py-8 text-slate-400 border border-slate-200 rounded-xl">
                   No materials in inventory yet.
                 </div>
               </div>
+              <p id="materialFilterEmpty" class="hidden mt-2 text-xs text-slate-500">No items match current filters.</p>
               <div class="hidden mt-5 flex justify-center">
                 <button id="materialSendToBrokerBtn" type="button" class="bg-[#6b994c] hover:bg-[#5b8640] font-bold text-base px-8 py-2 rounded-xl shadow disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                   Send to Broker
@@ -238,11 +256,29 @@
                 <p class="text-xs text-slate-500"><span id="wasteListTotal">0</span> t total</p>
                 <p class="text-xs text-slate-500"><span id="wasteSelectedTotal">0</span> t selected</p>
               </div>
+              <div class="mb-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <select id="wasteFilterType" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60">
+                  <option value="">Type: All</option>
+                  <option value="metal">⚙️ Metal</option>
+                  <option value="paper">📄 Paper</option>
+                  <option value="wood">🪵 Wood</option>
+                  <option value="plastic">🧴 Plastic</option>
+                  <option value="glass">🍾 Glass</option>
+                </select>
+                <select id="wasteFilterQuality" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60">
+                  <option value="">Quality: All</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="F">F</option>
+                </select>
+                <input id="wasteFilterMinVolume" type="number" min="0" step="1" placeholder="Min Volume (t)" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60" />
+              </div>
               <div id="wasteListBody" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[440px] overflow-y-auto">
                 <div class="col-span-full text-center py-8 text-slate-400 border border-slate-200 rounded-xl">
                   No waste in inventory yet.
                 </div>
               </div>
+              <p id="wasteFilterEmpty" class="hidden mt-2 text-xs text-slate-500">No items match current filters.</p>
               <div class="hidden mt-5 flex justify-center">
                 <button id="wasteSendToBrokerBtn" type="button" class="bg-[#6b994c] hover:bg-[#5b8640] font-bold text-base px-8 py-2 rounded-xl shadow disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                   Send to Broker
@@ -259,7 +295,13 @@
           <p class="text-xs text-slate-500 mb-2">Material / Waste — combined before sending</p>
           <div class="unified-send-selection-text text-sm text-slate-700 font-mono rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 min-h-[2.5rem]">No items selected.</div>
         </div>
-        <div class="lg:col-span-4 flex items-end justify-end">
+        <div class="lg:col-span-4 flex items-end justify-end gap-2">
+          <button id="selectAllSendBtn" type="button" class="w-full sm:w-auto bg-slate-700 hover:bg-slate-800 text-white font-bold text-base px-6 py-2 rounded-xl shadow">
+            Select All
+          </button>
+          <button id="clearAllSendBtn" type="button" class="w-full sm:w-auto bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-base px-6 py-2 rounded-xl shadow border border-slate-300">
+            Clear All
+          </button>
           <button type="button" class="unified-send-to-broker-btn w-full sm:w-auto bg-[#6b994c] hover:bg-[#5b8640] font-bold text-base px-8 py-2 rounded-xl shadow disabled:opacity-50 disabled:cursor-not-allowed" disabled>
             Send to Broker
           </button>
@@ -293,7 +335,7 @@
             <span id="statusInventory" class="font-extrabold text-slate-900">–</span>
           </div>
           <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
-            <span class="text-xl">🌳</span>
+            <span class="text-xl">☁️</span>
             <div class="flex-1 h-3 rounded-full bg-slate-200 overflow-hidden border border-black/10">
               <div id="statusCO2Bar" class="h-full bg-red-500" style="width: 0%"></div>
             </div>
@@ -540,7 +582,6 @@
 
     function formatMaterialDisplayName(mat) {
       if (!mat) return '';
-      if (mat === 'material6') return 'Material 6';
       return mat.charAt(0).toUpperCase() + mat.slice(1);
     }
 
@@ -577,6 +618,53 @@
       btns.forEach((b) => {
         b.disabled = false;
       });
+    }
+
+    function selectAllSendRowsForCurrentMode() {
+      const inv = latestState?.roles?.municipality?.inventory || null;
+      if (!inv) return;
+
+      if (qualityMode === 'materials') {
+        document.querySelectorAll('#materialListBody input[data-material-card-tons="1"]').forEach((input) => {
+          const max = Math.max(0, Math.floor(Number(input.max) || 0));
+          input.value = String(max);
+        });
+        updateMaterialSendButtonState(inv);
+      } else {
+        document.querySelectorAll('#wasteListBody input[data-waste-card-tons="1"]').forEach((input) => {
+          const max = Math.max(0, Math.floor(Number(input.max) || 0));
+          input.value = String(max);
+        });
+        document.querySelectorAll('#wasteSelectableBody input[type="number"]').forEach((input) => {
+          const max = Math.max(0, Math.floor(Number(input.max) || 0));
+          input.value = String(max);
+        });
+        updateWasteSendButtonState(inv);
+      }
+      updateUnifiedSendSelectionSummary(inv);
+      updateImpactPreview();
+    }
+
+    function clearAllSendRowsForCurrentMode() {
+      const inv = latestState?.roles?.municipality?.inventory || null;
+      if (!inv) return;
+
+      if (qualityMode === 'materials') {
+        document.querySelectorAll('#materialListBody input[data-material-card-tons="1"]').forEach((input) => {
+          input.value = '0';
+        });
+        updateMaterialSendButtonState(inv);
+      } else {
+        document.querySelectorAll('#wasteListBody input[data-waste-card-tons="1"]').forEach((input) => {
+          input.value = '0';
+        });
+        document.querySelectorAll('#wasteSelectableBody input[type="number"]').forEach((input) => {
+          input.value = '0';
+        });
+        updateWasteSendButtonState(inv);
+      }
+      updateUnifiedSendSelectionSummary(inv);
+      updateImpactPreview();
     }
 
     function updateWasteSendButtonState(inv) {
@@ -633,6 +721,48 @@
         window.BesseGameCalendar.updateDom({ day: payload.day, maxDay: payload.maxDay });
       }
       if (window.BesseSyncHeaderDayChip) window.BesseSyncHeaderDayChip(payload.day, payload.maxDay);
+    }
+
+    function applyMaterialFilters() {
+      const typeFilter = (document.getElementById('materialFilterType')?.value || '').toLowerCase();
+      const qualityFilter = (document.getElementById('materialFilterQuality')?.value || '').toUpperCase();
+      const minVol = Math.max(0, Math.floor(Number(document.getElementById('materialFilterMinVolume')?.value || 0)));
+      const rows = Array.from(document.querySelectorAll('#materialListBody [data-material-card-row="1"]'));
+      let visible = 0;
+      rows.forEach((row) => {
+        const mat = String(row.dataset.material || '').toLowerCase();
+        const grade = String(row.dataset.grade || '').toUpperCase();
+        const vol = Math.max(0, Math.floor(Number(row.dataset.volume || 0)));
+        const typeOk = !typeFilter || mat === typeFilter;
+        const qualityOk = !qualityFilter || grade === qualityFilter;
+        const volOk = vol >= minVol;
+        const show = typeOk && qualityOk && volOk;
+        row.classList.toggle('hidden', !show);
+        if (show) visible += 1;
+      });
+      const emptyEl = document.getElementById('materialFilterEmpty');
+      if (emptyEl) emptyEl.classList.toggle('hidden', visible > 0);
+    }
+
+    function applyWasteFilters() {
+      const typeFilter = (document.getElementById('wasteFilterType')?.value || '').toLowerCase();
+      const qualityFilter = (document.getElementById('wasteFilterQuality')?.value || '').toUpperCase();
+      const minVol = Math.max(0, Math.floor(Number(document.getElementById('wasteFilterMinVolume')?.value || 0)));
+      const rows = Array.from(document.querySelectorAll('#wasteListBody [data-waste-card-row="1"]'));
+      let visible = 0;
+      rows.forEach((row) => {
+        const mat = String(row.dataset.material || '').toLowerCase();
+        const grade = String(row.dataset.grade || '').toUpperCase();
+        const vol = Math.max(0, Math.floor(Number(row.dataset.volume || 0)));
+        const typeOk = !typeFilter || mat === typeFilter;
+        const qualityOk = !qualityFilter || grade === qualityFilter;
+        const volOk = vol >= minVol;
+        const show = typeOk && qualityOk && volOk;
+        row.classList.toggle('hidden', !show);
+        if (show) visible += 1;
+      });
+      const emptyEl = document.getElementById('wasteFilterEmpty');
+      if (emptyEl) emptyEl.classList.toggle('hidden', visible > 0);
     }
 
     let qualityMode = 'materials'; // 'materials' | 'waste'
@@ -815,7 +945,7 @@
       });
 
       const mats = inv?.materials || {};
-      const order = ['metal', 'paper', 'wood', 'plastic', 'glass', 'material6'];
+      const order = ['metal', 'paper', 'wood', 'plastic', 'glass'];
       const cards = [];
       let total = 0;
 
@@ -833,16 +963,15 @@
             metal: '🔩',
             glass: '🍾',
             wood: '🪵',
-            material6: '📦'
           };
-          const baseLabel = mat === 'material6' ? 'Material 6' : (mat.charAt(0).toUpperCase() + mat.slice(1));
+          const baseLabel = mat.charAt(0).toUpperCase() + mat.slice(1);
           const matLabel = `${iconByMaterial[mat] || '📦'} ${baseLabel}`;
           const rowKey = `${mat}:${g}`;
           const prev = preserved[rowKey];
           const prevNum = Math.max(0, Math.floor(Number(prev) || 0));
           const safePrev = Math.min(prevNum, t);
           cards.push(`
-            <div class="mat-card" data-material-card-row="1" data-material="${mat}" data-grade="${g}">
+            <div class="mat-card" data-material-card-row="1" data-material="${mat}" data-grade="${g}" data-volume="${t}">
               <p class="text-lg font-extrabold">${matLabel}</p>
               <p class="mt-2 text-sm text-slate-800">Quality:
                 <span class="grade-pill ${gradeClass}">${g}</span>
@@ -884,6 +1013,7 @@
         });
       });
 
+      applyMaterialFilters();
       updateMaterialSendButtonState(inv);
     }
 
@@ -920,7 +1050,7 @@
       });
 
       const waste = inv?.waste || {};
-      const order = ['metal', 'paper', 'wood', 'plastic', 'glass', 'material6'];
+      const order = ['metal', 'paper', 'wood', 'plastic', 'glass'];
       const cards = [];
       let total = 0;
 
@@ -938,16 +1068,15 @@
             metal: '🔩',
             glass: '🍾',
             wood: '🪵',
-            material6: '📦'
           };
-          const baseLabel = mat === 'material6' ? 'Material 6' : (mat.charAt(0).toUpperCase() + mat.slice(1));
+          const baseLabel = mat.charAt(0).toUpperCase() + mat.slice(1);
           const matLabel = `${iconByMaterial[mat] || '📦'} ${baseLabel}`;
           const rowKey = `${mat}:${g}`;
           const prev = preserved[rowKey];
           const prevNum = Math.max(0, Math.floor(Number(prev) || 0));
           const safePrev = Math.min(prevNum, t);
           cards.push(`
-            <div class="mat-card" data-waste-card-row="1" data-material="${mat}" data-grade="${g}">
+            <div class="mat-card" data-waste-card-row="1" data-material="${mat}" data-grade="${g}" data-volume="${t}">
               <p class="text-lg font-extrabold">${matLabel}</p>
               <p class="mt-2 text-sm text-slate-800">Quality:
                 <span class="grade-pill ${gradeClass}">${g}</span>
@@ -989,6 +1118,7 @@
         });
       });
 
+      applyWasteFilters();
       updateWasteSendButtonState(inv);
     }
 
@@ -1200,7 +1330,7 @@
         document.getElementById('hubInvTotal').textContent = invTotal2;
         document.getElementById('hubInvCap').textContent = cap;
         const statusInvEl = document.getElementById('statusInventory');
-        if (statusInvEl) statusInvEl.textContent = `${invTotal2}/${cap} t`;
+        if (statusInvEl) statusInvEl.textContent = `${Math.round(allInvTotal * 10) / 10}/${allInvCap} t`;
       }
       const statusBudgetEl = document.getElementById('statusBudget');
       if (statusBudgetEl) statusBudgetEl.textContent = shared.budgetHKD.toLocaleString('en-HK');
@@ -1322,6 +1452,21 @@
         });
         pendingSendToBroker = true;
       });
+    });
+
+    document.getElementById('selectAllSendBtn')?.addEventListener('click', () => {
+      selectAllSendRowsForCurrentMode();
+    });
+    document.getElementById('clearAllSendBtn')?.addEventListener('click', () => {
+      clearAllSendRowsForCurrentMode();
+    });
+    ['materialFilterType', 'materialFilterQuality', 'materialFilterMinVolume'].forEach((id) => {
+      document.getElementById(id)?.addEventListener('input', applyMaterialFilters);
+      document.getElementById(id)?.addEventListener('change', applyMaterialFilters);
+    });
+    ['wasteFilterType', 'wasteFilterQuality', 'wasteFilterMinVolume'].forEach((id) => {
+      document.getElementById(id)?.addEventListener('input', applyWasteFilters);
+      document.getElementById(id)?.addEventListener('change', applyWasteFilters);
     });
 
     socket.on('inventoryTransferResult', (payload) => {

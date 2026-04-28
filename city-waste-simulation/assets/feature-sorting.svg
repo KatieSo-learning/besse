@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 256" width="512" height="256" fill="none" role="img" aria-label="Sorting Centre feature art">
+  <defs>
+    <linearGradient id="bg" x1="46" y1="18" x2="484" y2="246" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A78BFA"/>
+      <stop offset="1" stop-color="#6D28D9"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#0F172A" flood-opacity=".18"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="512" height="256" rx="22" fill="url(#bg)"/>
+  <circle cx="78" cy="182" r="34" fill="#C4B5FD" fill-opacity=".22"/>
+  <circle cx="438" cy="170" r="40" fill="#DDD6FE" fill-opacity=".16"/>
+  <path d="M468 210l10 10l-10 10l-10-10Z" fill="#E8F3EC" fill-opacity=".9"/>
+
+  <!-- Conveyor + bins -->
+  <g filter="url(#soft)" stroke="#0B1220" stroke-opacity=".55" stroke-width="8" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M140 172h232" stroke="#F5F1E6" stroke-opacity=".85" stroke-width="14"/>
+    <path d="M170 140h56v56h-56z" fill="#F5F1E6"/>
+    <path d="M238 140h56v56h-56z" fill="#F5F1E6"/>
+    <path d="M306 140h56v56h-56z" fill="#F5F1E6"/>
+    <path d="M198 156h0" />
+    <!-- simple "sorting" tokens -->
+    <circle cx="200" cy="166" r="12" fill="#F5F1E6"/>
+    <circle cx="256" cy="166" r="12" fill="#F5F1E6"/>
+    <circle cx="312" cy="166" r="12" fill="#F5F1E6"/>
+    <path d="M188 112l24 18l-24 18l-24-18z" fill="#F5F1E6"/>
+    <circle cx="360" cy="130" r="6" fill="#2F6F43" fill-opacity=".95" stroke="none"/>
+  </g>
+</svg>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Broker – Air Freight &amp; Airport Operations</title>
+  <title>Airport - Broker</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <link rel="stylesheet" href="player-menu.css" />
@@ -76,7 +76,7 @@
           <span class="mx-2">|</span>
           <span id="dateText">01 November 2025</span>
         </div>
-        <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="游戏日进度">Day – / –</span>
+        <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="Game day progress">Day – / –</span>
       </div>
       <h1 class="text-2xl font-extrabold tracking-wide">Airport</h1>
       <div class="flex items-center gap-3 pr-2">
@@ -126,29 +126,18 @@
         <section class="dashed-panel rounded-xl p-4">
           <h2 class="text-2xl md:text-2xl font-extrabold tracking-wide text-slate-900 text-center mb-4">Airport Fleet</h2>
           <div class="flex flex-col gap-4 flex-1">
-            <div class="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center h-48">
-              <div class="w-full h-full max-w-xs max-h-40 border border-slate-300 bg-slate-200 flex flex-col items-center justify-center gap-2">
-                <svg class="w-16 h-16 text-[#2f5a47]" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <path d="M10 30L48 20L54 26L22 34L18 44L10 42L14 34L10 30Z" fill="currentColor" opacity="0.22"/>
-                  <path d="M22 34L54 26" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
-                  <path d="M18 44L14 34L22 34L18 44Z" fill="currentColor" opacity="0.25"/>
-                  <path d="M48 20L54 26L50 30L44 24L48 20Z" fill="currentColor" opacity="0.35"/>
-                  <path d="M30 26L40 26" stroke="white" stroke-width="2" opacity="0.65" stroke-linecap="round"/>
-                  <circle cx="22" cy="44" r="5" fill="currentColor" opacity="0.18"/>
-                  <circle cx="22" cy="44" r="2.5" fill="white" opacity="0.9"/>
-                </svg>
-                <span class="text-xs text-slate-500 tracking-wide uppercase">Airport Fleet</span>
-              </div>
+            <div class="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center h-48 overflow-hidden">
+              <img src="assets/feature-airport.svg" alt="Airport Fleet" class="w-full h-full object-cover rounded-xl border border-slate-300" />
             </div>
             <div class="space-y-2 text-xs text-slate-700">
               <div class="flex items-center justify-between">
-                <span class="font-semibold">Active</span>
+                <span class="font-semibold">✅ Active</span>
                 <div id="activeTruckIcons" class="flex gap-1 text-lg">
                   <span>✈️</span><span>✈️</span><span>✈️</span><span>✈️</span><span>✈️</span>
                 </div>
               </div>
               <div class="flex items-center justify-between">
-                <span class="font-semibold">In Use</span>
+                <span class="font-semibold">🛠️ In Use</span>
                 <div id="inUseTruckIcons" class="flex gap-1 text-lg">
                   <span class="opacity-30">✈️</span><span class="opacity-30">✈️</span><span class="opacity-30">✈️</span><span class="opacity-30">✈️</span><span class="opacity-30">✈️</span>
                 </div>
@@ -158,7 +147,7 @@
         </section>
 
         <section class="lg:col-span-2 dashed-panel rounded-xl p-4 relative">
-          <h2 class="text-2xl md:text-2xl font-extrabold tracking-wide text-slate-900 text-center mb-4">Upgrade</h2>
+          <h2 class="text-2xl md:text-2xl font-extrabold tracking-wide text-slate-900 text-center mb-4">⬆️ Upgrade</h2>
           <button
             type="button"
             class="absolute right-4 top-4 w-12 h-12 rounded-full bg-amber-300 hover:bg-amber-200 text-slate-900 font-extrabold border border-black/10 shadow"
@@ -251,15 +240,15 @@
 
           <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
             <div class="bg-emerald-50 rounded-xl border border-emerald-100 px-3 py-2">
-              <p class="text-[11px] text-slate-500">Cost($)/trip</p>
+              <p class="text-[11px] text-slate-500">💰 Cost($)/trip</p>
               <p class="font-semibold text-emerald-700">$<span id="upgradeCost">400</span></p>
             </div>
             <div class="bg-emerald-50 rounded-xl border border-emerald-100 px-3 py-2">
-              <p class="text-[11px] text-slate-500">CO2 impact</p>
+              <p class="text-[11px] text-slate-500">☁️ CO2 impact</p>
               <p class="font-semibold text-emerald-700">+<span id="upgradeCO2">1.6</span> t</p>
             </div>
             <div class="bg-slate-50 rounded-xl border border-slate-200 px-3 py-2">
-              <p class="text-[11px] text-slate-500">Effect</p>
+              <p class="text-[11px] text-slate-500">✨ Effect</p>
               <p class="font-semibold text-slate-800"><span id="upgradeCapacity">Select an upgrade</span></p>
             </div>
           </div>
@@ -277,8 +266,8 @@
         </section>
       </div>
 
-      <div class="status-strip grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
-        <div class="lg:col-span-1 rounded-xl overflow-hidden border border-slate-300 bg-white shadow-sm">
+      <div class="status-strip flex flex-col lg:flex-row gap-4 items-end">
+        <div class="w-full lg:w-[30%] rounded-xl overflow-hidden border border-slate-300 bg-white shadow-sm">
           <div class="record-bar px-4 py-3 text-white text-2xl font-bold flex items-center gap-2">
             <span>📎</span><span>Record</span>
           </div>
@@ -287,7 +276,7 @@
           </div>
         </div>
 
-        <div class="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+        <div class="w-full lg:flex-1 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
           <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between">
             <span class="text-xl">💰</span>
             <span id="statusBudget" class="font-extrabold text-slate-900">–</span>
@@ -304,7 +293,7 @@
             <span id="statusInventory" class="font-extrabold text-slate-900">–</span>
           </div>
           <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
-            <span class="text-xl">🌳</span>
+            <span class="text-xl">☁️</span>
             <div class="flex-1 h-3 rounded-full bg-slate-200 overflow-hidden border border-black/10">
               <div id="statusCO2Bar" class="h-full bg-red-500" style="width: 0%"></div>
             </div>
@@ -396,7 +385,7 @@
       renderTruckFleetIcons();
 
       const statusInvEl = document.getElementById('statusInventory');
-      if (statusInvEl) statusInvEl.textContent = `${truckLoad}/${truckCap} t`;
+      if (statusInvEl) statusInvEl.textContent = `${Math.round(allInvTotal * 10) / 10}/${allInvCap} t`;
       const inv = broker.inventory || {};
       let invTotal = Math.max(0, Number(inv.unprocessedWaste || 0));
       Object.values(inv.materials || {}).forEach((g) => { invTotal += (g.A || 0) + (g.B || 0) + (g.C || 0); });

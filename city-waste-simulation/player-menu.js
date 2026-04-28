@@ -203,9 +203,120 @@
   }
 
   function initAll() {
+    enhanceWasteProgressBars();
     syncHeaderRoleBadge();
     const triggers = Array.from(document.querySelectorAll('[data-player-menu-trigger]'));
     triggers.forEach(setupTrigger);
+  }
+
+  function injectWasteProgressStyle() {
+    if (document.getElementById('besseWasteProgressStyle')) return;
+    const style = document.createElement('style');
+    style.id = 'besseWasteProgressStyle';
+    style.textContent = `
+      .besse-waste-track{
+        flex: 1 1 auto;
+        min-width: 84px;
+        height: 10px;
+        border-radius: 9999px;
+        background: #e2e8f0;
+        overflow: hidden;
+        border: 1px solid rgba(15,23,42,.08);
+      }
+      .besse-waste-fill{
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%);
+        transition: width .2s ease;
+      }
+      .besse-waste-row{
+        margin-top: 6px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .besse-waste-label{
+        font-size: 11px;
+        color: #64748b;
+        white-space: nowrap;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function parseWasteNumbersFromText(text) {
+    const raw = String(text || '');
+    const m = raw.match(/([\d.,]+)\s*\/\s*([\d.,]+)/);
+    if (!m) return { total: 0, limit: 0, pct: 0 };
+    const total = Number(String(m[1]).replace(/,/g, '')) || 0;
+    const limit = Number(String(m[2]).replace(/,/g, '')) || 0;
+    const pct = limit > 0 ? Math.max(0, Math.min(100, (total / limit) * 100)) : 0;
+    return { total, limit, pct };
+  }
+
+  function enhanceStatusInventoryWasteBar() {
+    const invEl = document.getElementById('statusInventory');
+    if (!invEl) return;
+    const wrap = invEl.parentElement;
+    if (!wrap) return;
+    injectWasteProgressStyle();
+
+    let track = wrap.querySelector('.besse-waste-track');
+    let fill = wrap.querySelector('.besse-waste-fill');
+    if (!track || !fill) {
+      const row = document.createElement('div');
+      row.className = 'besse-waste-track';
+      const f = document.createElement('div');
+      f.className = 'besse-waste-fill';
+      row.appendChild(f);
+      wrap.insertBefore(row, invEl);
+      track = row;
+      fill = f;
+    }
+
+    const render = () => {
+      const { pct } = parseWasteNumbersFromText(invEl.textContent || '');
+      if (fill) fill.style.width = `${pct}%`;
+    };
+    render();
+    const mo = new MutationObserver(render);
+    mo.observe(invEl, { characterData: true, subtree: true, childList: true });
+  }
+
+  function enhanceWasteTotalLimitBar() {
+    const totalEl = document.getElementById('wasteTotal');
+    const limitEl = document.getElementById('wasteLimit');
+    if (!totalEl || !limitEl) return;
+    injectWasteProgressStyle();
+
+    const host = totalEl.closest('div');
+    if (!host || host.querySelector('.besse-waste-row')) return;
+
+    const row = document.createElement('div');
+    row.className = 'besse-waste-row';
+    row.innerHTML = `
+      <span class="besse-waste-label">Waste %</span>
+      <div class="besse-waste-track"><div class="besse-waste-fill"></div></div>
+    `;
+    const target = host.parentElement || host;
+    target.insertBefore(row, host.nextSibling);
+    const fill = row.querySelector('.besse-waste-fill');
+
+    const render = () => {
+      const total = Number(String(totalEl.textContent || '').replace(/,/g, '')) || 0;
+      const limit = Number(String(limitEl.textContent || '').replace(/,/g, '')) || 0;
+      const pct = limit > 0 ? Math.max(0, Math.min(100, (total / limit) * 100)) : 0;
+      if (fill) fill.style.width = `${pct}%`;
+    };
+    render();
+    const mo = new MutationObserver(render);
+    mo.observe(totalEl, { characterData: true, subtree: true, childList: true });
+    mo.observe(limitEl, { characterData: true, subtree: true, childList: true });
+  }
+
+  function enhanceWasteProgressBars() {
+    enhanceStatusInventoryWasteBar();
+    enhanceWasteTotalLimitBar();
   }
 
   if (document.readyState === 'loading') {
@@ -262,7 +373,7 @@
     overlay = document.createElement('div');
     overlay.id = 'besseGameOverOverlay';
     overlay.className =
-      'fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50';
+      'fixed inset-0 z-[20000] flex items-center justify-center p-4 bg-black/50';
     overlay.style.display = 'none';
     overlay.style.pointerEvents = 'none';
     overlay.setAttribute('role', 'dialog');
@@ -273,7 +384,7 @@
         <h2 id="besseGameOverTitle" class="text-2xl font-extrabold tracking-wide text-[#1a2f25] mb-2">Well done!</h2>
         <p id="besseGameOverReason" class="text-slate-700 mb-6 text-sm leading-relaxed min-h-[1.25rem]"></p>
         <button type="button" id="besseGameOverRestartBtn" class="w-full rounded-xl bg-[#2f5a47] text-white font-bold py-3 px-4 shadow hover:bg-[#244635] disabled:opacity-50 disabled:cursor-not-allowed border border-black/10">
-          重新開始
+          Restart
         </button>
       </div>`;
     document.body.appendChild(overlay);
@@ -295,7 +406,7 @@
     }
     if (btn) {
       btn.disabled = false;
-      btn.textContent = '重新開始';
+      btn.textContent = 'Restart';
     }
     if (overlay) {
       overlay.style.display = 'flex';
@@ -315,11 +426,21 @@
     if (legacy) legacy.classList.add('hidden');
   }
 
+  function goToLobbyHome() {
+    const dest = `${window.location.origin}/`;
+    if (window.self !== window.top) {
+      window.top.location.href = dest;
+    } else {
+      window.location.href = dest;
+    }
+  }
+
   window.besseAttachRestartUI = function (socket) {
     if (!socket || socket.__besseRestartAttached) return;
 
     // Do NOT attach restart / Game Over UI on the lobby / role selection page.
-    // That page應該只負責配對角色，不能被 Game Over 視窗遮住或觸發 restart。
+    // That page should only handle role selection; it must not be blocked by the Game Over modal
+    // or allow restart to be triggered.
     try {
       const p = String(window.location.pathname || '').toLowerCase();
       const isLobby =
@@ -347,7 +468,7 @@
       const btn = document.getElementById('besseGameOverRestartBtn');
       if (!btn) return;
       btn.disabled = true;
-      btn.textContent = '重啟中…';
+      btn.textContent = 'Restarting…';
       let role = null;
       try {
         role = new URLSearchParams(window.location.search).get('role');
@@ -357,8 +478,8 @@
       socket.emit('restartGame', { role }, (res) => {
         if (!res || !res.ok) {
           btn.disabled = false;
-          btn.textContent = '重新開始';
-          alert('重啟失敗，請再試一次。');
+          btn.textContent = 'Restart';
+          alert('Restart failed. Please try again.');
         }
       });
     }
@@ -398,39 +519,28 @@
         document.body.style.overflow = '';
         return;
       }
-      const r = payload && payload.reason ? String(payload.reason) : '';
-      const doRedirectToLeaderboard = () => {
-        // Auto-navigate to leaderboard on game over.
-        // This ensures leaderboard appears regardless of which game sub-page is open.
-        if (socket.__besseLeaderboardRedirected) return;
-        socket.__besseLeaderboardRedirected = true;
+      // Always route to leaderboard first on game over.
+      // This avoids auto-restart flows sending players straight back to lobby.
+      if (!socket.__besseSentToLeaderboard) {
+        socket.__besseSentToLeaderboard = true;
+        let role = null;
         try {
-          const onLeaderboard =
-            window &&
-            window.location &&
-            String(window.location.pathname).toLowerCase().endsWith('/leaderboard.html');
-          if (onLeaderboard) return;
-
-          const dest = new URL('leaderboard.html', window.location.origin);
-          // Pass current role into leaderboard so it can route back on "Play Again".
-          const role = (() => {
-            try {
-              return new URLSearchParams(window.location.search).get('role');
-            } catch {
-              return null;
-            }
-          })();
-          if (role) dest.searchParams.set('role', role);
-          setTimeout(() => {
-            if (window.self !== window.top) {
-              window.top.location.href = dest.toString();
-            } else {
-              window.location.href = dest.toString();
-            }
-          }, 250);
-        } catch (_e) {
-          // ignore navigation failures
+          role = new URLSearchParams(window.location.search).get('role');
+        } catch {
+          role = null;
         }
+        const url = new URL('leaderboard.html', window.location.origin);
+        if (role) url.searchParams.set('role', role);
+        window.location.href = url.toString();
+      }
+      return;
+      const r = payload && payload.reason ? String(payload.reason) : '';
+      const requestAutoRestart = () => {
+        if (socket.__besseAutoRestartRequested) return;
+        socket.__besseAutoRestartRequested = true;
+        setTimeout(() => {
+          doRestart();
+        }, 900);
       };
 
       // Guard against delayed "gameOver" packets from the previous round.
@@ -440,12 +550,12 @@
         .then((data) => {
           if (data && data.shared && data.shared.gameOver === false) return;
           showGameOverModal(r);
-          doRedirectToLeaderboard();
+          requestAutoRestart();
         })
         .catch(() => {
           // If state fetch fails, fall back to existing behavior.
           showGameOverModal(r);
-          doRedirectToLeaderboard();
+          requestAutoRestart();
         });
     });
 
@@ -453,8 +563,11 @@
       // Suppress any delayed "gameOver" packets for a short window.
       // (All clients will get gameRestarted when the gate completes, but older queued events may arrive after.)
       socket.__besseSuppressGameOverUntil = Date.now() + 5000;
+      socket.__besseAutoRestartRequested = false;
       hideGameOverModal();
       window.dispatchEvent(new CustomEvent('besseGameRestarted'));
+      // Round reset complete -> return everyone to lobby.
+      goToLobbyHome();
     });
 
     fetch('/state')

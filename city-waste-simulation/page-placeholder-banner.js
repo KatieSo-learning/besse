@@ -9,8 +9,8 @@
 
     const html =
       mode === 'partial'
-        ? '<strong class="font-extrabold">部分流程為占位</strong> — 「发往 Broker」等请求尚未与服务器完整同步，预算、CO₂ 可能不会随按钮立即变化；库存总览与状态条仍以 <span class="font-mono text-xs bg-white/70 px-1 rounded border border-amber-200/90">/state</span> 为准。'
-        : '<strong class="font-extrabold">界面原型 · 未接通玩法</strong> — 版式预览页：摘要中的数字多为静态示例，「送出」等操作<strong>不会</strong>改变局内状态。进行游戏请从 Hub 选单进入已接线页面（如 Broker 的 <span class="font-mono text-xs bg-white/70 px-1 rounded border border-amber-200/90">Inventory</span>、<span class="font-mono text-xs bg-white/70 px-1 rounded border border-amber-200/90">Transportation</span>；MRF 的 <span class="font-mono text-xs bg-white/70 px-1 rounded border border-amber-200/90">Inventory</span>）。';
+        ? '<strong class="font-extrabold">Some flows are placeholders</strong> — Requests like "Send to Broker" are not fully synchronized with the server yet, so budget/CO₂ may not change immediately when you click. Inventory summaries and status bars are still based on <span class="font-mono text-xs bg-white/70 px-1 rounded border border-amber-200/90">/state</span>.'
+        : '<strong class="font-extrabold">UI prototype · Gameplay not wired</strong> — Layout preview page: most numbers in the summary are static examples, and actions like "Send" <strong>will not</strong> change the in-game state. To play, use the Hub menu to open wired pages (e.g. Broker <span class="font-mono text-xs bg-white/70 px-1 rounded border border-amber-200/90">Inventory</span> / <span class="font-mono text-xs bg-white/70 px-1 rounded border border-amber-200/90">Transportation</span>, and MRF <span class="font-mono text-xs bg-white/70 px-1 rounded border border-amber-200/90">Inventory</span>).';
 
     const wrap = document.createElement('div');
     wrap.className = 'besse-placeholder-banner mx-auto max-w-7xl px-6 pt-3 pb-0';

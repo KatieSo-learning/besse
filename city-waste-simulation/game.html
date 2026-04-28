@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>City Waste Simulation – Main Game &amp; Role Hub</title>
+  <title>Game Panel - All Roles</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <link rel="stylesheet" href="player-menu.css" />
@@ -105,6 +105,55 @@
       border-radius: 14px;
       padding: .5rem .75rem;
     }
+    .sev-good { color: #15803d; }
+    .sev-warn { color: #b45309; }
+    .sev-bad { color: #b91c1c; }
+    .status-strip {
+      position: fixed;
+      bottom: 10px;
+      left: 24px;
+      right: 24px;
+      z-index: 9990;
+    }
+    @media (max-width: 768px) {
+      .status-strip { left: 12px; right: 12px; }
+    }
+    .record-bar { background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%); }
+    .feature-btn{
+      background: linear-gradient(180deg, #ffffff 0%, #f7faf9 100%);
+      border: 1px solid rgba(47,111,67,.25);
+      box-shadow: 0 8px 18px rgba(15,23,42,.08);
+      transition: transform .2s ease, box-shadow .2s ease;
+      overflow: hidden;
+    }
+    .feature-btn:hover{
+      transform: translateY(-2px);
+      box-shadow: 0 14px 24px rgba(15,23,42,.12);
+    }
+    .feature-art{
+      height: 76px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size: 1.8rem;
+      color:#fff;
+      font-weight: 800;
+      letter-spacing: .03em;
+      overflow: hidden;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-size: cover;
+    }
+    /* Illustration banners (same style as municipality hub) */
+    .art-inventory{ background-image: url('assets/feature-inventory.svg'); background-color:#1d4ed8; }
+    .art-airport{ background-image: url('assets/feature-airport.svg'); background-color:#0284c7; }
+    .art-truck{ background-image: url('assets/feature-truck.svg'); background-color:#d97706; }
+    .art-port{ background-image: url('assets/feature-port.svg'); background-color:#0891b2; }
+    .art-sorting{ background-image: url('assets/feature-sorting.svg'); background-color:#6d28d9; }
+    .art-recycling{ background-image: url('assets/feature-recycling.svg'); background-color:#15803d; }
+    .art-treatment{ background-image: url('assets/feature-treatment.svg'); background-color:#b91c1c; }
     .modal-backdrop{
       position: fixed;
       inset: 0;
@@ -138,7 +187,7 @@
       .card, .role-card { background: var(--card) !important; }
       .btn-ink { background: var(--ink) !important; color:#fff !important; }
       .btn-main { background:#fff !important; color:#111827 !important; border: 2px solid #e9e5d6 !important; }
-      .record-bar { background: linear-gradient(90deg, #16a34a 0%, #047857 100%) !important; }
+      .record-bar { background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%) !important; }
       .status-normal { background: linear-gradient(135deg, #059669 0%, #047857 100%) !important; }
       .status-full { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; }
       .status-overflowing { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important; }
@@ -170,7 +219,7 @@
           <span class="mx-2">|</span>
           <span id="dateText">01 November 2025</span>
         </div>
-        <span id="headerDayChip" class="text-xs md:text-sm text-white-100 font-bold whitespace-nowrap" title="游戏日进度">Day – / –</span>
+        <span id="headerDayChip" class="text-xs md:text-sm text-white-100 font-bold whitespace-nowrap" title="Game day progress">Day – / –</span>
       </div>
 
       <div class="text-center absolute left-1/2 -translate-x-1/2 pointer-events-none">
@@ -210,12 +259,6 @@
   <!-- Main stage -->
   <main class="mx-auto px-4 pt-20 pb-8 md:px-6">
     <section class="stage p-4 md:p-6">
-      <!-- Stage header band -->
-      <div class="stage-head panel rounded-[22px] p-4 md:p-6 cardShadow">
-        <h2 class="text-2xl md:text-3xl font-extrabold tracking-widest">GAME PANEL</h2>
-        <p class="text-100 mt-1 text-sm md:text-base">Team state, your inventory and actions</p>
-      </div>
-
       <div class="space-y-6">
 
         <!-- Municipality: Collect Waste (only for Municipality) -->
@@ -249,15 +292,42 @@
               </a>
             </div>
 
-            <div class="grid grid-cols-2 gap-2 text-sm">
-              <div class="kv"><span class="font-semibold">Budget (HKD)</span><span id="budgetHKD">–</span></div>
-              <div class="kv"><span class="font-semibold">City Health</span><span id="cityHealth">–</span>%</div>
-              <div class="kv"><span class="font-semibold">Buffer Level</span><span id="bufferLevel">–</span></div>
-              <div class="kv"><span class="font-semibold">Transport Time</span><span>x<span id="transportMultiplier">–</span></span></div>
-              <div class="kv"><span class="font-semibold">Waste</span><span><span id="wasteTotal">–</span> t / <span id="wasteLimit">–</span> t</span></div>
-              <div class="kv"><span class="font-semibold">Carbon</span><span><span id="carbonValue">–</span>% / <span id="carbonLimit">–</span>%</span></div>
-              <div class="kv col-span-2"><span class="font-semibold">Day</span><span><span id="currentDay">–</span> / <span id="maxDay">–</span></span></div>
+            <div id="sharedMetricsDetailed" class="space-y-2 text-sm">
+              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center gap-3 bg-white">
+                <span class="text-lg">💰</span>
+                <span class="font-semibold text-slate-700">Budget (HKD)</span>
+                <span id="budgetHKD" class="ml-auto font-bold text-slate-900">–</span>
+              </div>
+              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center gap-3 bg-white">
+                <span class="text-lg">❤️</span>
+                <span class="font-semibold text-slate-700 min-w-[88px]">City Health</span>
+                <div class="flex-1 h-2 rounded-full bg-slate-200 overflow-hidden">
+                  <div id="cityHealthBarFill" class="h-full bg-rose-400" style="width:0%"></div>
+                </div>
+                <span class="font-bold text-slate-900 w-20 text-right"><span id="cityHealth">–</span>%</span>
+              </div>
+              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center gap-3 bg-white">
+                <span class="text-lg">🗑️</span>
+                <span class="font-semibold text-slate-700 min-w-[88px]">Waste</span>
+                <div class="flex-1 h-2 rounded-full bg-slate-200 overflow-hidden">
+                  <div id="wasteBarFill" class="h-full bg-slate-500" style="width:0%"></div>
+                </div>
+                <span class="font-bold text-slate-900 w-28 text-right"><span id="wasteTotal">–</span> / <span id="wasteLimit">–</span> t</span>
+              </div>
+              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center gap-3 bg-white">
+                <span class="text-lg">☁️</span>
+                <span class="font-semibold text-slate-700 min-w-[88px]">Carbon</span>
+                <div class="flex-1 h-2 rounded-full bg-slate-200 overflow-hidden">
+                  <div id="carbonBarFill" class="h-full bg-emerald-500" style="width:0%"></div>
+                </div>
+                <span class="font-bold text-slate-900 w-28 text-right"><span id="carbonValue">–</span>% / <span id="carbonLimit">–</span>%</span>
+              </div>
             </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+              <div class="kv"><span class="font-semibold">Buffer Level</span><span id="bufferLevel">–</span></div>
+              <div class="kv"><span class="font-semibold">Transport Time</span><span id="transportTimeValue">x<span id="transportMultiplier">–</span></span></div>
+            </div>
+            <div class="kv col-span-2 hidden"><span class="font-semibold">Day</span><span><span id="currentDay">–</span> / <span id="maxDay">–</span></span></div>
 
             <div id="processedMaterialsSection" class="mt-2">
               <h4 class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Processed Materials (t)</h4>
@@ -271,8 +341,13 @@
           <section id="myInventoryPanel" class="hidden">
             <div class="card p-6 space-y-3">
               <div class="flex items-center justify-between gap-3">
-                <h3 class="subhead text-lg">My Inventory – <span id="myInventoryRoleName"></span></h3>
+                <h3 class="subhead text-lg">My Inventory<span id="myInventoryRoleSeparator"> – </span><span id="myInventoryRoleName"></span></h3>
                 <div id="myInventoryCapacity" class="text-xl font-extrabold text-slate-700">0/150 t</div>
+              </div>
+              <div class="mt-1">
+                <span id="myInventoryIncomingStatus" class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold bg-slate-100 text-slate-700 border-slate-200">
+                  Incoming: —
+                </span>
               </div>
               <div class="overflow-x-auto">
                 <table class="text-xs w-full" id="myInventoryTable">
@@ -300,7 +375,7 @@
             <div class="text-sm text-slate-600">Quick actions for your role.</div>
             <div class="flex items-center gap-3">
               <button id="inventoryBtn" class="btn btn-ink pill px-4 py-2 text-sm font-semibold">Inventory</button>
-              <button id="marketplaceBtn" class="btn btn-main pill px-4 py-2 text-sm font-semibold">Markerplace</button>
+              <button id="marketplaceBtn" class="btn btn-main pill px-4 py-2 text-sm font-semibold">Marketplace</button>
             </div>
           </div>
         </section>
@@ -308,48 +383,58 @@
         <!-- Broker quick links -->
         <section id="brokerLinksPanel" class="hidden">
           <div class="grid gap-4 md:grid-cols-2">
-            <button class="w-full bg-white hover:bg-slate-50 rounded-2xl p-5 text-left shadow-sm border border-slate-200" onclick="goBrokerView('broker-inventory.html')">
+            <button class="feature-btn w-full rounded-2xl p-5 text-left" onclick="goBrokerView('broker-inventory.html')">
+              <div class="feature-art art-inventory" aria-label="Inventory"></div>
               <h2 class="text-xl font-bold mb-2">Inventory</h2>
               <p class="text-sm text-slate-600">Inspect and track broker inventory.</p>
+              <div class="mt-3">
+                <span id="brokerInventoryIncomingStatus" class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold bg-slate-100 text-slate-700 border-slate-200">Incoming: No incoming</span>
+              </div>
+              <p id="brokerInventoryCollectHint" class="hidden mt-2 text-xs font-semibold text-amber-700"></p>
             </button>
-            <button class="w-full bg-white hover:bg-slate-50 rounded-2xl p-5 text-left shadow-sm border border-slate-200" onclick="goBrokerView('broker-marketplace.html')">
-              <h2 class="text-xl font-bold mb-2">Marketplace</h2>
-              <p class="text-sm text-slate-600">Buy and sell materials in the market.</p>
-            </button>
-            <button class="w-full bg-white hover:bg-slate-50 rounded-2xl p-5 text-left shadow-sm border border-slate-200" onclick="goBrokerView('broker-airport.html')">
+            <button class="feature-btn w-full rounded-2xl p-5 text-left" onclick="goBrokerView('broker-airport.html')">
+              <div class="feature-art art-airport" aria-label="Airport"></div>
               <h2 class="text-xl font-bold mb-2">Airport</h2>
               <p class="text-sm text-slate-600">Manage air-route logistics and transfers.</p>
+              <p id="brokerAirportLevel" class="mt-2 text-xs font-semibold text-slate-700">Transport Upgrades: —</p>
             </button>
-            <button class="w-full bg-white hover:bg-slate-50 rounded-2xl p-5 text-left shadow-sm border border-slate-200" onclick="goBrokerView('broker-transportation.html')">
+            <button class="feature-btn w-full rounded-2xl p-5 text-left" onclick="goBrokerView('broker-transportation.html')">
+              <div class="feature-art art-truck" aria-label="Truck Park"></div>
               <h2 class="text-xl font-bold mb-2">Truck Park</h2>
               <p class="text-sm text-slate-600">Manage fleet capacity and transport upgrades.</p>
+              <p id="brokerTruckLevel" class="mt-2 text-xs font-semibold text-slate-700">Transport Upgrades: —</p>
             </button>
-            <button class="w-full bg-white hover:bg-slate-50 rounded-2xl p-5 text-left shadow-sm border border-slate-200 md:col-span-2" onclick="goBrokerView('broker-port.html')">
+            <button class="feature-btn w-full rounded-2xl p-5 text-left" onclick="goBrokerView('broker-port.html')">
+              <div class="feature-art art-port" aria-label="Port"></div>
               <h2 class="text-xl font-bold mb-2">Port</h2>
               <p class="text-sm text-slate-600">Manage sea-route logistics and shipping plans.</p>
+              <p id="brokerPortLevel" class="mt-2 text-xs font-semibold text-slate-700">Transport Upgrades: —</p>
             </button>
           </div>
         </section>
 
         <section id="mrfLinksPanel" class="hidden">
           <div class="grid gap-4 md:grid-cols-2">
-            <button class="w-full bg-white hover:bg-slate-50 rounded-2xl p-5 text-left shadow-sm border border-slate-200" onclick="goRoleView('mrf-inventory.html')">
+            <button class="feature-btn w-full rounded-2xl p-5 text-left" onclick="goRoleView('mrf-inventory.html')">
+              <div class="feature-art art-inventory" aria-label="Inventory"></div>
               <h2 class="text-xl font-bold mb-2">Inventory</h2>
               <p class="text-sm text-slate-600">Inspect and track MRF inventory.</p>
+              <div class="mt-3">
+                <span id="mrfInventoryIncomingStatus" class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold bg-slate-100 text-slate-700 border-slate-200">Incoming: No incoming</span>
+              </div>
             </button>
-            <button class="w-full bg-white hover:bg-slate-50 rounded-2xl p-5 text-left shadow-sm border border-slate-200" onclick="goRoleView('mrf-marketplace.html')">
-              <h2 class="text-xl font-bold mb-2">Marketplace</h2>
-              <p class="text-sm text-slate-600">Buy and sell materials in the market.</p>
-            </button>
-            <button id="sortingCentreBtn" class="w-full bg-white hover:bg-slate-50 rounded-2xl p-5 text-left shadow-sm border border-slate-200">
+            <button id="sortingCentreBtn" class="feature-btn w-full rounded-2xl p-5 text-left">
+              <div class="feature-art art-sorting" aria-label="Sorting Centre"></div>
               <h2 class="text-xl font-bold mb-2">Sorting Centre</h2>
               <p class="text-sm text-slate-600">Same inventory view as MRF Inventory (no transport controls).</p>
             </button>
-            <button id="recyclingCentreBtn" type="button" class="w-full bg-white hover:bg-slate-50 rounded-2xl p-5 text-left shadow-sm border border-slate-200">
+            <button id="recyclingCentreBtn" type="button" class="feature-btn w-full rounded-2xl p-5 text-left">
+              <div class="feature-art art-recycling" aria-label="Recycling Centre"></div>
               <h2 class="text-xl font-bold mb-2">Recycling Centre</h2>
               <p class="text-sm text-slate-600">Materials &amp; waste lists; send to Broker — no transportation panel.</p>
             </button>
-            <button id="wasteTreatmentBtn" class="w-full bg-white hover:bg-slate-50 rounded-2xl p-5 text-left shadow-sm border border-slate-200 md:col-span-2">
+            <button id="wasteTreatmentBtn" class="feature-btn w-full rounded-2xl p-5 text-left">
+              <div class="feature-art art-treatment" aria-label="Waste Treatment Facilities"></div>
               <h2 class="text-xl font-bold mb-2">Waste Treatment Facilities</h2>
               <p class="text-sm text-slate-600">Inventory overview; open Game Panel for F-grade disposal options.</p>
             </button>
@@ -357,7 +442,7 @@
         </section>
 
         <!-- Event Log -->
-        <section>
+        <section id="eventLogSection">
           <h3 class="subhead text-base mb-2">Event Log</h3>
           <div id="eventLog" class="bg-white rounded-2xl border border-slate-200 p-4 text-[12px] font-mono max-h-64 overflow-y-auto shadow-sm">
             <!-- Filled by script -->
@@ -375,6 +460,43 @@
       </div>
     </section>
   </main>
+  <div id="bottomStatusStrip" class="status-strip hidden">
+    <div class="flex flex-col lg:flex-row gap-4 items-end">
+      <div class="w-full lg:w-[30%] rounded-2xl border border-slate-300 shadow-sm overflow-hidden">
+        <div class="record-bar px-4 py-3 text-white text-2xl font-bold flex items-center gap-2">
+          <span>📎</span><span>Record</span>
+        </div>
+        <div id="recordLog" class="bg-white px-4 py-3 max-h-32 overflow-y-auto text-sm text-slate-800 leading-relaxed">
+          No events yet.
+        </div>
+      </div>
+      <div class="w-full lg:flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+        <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
+          <span class="text-xl">💰</span>
+          <span class="text-slate-500"></span>
+          <span id="statusBudget" class="font-extrabold text-slate-900">–</span>
+        </div>
+        <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
+          <span class="text-xl">❤️</span>
+          <div class="flex-1 h-3 rounded-full bg-slate-200 overflow-hidden border border-black/10">
+            <div id="statusHealthBar" class="h-full bg-red-400" style="width: 0%"></div>
+          </div>
+          <span id="statusHealth" class="font-extrabold text-slate-900 whitespace-nowrap">–</span>
+        </div>
+        <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
+          <span class="text-xl">🗑️</span>
+          <span id="statusInventory" class="font-extrabold text-slate-900">–</span>
+        </div>
+        <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
+          <span class="text-xl">☁️</span>
+          <div class="flex-1 h-3 rounded-full bg-slate-200 overflow-hidden border border-black/10">
+            <div id="statusCO2Bar" class="h-full bg-red-500" style="width: 0%"></div>
+          </div>
+          <span id="statusCO2" class="font-extrabold text-slate-900 whitespace-nowrap">–</span>
+        </div>
+      </div>
+    </div>
+  </div>
   </div><!-- /#gameDefaultRoot -->
 
   <script src="player-menu.js"></script>
@@ -383,11 +505,9 @@
     const myRole = params.get('role') || '';
 
     if (myRole === 'Municipality') {
-      document.getElementById('gameDefaultRoot').classList.add('hidden');
-      document.getElementById('muniHubFrameWrap').classList.remove('hidden');
-      document.getElementById('muniHubFrame').src =
-        'municipality-hub.html?role=' + encodeURIComponent('Municipality');
-      document.title = 'ABC City – Municipality Hub';
+      const url = new URL('municipality-hub.html', window.location.origin);
+      url.searchParams.set('role', 'Municipality');
+      window.location.replace(url.toString());
     } else {
 
     (function setupDashboardNav() {
@@ -404,12 +524,18 @@
 
     if (myRole === 'Broker' || myRole === 'MRF') {
       document.getElementById('processedMaterialsSection')?.classList.add('hidden');
+      document.getElementById('sharedMetricsDetailed')?.classList.add('hidden');
+      document.getElementById('eventLogSection')?.classList.add('hidden');
+      document.getElementById('bottomStatusStrip')?.classList.remove('hidden');
+      document.querySelector('main')?.classList.add('pb-72');
     }
 
     let currentGameState = null;
     let gameOver = false;
     let leaderboardRedirected = false;
     let wasteTreatmentPlans = [];
+    const lastIncomingCountByRole = { municipality: 0, mrf: 0, broker: 0 };
+    const lastDeliveredDayByRole = { municipality: null, mrf: null, broker: null };
     const socket = io();
     function goLeaderboard() {
       if (leaderboardRedirected) return;
@@ -481,8 +607,6 @@
       if (myRole === 'Broker' || myRole === 'MRF') return;
       let target = null;
       if (myRole === 'Municipality') target = 'municipality-marketplace.html';
-      else if (myRole === 'MRF') target = 'mrf-marketplace.html';
-      else if (myRole === 'Broker') target = 'broker-marketplace.html';
       if (!target) return;
       wrap.classList.remove('hidden');
       btn.onclick = () => {
@@ -528,6 +652,22 @@
       url.searchParams.set('role', myRole || 'MRF');
       url.searchParams.set('facility', facilityKey);
       window.location.href = url.toString();
+    }
+
+    function renderBrokerTransportLevels(roles) {
+      const airportEl = document.getElementById('brokerAirportLevel');
+      const truckEl = document.getElementById('brokerTruckLevel');
+      const portEl = document.getElementById('brokerPortLevel');
+      if (!airportEl || !truckEl || !portEl) return;
+      const ups = (roles?.broker?.transportation?.upgrades) || {};
+      const speedLv = Math.max(0, Number(ups.speed || 0));
+      const capacityLv = Math.max(0, Number(ups.capacity || 0));
+      const greenLv = Math.max(0, Number(ups.green || 0));
+      const fleetLv = Math.max(0, Number(ups.fleet || 0));
+      const text = `Transport Upgrades: ⚡ Speed Lv.${speedLv} · 📦 Capacity Lv.${capacityLv} · 🌱 Green Lv.${greenLv} · 🚚 Fleet Lv.${fleetLv}`;
+      airportEl.textContent = text;
+      truckEl.textContent = text;
+      portEl.textContent = text;
     }
 
     function renderWasteTreatmentSelectedPlans() {
@@ -721,6 +861,7 @@
     function renderMyInventory(roles) {
       const panel = document.getElementById('myInventoryPanel');
       const nameSpan = document.getElementById('myInventoryRoleName');
+      const roleSep = document.getElementById('myInventoryRoleSeparator');
       const capEl = document.getElementById('myInventoryCapacity');
       const tbody = document.querySelector('#myInventoryTable tbody');
 
@@ -739,6 +880,8 @@
 
       panel.classList.remove('hidden');
       nameSpan.textContent = role.roleName || myRole;
+      if (roleSep) roleSep.classList.toggle('hidden', myRole === 'Broker' || myRole === 'MRF');
+      nameSpan.classList.toggle('hidden', myRole === 'Broker' || myRole === 'MRF');
 
       const inv = role.inventory;
       const mats = inv.materials || {};
@@ -776,6 +919,93 @@
         </tr>
       `;
       tbody.innerHTML = rows;
+    }
+
+    function applyIncomingStatusChip(el, roleKey, shared) {
+      if (!el || !roleKey || !shared) return;
+      const pending = Array.isArray(shared.pendingDeliveries) ? shared.pendingDeliveries : [];
+      const incoming = pending.filter((p) => p && p.targetRole === roleKey);
+      const incomingCount = incoming.length;
+      const currentDay = Number(shared.day || 0);
+      const justDelivered = incomingCount === 0 && (lastIncomingCountByRole[roleKey] || 0) > 0;
+      if (justDelivered) lastDeliveredDayByRole[roleKey] = currentDay;
+      const deliveredByEventLog = Array.isArray(shared.eventLog) && shared.eventLog.some((e) => {
+        const msg = String((e && e.message) || '').toLowerCase();
+        return /arriv|deliver/.test(msg) && msg.includes(roleKey) && Number(e.day) === currentDay;
+      });
+      if (incomingCount > 0) {
+        el.className = 'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold bg-amber-100 text-amber-700 border-amber-200';
+        el.textContent = `Incoming: In Transit (${incomingCount})`;
+      } else if (lastDeliveredDayByRole[roleKey] === currentDay || deliveredByEventLog) {
+        el.className = 'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold bg-emerald-100 text-emerald-700 border-emerald-200';
+        el.textContent = 'Incoming: Delivered';
+      } else {
+        el.className = 'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold bg-slate-100 text-slate-700 border-slate-200';
+        el.textContent = 'Incoming: No incoming';
+      }
+      lastIncomingCountByRole[roleKey] = incomingCount;
+    }
+
+    function toBrokerRequestList(value) {
+      if (Array.isArray(value)) return value;
+      if (value && Array.isArray(value.items)) return value.items;
+      return [];
+    }
+
+    function renderBrokerCollectHint(shared) {
+      const hintEl = document.getElementById('brokerInventoryCollectHint');
+      if (!hintEl) return;
+      if (myRole !== 'Broker' || !shared) {
+        hintEl.classList.add('hidden');
+        hintEl.textContent = '';
+        return;
+      }
+
+      const reqRaw = shared.brokerTransferRequests || {};
+      const fromMunicipality = toBrokerRequestList(reqRaw.municipality);
+      const fromMrf = toBrokerRequestList(reqRaw.mrf);
+      const sumTonnes = (items) => {
+        let total = 0;
+        items.forEach((it) => { total += Math.max(0, Number(it && it.tonnes || 0)); });
+        return Math.round(total * 10) / 10;
+      };
+
+      const parts = [];
+      const munT = sumTonnes(fromMunicipality);
+      if (munT > 0) parts.push('Municipality');
+      const mrfT = sumTonnes(fromMrf);
+      if (mrfT > 0) parts.push('MRF');
+
+      if (parts.length === 0) {
+        hintEl.classList.add('hidden');
+        hintEl.textContent = '';
+        return;
+      }
+
+      hintEl.textContent = `Pending Pickup: ${parts.join(' + ')}`;
+      hintEl.classList.remove('hidden');
+    }
+
+    function renderMyInventoryIncomingStatus(shared) {
+      const el = document.getElementById('myInventoryIncomingStatus');
+      if (!shared) return;
+      const keyMap = { Municipality: 'municipality', MRF: 'mrf', Broker: 'broker' };
+      const roleKey = keyMap[myRole];
+      if (!roleKey) return;
+
+      // MRF/Broker: hide incoming chip in "My Inventory" panel as requested.
+      if (el && (myRole === 'MRF' || myRole === 'Broker')) {
+        el.classList.add('hidden');
+      } else if (el) {
+        el.classList.remove('hidden');
+        applyIncomingStatusChip(el, roleKey, shared);
+      }
+
+      const brokerInventoryChip = document.getElementById('brokerInventoryIncomingStatus');
+      if (brokerInventoryChip) applyIncomingStatusChip(brokerInventoryChip, 'broker', shared);
+      renderBrokerCollectHint(shared);
+      const mrfInventoryChip = document.getElementById('mrfInventoryIncomingStatus');
+      if (mrfInventoryChip) applyIncomingStatusChip(mrfInventoryChip, 'mrf', shared);
     }
 
     function gameHubDistrictWasteTotal(w) {
@@ -863,9 +1093,28 @@
       {
         const rk = myRole === 'Municipality' ? 'municipality' : myRole === 'MRF' ? 'mrf' : myRole === 'Broker' ? 'broker' : null;
         const bl = rk && roles && roles[rk] && roles[rk].bufferLevel ? roles[rk].bufferLevel : 'Normal';
+        const tm = Number(shared.transportTimeMultiplier ?? 1);
         document.getElementById('bufferLevel').textContent = bl;
+        document.getElementById('transportMultiplier').textContent = tm;
+        const blEl = document.getElementById('bufferLevel');
+        const ttEl = document.getElementById('transportTimeValue');
+        const sevClassByBuffer =
+          bl === 'Overflowing' ? 'sev-bad' :
+          bl === 'Full' ? 'sev-warn' :
+          'sev-good';
+        if (blEl) {
+          blEl.classList.remove('sev-good', 'sev-warn', 'sev-bad');
+          blEl.classList.add(sevClassByBuffer);
+        }
+        const sevClassByTransport =
+          tm >= 3 ? 'sev-bad' :
+          tm >= 2 ? 'sev-warn' :
+          'sev-good';
+        if (ttEl) {
+          ttEl.classList.remove('sev-good', 'sev-warn', 'sev-bad');
+          ttEl.classList.add(sevClassByTransport);
+        }
       }
-      document.getElementById('transportMultiplier').textContent = shared.transportTimeMultiplier ?? 1;
       const inventoryWaste = getAllRolesInventoryStats(roles);
       document.getElementById('wasteTotal').textContent = inventoryWaste.total;
       document.getElementById('wasteLimit').textContent = inventoryWaste.capacity;
@@ -876,6 +1125,21 @@
       }
       document.getElementById('carbonValue').textContent = shared.carbonEmissions.value;
       document.getElementById('carbonLimit').textContent = shared.carbonEmissions.limit;
+      {
+        const healthFill = document.getElementById('cityHealthBarFill');
+        const wasteFill = document.getElementById('wasteBarFill');
+        const carbonFill = document.getElementById('carbonBarFill');
+        const healthPct = Math.max(0, Math.min(100, Number(shared.cityHealth) || 0));
+        const wastePct = inventoryWaste.capacity > 0
+          ? Math.max(0, Math.min(100, (Number(inventoryWaste.total) || 0) / Number(inventoryWaste.capacity) * 100))
+          : 0;
+        const carbonPct = Number(shared.carbonEmissions.limit) > 0
+          ? Math.max(0, Math.min(100, (Number(shared.carbonEmissions.value) || 0) / Number(shared.carbonEmissions.limit) * 100))
+          : 0;
+        if (healthFill) healthFill.style.width = `${healthPct}%`;
+        if (wasteFill) wasteFill.style.width = `${wastePct}%`;
+        if (carbonFill) carbonFill.style.width = `${carbonPct}%`;
+      }
       updateDayDisplay({ day: shared.day, maxDay: shared.maxDay });
       // Do not locally infer win to avoid false positives.
       // Only redirect on authoritative server `gameOver` with `isWin: true`.
@@ -906,9 +1170,46 @@
           logEl.appendChild(line);
         });
       }
+      const recEl = document.getElementById('recordLog');
+      if (recEl) {
+        recEl.innerHTML = '';
+        const list = shared.eventLog || [];
+        if (!list.length) {
+          recEl.textContent = 'No events yet.';
+        } else {
+          list.slice(-6).reverse().forEach((e) => {
+            const p = document.createElement('p');
+            p.className = 'mb-1';
+            p.textContent = `[Day ${e.day}] ${e.message}`;
+            recEl.appendChild(p);
+          });
+        }
+      }
+      const statusBudgetEl = document.getElementById('statusBudget');
+      if (statusBudgetEl) statusBudgetEl.textContent = shared.budgetHKD.toLocaleString('en-HK');
+      const statusHealthEl = document.getElementById('statusHealth');
+      if (statusHealthEl) statusHealthEl.textContent = `${shared.cityHealth}%`;
+      const statusHealthBarEl = document.getElementById('statusHealthBar');
+      if (statusHealthBarEl) {
+        const hp = Math.max(0, Math.min(100, Number(shared.cityHealth || 0)));
+        statusHealthBarEl.style.width = `${hp}%`;
+      }
+      const statusInventoryEl = document.getElementById('statusInventory');
+      if (statusInventoryEl) statusInventoryEl.textContent = `${inventoryWaste.total}/${inventoryWaste.capacity} t`;
+      const statusCO2El = document.getElementById('statusCO2');
+      if (statusCO2El) statusCO2El.textContent = `${shared.carbonEmissions.value}%`;
+      const statusCO2BarEl = document.getElementById('statusCO2Bar');
+      if (statusCO2BarEl) {
+        const cp = Number(shared.carbonEmissions.limit) > 0
+          ? Math.max(0, Math.min(100, (Number(shared.carbonEmissions.value || 0) / Number(shared.carbonEmissions.limit)) * 100))
+          : 0;
+        statusCO2BarEl.style.width = `${cp}%`;
+      }
 
       // Personal inventory
       renderMyInventory(roles);
+      renderMyInventoryIncomingStatus(shared);
+      if (myRole === 'Broker') renderBrokerTransportLevels(roles);
 
       // City Projects summary (shared.projects)
       (function renderCityProjectsSummary() {
@@ -1009,7 +1310,7 @@
     socket.on('collectWasteError', (data) => alert(data.message || 'Error collecting waste.'));
     socket.on('projectSubmitError', (data) => {
       if (data && data.message) console.warn('[projectSubmit]', data.message);
-      alert((data && data.message) || '城市專案提交失敗。');
+      alert((data && data.message) || 'City project submission failed.');
     });
     socket.on('dayUpdate', updateDayDisplay);
     socket.on('gameStateUpdate', renderGameState);

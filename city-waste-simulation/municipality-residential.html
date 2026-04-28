@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Municipality – Residential Sector Waste Collection</title>
+  <title>Waste Collection - Municipality</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <link rel="stylesheet" href="player-menu.css" />
@@ -39,10 +39,34 @@
       align-items: center;
       justify-content: center;
       font-weight: 800;
-      font-size: 1.1rem;
+      font-size: .98rem;
       z-index: 1;
       color: #111827;
     }
+    .mat-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      font-weight: 700;
+      font-size: 14px;
+      color: #1f2937;
+    }
+    .mat-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-size: cover;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .mat-paper { background-image: url('assets/material-paper.svg'); }
+    .mat-plastic { background-image: url('assets/material-plastic.svg'); }
+    .mat-metal { background-image: url('assets/material-metal.svg'); }
+    .mat-glass { background-image: url('assets/material-glass.svg'); }
+    .mat-wood { background-image: url('assets/material-wood.svg'); }
   </style>
     <style>
       :root {
@@ -84,7 +108,7 @@
             <span class="mx-1.5 opacity-50 shrink-0">|</span>
             <span id="dateText" class="truncate">01 November 2025</span>
           </div>
-          <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="游戏日进度">Day – / –</span>
+          <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="Game day progress">Day – / –</span>
         </div>
       </div>
       <h1 class="text-2xl md:text-3xl font-extrabold tracking-wide">Residential Waste Collection</h1>
@@ -152,48 +176,25 @@
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <!-- Left: Status -->
         <section class="ui-card">
-          <div class="ui-head px-5 py-3 text-center text-2xl">WASTE</div>
+          <div class="ui-head px-5 py-3 text-center text-xl">WASTE</div>
           <div id="statusCard" class="status-box status-normal p-5 shadow-none border-0 rounded-none">
             <div class="preview-box max-w-[290px] mx-auto mb-5 flex items-center justify-center">
               <div class="text-center px-3 py-2">
-                <svg viewBox="0 0 220 130" class="w-[210px] h-auto mx-auto" role="img" aria-label="Residential Waste Collection clipart">
-                  <defs>
-                    <linearGradient id="resGroundGrad" x1="0" x2="1">
-                      <stop offset="0%" stop-color="#22c55e"></stop>
-                      <stop offset="100%" stop-color="#06b6d4"></stop>
-                    </linearGradient>
-                    <linearGradient id="houseGrad" x1="0" x2="1">
-                      <stop offset="0%" stop-color="#f97316"></stop>
-                      <stop offset="100%" stop-color="#ef4444"></stop>
-                    </linearGradient>
-                    <linearGradient id="recycleGrad" x1="0" x2="1">
-                      <stop offset="0%" stop-color="#3b82f6"></stop>
-                      <stop offset="100%" stop-color="#8b5cf6"></stop>
-                    </linearGradient>
-                  </defs>
-                  <rect x="12" y="94" width="196" height="10" rx="4" fill="url(#resGroundGrad)"></rect>
-                  <rect x="24" y="58" width="58" height="34" rx="4" fill="url(#houseGrad)"></rect>
-                  <polygon points="20,58 53,34 86,58" fill="#f59e0b"></polygon>
-                  <rect x="48" y="70" width="12" height="22" rx="2" fill="#fef3c7"></rect>
-                  <rect x="96" y="54" width="54" height="38" rx="4" fill="#14b8a6"></rect>
-                  <polygon points="92,54 123,36 154,54" fill="#0ea5e9"></polygon>
-                  <rect x="114" y="68" width="12" height="24" rx="2" fill="#ecfeff"></rect>
-                  <rect x="164" y="62" width="20" height="26" rx="3" fill="url(#recycleGrad)"></rect>
-                  <rect x="161" y="58" width="26" height="5" rx="2" fill="#2563eb"></rect>
-                  <path d="M174 68l3 4h-2v4h-2v-4h-2z" fill="#ffffff"></path>
-                  <circle cx="180" cy="90" r="10" fill="#22c55e"></circle>
-                  <path d="M180 84v12M174 90h12" stroke="#ffffff" stroke-width="2"></path>
-                  <circle cx="40" cy="22" r="8" fill="#fef08a"></circle>
-                  <circle cx="54" cy="18" r="10" fill="#fde68a"></circle>
-                </svg>
+                <img
+                  src="assets/feature-residential-collection.svg"
+                  class="w-[240px] max-w-full h-auto mx-auto drop-shadow-sm"
+                  alt="Residential Waste Collection"
+                  draggable="false"
+                  aria-label="Residential Waste Collection clipart"
+                />
                 <p class="mt-2 text-sm font-semibold text-slate-700">Residential Waste Collection</p>
               </div>
             </div>
-            <p class="text-2xl font-semibold mb-2">Status: <span id="statusLabel">Normal</span></p>
+            <p class="text-xl font-semibold mb-2">Status: <span id="statusLabel">Normal</span></p>
             <div class="h-6 bg-slate-300 rounded-full overflow-hidden mb-4">
               <div id="statusProgress" class="h-full bg-green-500 rounded-full transition-all duration-300" style="width: 15%"></div>
             </div>
-            <p class="text-3xl mt-2 flex items-center justify-between">
+            <p class="text-2xl mt-2 flex items-center justify-between">
               <span class="font-semibold">🗑 Waste</span>
               <span id="statusBarLabel" class="font-semibold">0 t / min</span>
             </p>
@@ -203,7 +204,7 @@
 
         <!-- Right: Waste Type + Metrics + Collect -->
         <section class="lg:col-span-2 ui-card">
-          <div class="ui-head px-5 py-3 text-center text-2xl">Waste Type</div>
+          <div class="ui-head px-5 py-3 text-center text-xl">Waste Type</div>
           <div class="p-5">
             <div class="mb-5">
               <div id="wasteTypeDonuts" class="flex flex-wrap justify-between gap-4">
@@ -211,24 +212,27 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-y-2 text-2xl font-semibold mb-6">
+            <div class="grid grid-cols-2 gap-y-2 text-xl font-semibold mb-5">
               <div>💰 Cost</div><div id="metricCost" class="text-right">− $0</div>
               <div>❤️ City Health</div><div id="metricHealth" class="text-right">+ 0%</div>
-              <div>♻ CO2</div><div id="metricCO2" class="text-right">+ 0 kg</div>
+              <div>☁️ CO2</div><div id="metricCO2" class="text-right">+ 0 kg</div>
               <div>🗑 Waste</div><div id="metricWaste" class="text-right">− 0 t</div>
               <div>📦 Inventory</div><div id="metricInventory" class="text-right">− 0 t</div>
             </div>
 
             <div class="flex items-center justify-between gap-4">
               <div class="flex items-center gap-3">
-                <span class="text-3xl font-semibold">Volume</span>
-                <div class="flex items-center rounded-full border border-slate-400 bg-white text-xl">
+                <span class="text-2xl font-semibold">Volume</span>
+                <div class="flex items-center rounded-full border border-slate-400 bg-white text-lg">
                   <button type="button" id="btnMinus" class="px-3 py-1 text-slate-700 hover:bg-slate-100 rounded-l-full">−</button>
-                  <input type="number" id="collectTonsInput" min="1" value="1" step="1" class="w-20 text-center py-1 border-0 bg-transparent text-lg font-semibold text-slate-800" />
+                  <input type="number" id="collectTonsInput" min="1" value="1" step="1" class="w-20 text-center py-1 border-0 bg-transparent text-base font-semibold text-slate-800" />
                   <button type="button" id="btnPlus" class="px-3 py-1 text-slate-700 hover:bg-slate-100 rounded-r-full">+</button>
                 </div>
               </div>
-              <button type="button" id="collectBtn" class="!bg-[#6aa84f] hover:!bg-[#5c9446] !text-white font-semibold px-7 py-2 rounded-xl text-xl shadow border border-emerald-900/30 disabled:opacity-50 disabled:cursor-not-allowed">Collect</button>
+              <div class="flex items-center gap-2">
+                <button type="button" id="collectBtn" class="!bg-[#6aa84f] hover:!bg-[#5c9446] !text-white font-semibold px-6 h-12 inline-flex items-center rounded-xl text-lg shadow border border-emerald-900/30 disabled:opacity-50 disabled:cursor-not-allowed">Collect</button>
+                <button type="button" id="collectAllBtn" class="bg-slate-700 hover:bg-slate-800 text-white font-semibold px-5 h-12 inline-flex items-center rounded-xl text-lg shadow border border-slate-900/30 disabled:opacity-50 disabled:cursor-not-allowed">Collect All</button>
+              </div>
             </div>
           </div>
         </section>
@@ -243,7 +247,7 @@
           </div>
         </div>
         <div class="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-          <div class="rounded-full bg-white border border-slate-300 px-4 py-2 flex items-center justify-between"><span class="text-lg">💰</span><span id="footerBudget" class="font-semibold">–</span></div>
+          <div class="rounded-full bg-white border border-slate-300 px-4 py-2 flex items-center justify-between gap-2 min-w-0"><span class="text-lg shrink-0">💰</span><span id="footerBudget" class="font-semibold truncate text-right">–</span></div>
           <div class="rounded-full bg-white border border-slate-300 px-4 py-2 flex items-center gap-2">
             <span class="text-lg">❤️</span>
             <div class="flex-1 h-4 bg-slate-200 rounded-full overflow-hidden"><div id="footerHealthBar" class="h-full bg-red-400 rounded-full" style="width: 40%"></div></div>
@@ -251,7 +255,7 @@
           </div>
           <div class="rounded-full bg-white border border-slate-300 px-4 py-2 flex items-center justify-between"><span class="text-lg">🗑</span><span id="footerWaste" class="font-semibold">–/– t</span></div>
           <div class="rounded-full bg-white border border-slate-300 px-4 py-2 flex items-center gap-2">
-            <span class="text-lg">♻</span>
+            <span class="text-lg">☁️</span>
             <div class="flex-1 h-4 bg-slate-200 rounded-full overflow-hidden"><div id="footerCO2Bar" class="h-full bg-emerald-500 rounded-full" style="width: 0%"></div></div>
             <span id="footerCO2" class="font-medium">–%</span>
           </div>
@@ -314,11 +318,21 @@
       socket.emit('collectWasteFromDistrict', { role: 'Municipality', district: DISTRICT_KEY, tons });
     }
 
+    function doCollectAll() {
+      if (gameOver || currentTotal <= 0) return;
+      const input = document.getElementById('collectTonsInput');
+      const allTons = Math.max(1, Math.floor(currentTotal));
+      if (input) input.value = allTons;
+      updateMetrics();
+      doCollect();
+    }
+
     function updateVolumeButtons() {
       const input = document.getElementById('collectTonsInput');
       const btnMinus = document.getElementById('btnMinus');
       const btnPlus = document.getElementById('btnPlus');
       const btnCollect = document.getElementById('collectBtn');
+      const btnCollectAll = document.getElementById('collectAllBtn');
       const max = Math.max(1, currentTotal);
       if (input) {
         input.max = max;
@@ -329,6 +343,7 @@
       if (btnMinus) { btnMinus.disabled = disabled; btnMinus.onclick = () => { const i = document.getElementById('collectTonsInput'); i.value = Math.max(1, (parseInt(i.value,10)||1)-1); updateMetrics(); }; }
       if (btnPlus)  { btnPlus.disabled = disabled;  btnPlus.onclick = () => { const i = document.getElementById('collectTonsInput'); i.value = Math.min(currentTotal, (parseInt(i.value,10)||0)+1); updateMetrics(); }; }
       if (btnCollect) { btnCollect.disabled = disabled; btnCollect.onclick = doCollect; }
+      if (btnCollectAll) { btnCollectAll.disabled = disabled; btnCollectAll.onclick = doCollectAll; }
       if (input) input.oninput = updateMetrics;
     }
 
@@ -403,7 +418,7 @@
 
       const materials = ['paper', 'plastic', 'metal', 'glass', 'wood'];
       const colors = { paper: '#3b82f6', plastic: '#60a5fa', metal: '#000000', wood: '#92400e', glass: '#65a30d' };
-      const labels = { paper: '📄 Paper', plastic: '🧴 Plastic', metal: '🔩 Metal', wood: '🪵 Wood', glass: '🍾 Glass' };
+      const labels = { paper: 'Paper', plastic: 'Plastic', metal: 'Metal', wood: 'Wood', glass: 'Glass' };
       let donutHtml = '';
       materials.forEach((m) => {
         const t = (w[m] && (w[m].B + w[m].C + w[m].F)) || 0;
@@ -413,7 +428,10 @@
             <div class="donut" style="--c:${colors[m]};--p:${pct}">
               <span class="donut-txt">${pct}%</span>
             </div>
-            <span class="text-2xl mt-2 font-semibold">${labels[m]}</span>
+            <div class="mat-chip">
+              <span class="mat-icon mat-${m}"></span>
+              <span>${labels[m]}</span>
+            </div>
           </div>
         `;
       });
@@ -480,7 +498,7 @@
         document.getElementById('hubInvCap').textContent = cap;
       }
 
-      document.getElementById('footerBudget').textContent = shared.budgetHKD.toLocaleString('en-HK');
+      document.getElementById('footerBudget').textContent = (Number(shared.budgetHKD) || 0).toLocaleString('en-HK');
       document.getElementById('footerHealth').textContent = shared.cityHealth + '%';
       document.getElementById('footerHealthBar').style.width = shared.cityHealth + '%';
       document.getElementById('footerWaste').textContent = (Math.round(allInvTotal * 10) / 10) + '/' + allInvCap + ' t';

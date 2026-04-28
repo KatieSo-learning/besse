@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 256" width="512" height="256" fill="none" role="img" aria-label="Airport feature art">
+  <defs>
+    <linearGradient id="bg" x1="52" y1="18" x2="484" y2="244" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#0284C7"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#0F172A" flood-opacity=".18"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="512" height="256" rx="22" fill="url(#bg)"/>
+  <circle cx="80" cy="182" r="34" fill="#7DD3FC" fill-opacity=".22"/>
+  <circle cx="438" cy="170" r="40" fill="#BAE6FD" fill-opacity=".16"/>
+  <path d="M468 210l10 10l-10 10l-10-10Z" fill="#E8F3EC" fill-opacity=".9"/>
+
+  <!-- Runway -->
+  <g filter="url(#soft)">
+    <path d="M110 196h292" stroke="#0B1220" stroke-opacity=".35" stroke-width="16" stroke-linecap="round"/>
+    <path d="M140 196h20M180 196h20M220 196h20M260 196h20M300 196h20M340 196h20" stroke="#F5F1E6" stroke-opacity=".9" stroke-width="8" stroke-linecap="round"/>
+  </g>
+
+  <!-- Plane silhouette (simple + clear) -->
+  <g filter="url(#soft)" stroke="#0B1220" stroke-opacity=".55" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M152 118l86 26h112c10 0 18 8 18 18s-8 18-18 18H238l-86 26l-18-22l66-22h-64c-8 0-14-6-14-14s6-14 14-14h64l-66-22z" fill="#F5F1E6"/>
+    <path d="M244 144v36" stroke-opacity=".25"/>
+  </g>
+</svg>
