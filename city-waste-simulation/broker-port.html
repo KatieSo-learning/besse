@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Broker – Sea Freight &amp; Port Operations</title>
+  <title>Port - Broker</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <link rel="stylesheet" href="player-menu.css" />
@@ -239,15 +239,15 @@
 
           <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
             <div class="bg-emerald-50 rounded-xl border border-emerald-100 px-3 py-2">
-              <p class="text-[11px] text-slate-500">Cost($)/trip</p>
+              <p class="text-[11px] text-slate-500">💰 Cost($)/trip</p>
               <p class="font-semibold text-emerald-700">$<span id="upgradeCost">25</span></p>
             </div>
             <div class="bg-emerald-50 rounded-xl border border-emerald-100 px-3 py-2">
-              <p class="text-[11px] text-slate-500">CO2 impact</p>
+              <p class="text-[11px] text-slate-500">☁️ CO2 impact</p>
               <p class="font-semibold text-emerald-700">+<span id="upgradeCO2">1.6</span> t</p>
             </div>
             <div class="bg-slate-50 rounded-xl border border-slate-200 px-3 py-2">
-              <p class="text-[11px] text-slate-500">Effect</p>
+              <p class="text-[11px] text-slate-500">✨ Effect</p>
               <p class="font-semibold text-slate-800"><span id="upgradeCapacity">Select an upgrade</span></p>
             </div>
           </div>
@@ -265,8 +265,8 @@
         </section>
       </div>
 
-      <div class="status-strip grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
-        <div class="lg:col-span-1 rounded-xl overflow-hidden border border-slate-300 bg-white shadow-sm">
+      <div class="status-strip flex flex-col lg:flex-row gap-4 items-end">
+        <div class="w-full lg:w-[30%] rounded-xl overflow-hidden border border-slate-300 bg-white shadow-sm">
           <div class="record-bar px-4 py-3 text-white text-2xl font-bold flex items-center gap-2">
             <span>📎</span><span>Record</span>
           </div>
@@ -275,7 +275,7 @@
           </div>
         </div>
 
-        <div class="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+        <div class="w-full lg:flex-1 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
           <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between">
             <span class="text-xl">💰</span>
             <span id="statusBudget" class="font-extrabold text-slate-900">–</span>
@@ -292,7 +292,7 @@
             <span id="statusInventory" class="font-extrabold text-slate-900">–</span>
           </div>
           <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
-            <span class="text-xl">🌳</span>
+            <span class="text-xl">☁️</span>
             <div class="flex-1 h-3 rounded-full bg-slate-200 overflow-hidden border border-black/10">
               <div id="statusCO2Bar" class="h-full bg-red-500" style="width: 0%"></div>
             </div>
@@ -383,7 +383,7 @@
       renderTruckFleetIcons();
 
       const statusInvEl = document.getElementById('statusInventory');
-      if (statusInvEl) statusInvEl.textContent = `${truckLoad}/${truckCap} t`;
+      if (statusInvEl) statusInvEl.textContent = `${Math.round(allInvTotal * 10) / 10}/${allInvCap} t`;
       const inv = broker.inventory || {};
       let invTotal = Math.max(0, Number(inv.unprocessedWaste || 0));
       Object.values(inv.materials || {}).forEach((g) => { invTotal += (g.A || 0) + (g.B || 0) + (g.C || 0); });

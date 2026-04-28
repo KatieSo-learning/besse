@@ -203,9 +203,120 @@
   }
 
   function initAll() {
+    enhanceWasteProgressBars();
     syncHeaderRoleBadge();
     const triggers = Array.from(document.querySelectorAll('[data-player-menu-trigger]'));
     triggers.forEach(setupTrigger);
+  }
+
+  function injectWasteProgressStyle() {
+    if (document.getElementById('besseWasteProgressStyle')) return;
+    const style = document.createElement('style');
+    style.id = 'besseWasteProgressStyle';
+    style.textContent = `
+      .besse-waste-track{
+        flex: 1 1 auto;
+        min-width: 84px;
+        height: 10px;
+        border-radius: 9999px;
+        background: #e2e8f0;
+        overflow: hidden;
+        border: 1px solid rgba(15,23,42,.08);
+      }
+      .besse-waste-fill{
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%);
+        transition: width .2s ease;
+      }
+      .besse-waste-row{
+        margin-top: 6px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .besse-waste-label{
+        font-size: 11px;
+        color: #64748b;
+        white-space: nowrap;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function parseWasteNumbersFromText(text) {
+    const raw = String(text || '');
+    const m = raw.match(/([\d.,]+)\s*\/\s*([\d.,]+)/);
+    if (!m) return { total: 0, limit: 0, pct: 0 };
+    const total = Number(String(m[1]).replace(/,/g, '')) || 0;
+    const limit = Number(String(m[2]).replace(/,/g, '')) || 0;
+    const pct = limit > 0 ? Math.max(0, Math.min(100, (total / limit) * 100)) : 0;
+    return { total, limit, pct };
+  }
+
+  function enhanceStatusInventoryWasteBar() {
+    const invEl = document.getElementById('statusInventory');
+    if (!invEl) return;
+    const wrap = invEl.parentElement;
+    if (!wrap) return;
+    injectWasteProgressStyle();
+
+    let track = wrap.querySelector('.besse-waste-track');
+    let fill = wrap.querySelector('.besse-waste-fill');
+    if (!track || !fill) {
+      const row = document.createElement('div');
+      row.className = 'besse-waste-track';
+      const f = document.createElement('div');
+      f.className = 'besse-waste-fill';
+      row.appendChild(f);
+      wrap.insertBefore(row, invEl);
+      track = row;
+      fill = f;
+    }
+
+    const render = () => {
+      const { pct } = parseWasteNumbersFromText(invEl.textContent || '');
+      if (fill) fill.style.width = `${pct}%`;
+    };
+    render();
+    const mo = new MutationObserver(render);
+    mo.observe(invEl, { characterData: true, subtree: true, childList: true });
+  }
+
+  function enhanceWasteTotalLimitBar() {
+    const totalEl = document.getElementById('wasteTotal');
+    const limitEl = document.getElementById('wasteLimit');
+    if (!totalEl || !limitEl) return;
+    injectWasteProgressStyle();
+
+    const host = totalEl.closest('div');
+    if (!host || host.querySelector('.besse-waste-row')) return;
+
+    const row = document.createElement('div');
+    row.className = 'besse-waste-row';
+    row.innerHTML = `
+      <span class="besse-waste-label">Waste %</span>
+      <div class="besse-waste-track"><div class="besse-waste-fill"></div></div>
+    `;
+    const target = host.parentElement || host;
+    target.insertBefore(row, host.nextSibling);
+    const fill = row.querySelector('.besse-waste-fill');
+
+    const render = () => {
+      const total = Number(String(totalEl.textContent || '').replace(/,/g, '')) || 0;
+      const limit = Number(String(limitEl.textContent || '').replace(/,/g, '')) || 0;
+      const pct = limit > 0 ? Math.max(0, Math.min(100, (total / limit) * 100)) : 0;
+      if (fill) fill.style.width = `${pct}%`;
+    };
+    render();
+    const mo = new MutationObserver(render);
+    mo.observe(totalEl, { characterData: true, subtree: true, childList: true });
+    mo.observe(limitEl, { characterData: true, subtree: true, childList: true });
+  }
+
+  function enhanceWasteProgressBars() {
+    enhanceStatusInventoryWasteBar();
+    enhanceWasteTotalLimitBar();
   }
 
   if (document.readyState === 'loading') {
@@ -315,6 +426,15 @@
     if (legacy) legacy.classList.add('hidden');
   }
 
+  function goToLobbyHome() {
+    const dest = `${window.location.origin}/`;
+    if (window.self !== window.top) {
+      window.top.location.href = dest;
+    } else {
+      window.location.href = dest;
+    }
+  }
+
   window.besseAttachRestartUI = function (socket) {
     if (!socket || socket.__besseRestartAttached) return;
 
@@ -399,39 +519,28 @@
         document.body.style.overflow = '';
         return;
       }
-      const r = payload && payload.reason ? String(payload.reason) : '';
-      const doRedirectToLeaderboard = () => {
-        // Auto-navigate to leaderboard on game over.
-        // This ensures leaderboard appears regardless of which game sub-page is open.
-        if (socket.__besseLeaderboardRedirected) return;
-        socket.__besseLeaderboardRedirected = true;
+      // Always route to leaderboard first on game over.
+      // This avoids auto-restart flows sending players straight back to lobby.
+      if (!socket.__besseSentToLeaderboard) {
+        socket.__besseSentToLeaderboard = true;
+        let role = null;
         try {
-          const onLeaderboard =
-            window &&
-            window.location &&
-            String(window.location.pathname).toLowerCase().endsWith('/leaderboard.html');
-          if (onLeaderboard) return;
-
-          const dest = new URL('leaderboard.html', window.location.origin);
-          // Pass current role into leaderboard so it can route back on "Play Again".
-          const role = (() => {
-            try {
-              return new URLSearchParams(window.location.search).get('role');
-            } catch {
-              return null;
-            }
-          })();
-          if (role) dest.searchParams.set('role', role);
-          setTimeout(() => {
-            if (window.self !== window.top) {
-              window.top.location.href = dest.toString();
-            } else {
-              window.location.href = dest.toString();
-            }
-          }, 250);
-        } catch (_e) {
-          // ignore navigation failures
+          role = new URLSearchParams(window.location.search).get('role');
+        } catch {
+          role = null;
         }
+        const url = new URL('leaderboard.html', window.location.origin);
+        if (role) url.searchParams.set('role', role);
+        window.location.href = url.toString();
+      }
+      return;
+      const r = payload && payload.reason ? String(payload.reason) : '';
+      const requestAutoRestart = () => {
+        if (socket.__besseAutoRestartRequested) return;
+        socket.__besseAutoRestartRequested = true;
+        setTimeout(() => {
+          doRestart();
+        }, 900);
       };
 
       // Guard against delayed "gameOver" packets from the previous round.
@@ -441,12 +550,12 @@
         .then((data) => {
           if (data && data.shared && data.shared.gameOver === false) return;
           showGameOverModal(r);
-          doRedirectToLeaderboard();
+          requestAutoRestart();
         })
         .catch(() => {
           // If state fetch fails, fall back to existing behavior.
           showGameOverModal(r);
-          doRedirectToLeaderboard();
+          requestAutoRestart();
         });
     });
 
@@ -454,8 +563,11 @@
       // Suppress any delayed "gameOver" packets for a short window.
       // (All clients will get gameRestarted when the gate completes, but older queued events may arrive after.)
       socket.__besseSuppressGameOverUntil = Date.now() + 5000;
+      socket.__besseAutoRestartRequested = false;
       hideGameOverModal();
       window.dispatchEvent(new CustomEvent('besseGameRestarted'));
+      // Round reset complete -> return everyone to lobby.
+      goToLobbyHome();
     });
 
     fetch('/state')

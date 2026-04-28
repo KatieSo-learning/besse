@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Municipality – City Projects &amp; Infrastructure</title>
+  <title>Projects - Municipality</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <link rel="stylesheet" href="player-menu.css" />
@@ -26,6 +26,19 @@
     .req-dot { width:14px; height:14px; border-radius:4px; display:inline-block; }
     .progress-rail { height:14px; background:#d4d4d8; border-radius:999px; overflow:hidden; }
     .progress-fill { height:100%; background:#ef4444; border-radius:999px; }
+    .mat-item-done { text-decoration: line-through; opacity: .6; }
+    .project-hero-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 0.75rem;
+      border: 1px solid #dbe2ea;
+      display: block;
+    }
+    @media (min-width: 768px) {
+      #projectsGrid .project-card[data-project-key="airport"] { grid-column: 2; }
+      #projectsGrid .project-card[data-project-key="port"] { grid-column: 3; }
+    }
   </style>
     <style>
       :root {
@@ -161,7 +174,7 @@
             <span id="statusInventory" class="font-extrabold text-slate-900">–</span>
           </div>
           <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
-            <span class="text-xl">🌳</span>
+            <span class="text-xl">☁️</span>
             <div class="flex-1 h-3 rounded-full bg-slate-200 overflow-hidden border border-black/10">
               <div id="statusCO2Bar" class="h-full bg-red-500" style="width: 0%"></div>
             </div>
@@ -186,6 +199,7 @@
     const socket = io();
     if (typeof besseAttachRestartUI === 'function') besseAttachRestartUI(socket);
     let latestState = null;
+    const expandedProjectCards = {};
 
     const PROJECTS = {
       park: { name: 'Park', healthGainPct: 15, co2ImpactKg: -10, costHKD: 1000, deadlineDays: 5 },
@@ -196,6 +210,22 @@
     };
 
     function titleCase(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+    const materialIcon = { paper: '📄', plastic: '🧴', metal: '⚙️', glass: '🍾', wood: '🪵' };
+    function joinMaterials(list) {
+      return (list && list.length)
+        ? list.map((m) => `${materialIcon[m] || '•'} ${titleCase(m)}`).join(', ')
+        : 'None';
+    }
+    function joinMaterialsWithSubmitState(list, submittedSet) {
+      if (!list || !list.length) return 'None';
+      return list
+        .map((m) => {
+          const txt = `${materialIcon[m] || '•'} ${titleCase(m)}`;
+          const done = submittedSet && submittedSet.has(m);
+          return done ? `<span class="mat-item-done">${txt}</span>` : txt;
+        })
+        .join(', ');
+    }
 
     function getProjectStatus(proj, day) {
       if (!proj) return { label: 'Not started', cls: 'bg-slate-100 text-slate-700 border-slate-200' };
@@ -244,6 +274,13 @@
         airport: '✈️',
         bridge: '🌉',
         recyclingCentre: '♻️'
+      };
+      const imageByKey = {
+        park: 'assets/project-park.svg',
+        recyclingCentre: 'assets/feature-recycling.svg',
+        bridge: 'assets/project-bridge.svg',
+        airport: 'assets/feature-airport.svg',
+        port: 'assets/feature-port.svg'
       };
 
       grid.innerHTML = Object.entries(PROJECTS).map(([key, cfg]) => {
@@ -295,14 +332,7 @@
         const disableAll = !!completedDay || !canSubmitAll;
 
         const palette = { paper: '#60a5fa', plastic: '#93c5fd', metal: '#111827', glass: '#34d399', wood: '#a16207' };
-        const blocks = required.length
-          ? required.map((m) => {
-              const done = submitted.has(m);
-              const bg = done ? (palette[m] || '#9ca3af') : '#e5e7eb';
-              const ring = done ? 'outline:2px solid #86efac;' : 'outline:1px solid #cbd5e1;';
-              return `<span class="req-dot" title="${titleCase(m)}${done ? ' (submitted)' : ''}" style="background:${bg};${ring}"></span>`;
-            }).join(' ')
-          : `<span class="text-xs text-slate-500">–</span>`;
+        const requiredText = joinMaterialsWithSubmitState(required, submitted);
 
         const progressPct = n > 0 ? Math.round((submitted.size / n) * 100) : 0;
 
@@ -311,73 +341,89 @@
           : startedDay
             ? `Deadline: Day ${deadlineDay}`
             : `Deadline: ${cfg.deadlineDays} days after start`;
+        const isExpanded = !!expandedProjectCards[key];
 
         return `
-          <div class="project-card cardShadow">
+          <div class="project-card cardShadow" data-project-key="${key}">
             <div class="${headerClassByKey[key] || 'bg-slate-700'} px-4 py-3 text-center text-white font-extrabold tracking-wide text-2xl">
-              ${cfg.name} <span class="text-white/80 text-sm font-semibold">#${instance}</span>
+              <span class="mr-2">${iconByKey[key] || '🏙️'}</span>${cfg.name} <span class="text-white/80 text-sm font-semibold">#${instance}</span>
             </div>
             <div class="project-body p-5">
-              <div class="h-44 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center">
-                <div class="text-7xl">${iconByKey[key] || '🏙️'}</div>
-              </div>
-
-              <div class="mt-4">
-                <p class="text-lg font-semibold text-slate-800">Required Materials:</p>
-                <div class="mt-2 flex items-center gap-2">${blocks}</div>
-                <div class="mt-3 progress-rail">
-                  <div class="progress-fill" style="width:${progressPct}%"></div>
-                </div>
-                <div class="mt-2 flex items-center justify-between">
-                  <p class="text-xl font-semibold text-slate-800">${deadlineText}</p>
-                </div>
+              <div class="rounded-xl border border-slate-200 bg-white p-3">
+                <p class="mt-1 text-sm text-slate-600">${deadlineText}</p>
+                <p class="mt-1 text-sm text-slate-800 font-semibold">Required Material:</p>
+                <p class="mt-1 text-sm text-slate-700 font-semibold">${joinMaterialsWithSubmitState(required, submitted)}</p>
                 <div class="mt-2">
                   <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${status.cls}">${status.label}</span>
                 </div>
-              </div>
-
-              <div class="mt-4 grid grid-cols-3 gap-2 text-xs">
-                <div class="rounded-xl bg-slate-50 border border-slate-200 p-2">
-                  <div class="text-slate-500">Cost</div>
-                  <div class="font-semibold text-slate-800">−${Math.round(perCost).toLocaleString()}</div>
-                </div>
-                <div class="rounded-xl bg-slate-50 border border-slate-200 p-2">
-                  <div class="text-slate-500">Health</div>
-                  <div class="font-semibold text-emerald-700">+${perHealth.toFixed(2)}%</div>
-                </div>
-                <div class="rounded-xl bg-slate-50 border border-slate-200 p-2">
-                  <div class="text-slate-500">CO₂</div>
-                  <div class="font-semibold ${perCo2 < 0 ? 'text-emerald-700' : 'text-emerald-700'}">${perCo2 < 0 ? '' : '+'}${perCo2.toFixed(2)} kg</div>
-                </div>
-              </div>
-
-              <div class="mt-4">
-                <label class="block text-xs text-slate-500 mb-1">Submit one material (Grade A/B, 1 t)</label>
-                <select id="matSel_${key}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" ${disableOne ? 'disabled' : ''}>
-                  ${matOptionsHtml}
-                </select>
-                <p class="text-xs text-slate-500 mt-1">Required remaining: ${remaining.length ? remaining.map(titleCase).join(', ') : 'None'}</p>
-              </div>
-
-              <div class="mt-3 flex gap-2">
                 <button type="button"
-                        class="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                        ${disableOne ? 'disabled' : '' }
-                        onclick="submitOne('${key}')">
-                  Submit 1
+                        class="mt-3 w-full rounded-xl border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold px-3 py-2 text-sm"
+                        onclick="toggleProjectDetails('${key}')">
+                  ${isExpanded ? 'Hide details' : 'Open details'}
                 </button>
-                <button type="button"
-                        class="flex-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                        ${disableAll ? 'disabled' : '' }
-                        onclick="submitAll('${key}')">
-                  Submit all
-                </button>
+              </div>
+
+              <div class="${isExpanded ? 'mt-4' : 'hidden'}">
+                <div class="h-44 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center">
+                  <img class="project-hero-img" src="${imageByKey[key] || 'assets/feature-project.svg'}" alt="${cfg.name} project image" />
+                </div>
+  
+                <div class="mt-4">
+                  <p class="text-lg font-semibold text-slate-800">Required Materials:</p>
+                  <p class="mt-2 text-sm text-slate-700 font-semibold">${requiredText}</p>
+                  <div class="mt-3 progress-rail">
+                    <div class="progress-fill" style="width:${progressPct}%"></div>
+                  </div>
+                </div>
+  
+                <div class="mt-4 grid grid-cols-3 gap-2 text-xs">
+                  <div class="rounded-xl bg-slate-50 border border-slate-200 p-2">
+                    <div class="text-slate-500">💰 Cost</div>
+                    <div class="font-semibold text-slate-800">−${Math.round(perCost).toLocaleString()}</div>
+                  </div>
+                  <div class="rounded-xl bg-slate-50 border border-slate-200 p-2">
+                    <div class="text-slate-500">❤️ Health</div>
+                    <div class="font-semibold text-emerald-700">+${perHealth.toFixed(2)}%</div>
+                  </div>
+                  <div class="rounded-xl bg-slate-50 border border-slate-200 p-2">
+                    <div class="text-slate-500">☁️ CO₂</div>
+                    <div class="font-semibold ${perCo2 < 0 ? 'text-emerald-700' : 'text-emerald-700'}">${perCo2 < 0 ? '' : '+'}${perCo2.toFixed(2)} kg</div>
+                  </div>
+                </div>
+
+                <div class="mt-4">
+                  <label class="block text-xs text-slate-500 mb-1">Submit one material (Grade A/B, 1 t)</label>
+                  <select id="matSel_${key}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" ${disableOne ? 'disabled' : ''}>
+                    ${matOptionsHtml}
+                  </select>
+                  <p class="text-xs text-slate-500 mt-1">Required remaining: ${remaining.length ? remaining.map(titleCase).join(', ') : 'None'}</p>
+                </div>
+
+                <div class="mt-3 flex gap-2">
+                  <button type="button"
+                          class="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                          ${disableOne ? 'disabled' : '' }
+                          onclick="submitOne('${key}')">
+                    Submit 1
+                  </button>
+                  <button type="button"
+                          class="flex-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                          ${disableAll ? 'disabled' : '' }
+                          onclick="submitAll('${key}')">
+                    Submit all
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         `;
       }).join('');
     }
+
+    window.toggleProjectDetails = function (projectKey) {
+      expandedProjectCards[projectKey] = !expandedProjectCards[projectKey];
+      if (latestState) renderProjects(latestState);
+    };
 
     window.submitOne = function (projectKey) {
       if (!latestState) return;
@@ -456,7 +502,7 @@
         document.getElementById('hubInvTotal').textContent = invTotal2;
         document.getElementById('hubInvCap').textContent = cap;
         const statusInvEl = document.getElementById('statusInventory');
-        if (statusInvEl) statusInvEl.textContent = `${invTotal2}/${cap} t`;
+        if (statusInvEl) statusInvEl.textContent = `${Math.round(allInvTotal * 10) / 10}/${allInvCap} t`;
       }
 
       const statusBudgetEl = document.getElementById('statusBudget');

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MRF – Site Inventory &amp; Stored Materials</title>
+  <title>Inventory - MRF</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
@@ -57,6 +57,44 @@
     .grade-pill-c { background: #fef3c7; color: #92400e; border-color: #fde68a; }
     .grade-pill-f { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
     .legend-dot { width: 10px; height: 10px; border-radius: 9999px; display: inline-block; flex: 0 0 auto; }
+    .recycling-note {
+      border: 1px solid #bfdbfe;
+      background: linear-gradient(180deg, #eff6ff 0%, #f8fafc 100%);
+      border-radius: .9rem;
+      padding: .7rem .8rem;
+    }
+    .recycling-impact-card {
+      border: 1px solid #cbd5e1;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      border-radius: .9rem;
+      padding: .6rem .7rem;
+    }
+    .recycling-impact-label { font-size: 11px; color: #64748b; }
+    .recycling-impact-value { font-size: 15px; font-weight: 800; color: #0f172a; }
+    .recycling-step-card {
+      border: 1px solid #cbd5e1;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      border-radius: .9rem;
+      padding: .8rem;
+      box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05);
+    }
+    .recycling-step-title { font-size: 13px; font-weight: 800; color: #1e293b; }
+    .recycling-step-stock { font-size: 11px; color: #475569; margin-top: .2rem; }
+    .recycling-step-input {
+      width: 100%;
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      border-radius: .65rem;
+      padding: .48rem .55rem;
+      text-align: right;
+      font-size: 15px;
+      color: #0f172a;
+    }
+    .recycling-step-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(52, 211, 153, .35);
+      border-color: #34d399;
+    }
   </style>
     <style>
       :root {
@@ -97,7 +135,7 @@
           <span class="mx-2">|</span>
           <span id="dateText">01 November 2025</span>
         </div>
-        <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="Game day progress">Day – / –</span>
+        <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="Game day progress">Day 0 / 0</span>
       </div>
       <h1 id="facilityPageTitle" class="text-3xl font-extrabold tracking-wider">Inventory</h1>
       <div class="flex items-center gap-3 pr-2">
@@ -109,7 +147,7 @@
         >
           <span class="font-semibold truncate">@Player, MRF</span>
           <span class="ml-2">🧳</span>
-          <span id="invCapacityBadge" class="ml-1 text-xs text-slate-600 whitespace-nowrap hidden">–/– tons</span>
+          <span id="invCapacityBadge" class="ml-1 text-xs text-slate-600 whitespace-nowrap hidden">0/0 tons</span>
         </button>
       </div>
     </header>
@@ -121,21 +159,21 @@
       <div class="mt-3 grid gap-3 md:grid-cols-2">
         <div class="bg-white rounded-xl border border-slate-200 p-3">
           <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
-            <div class="text-slate-500">Budget (HKD)</div><div class="text-right font-medium" id="hubBudget">–</div>
-            <div class="text-slate-500">City Health</div><div class="text-right font-medium" id="hubHealth">–%</div>
-            <div class="text-slate-500">Buffer Level</div><div class="text-right font-medium" id="hubBuffer">–</div>
-            <div class="text-slate-500">Transport Time</div><div class="text-right font-medium">x<span id="hubTransport">–</span></div>
-            <div class="text-slate-500">Waste</div><div class="text-right font-medium"><span id="hubWasteTotal">–</span>/<span id="hubWasteLimit">–</span> t</div>
-            <div class="text-slate-500">Carbon</div><div class="text-right font-medium"><span id="hubCarbon">–</span>/<span id="hubCarbonLimit">–</span>%</div>
-            <div class="text-slate-500">Day</div><div class="text-right font-medium"><span id="hubDay">–</span>/<span id="hubMaxDay">–</span></div>
+            <div class="text-slate-500">Budget (HKD)</div><div class="text-right font-medium" id="hubBudget">0</div>
+            <div class="text-slate-500">City Health</div><div class="text-right font-medium" id="hubHealth">0%</div>
+            <div class="text-slate-500">Buffer Level</div><div class="text-right font-medium" id="hubBuffer">Normal</div>
+            <div class="text-slate-500">Transport Time</div><div class="text-right font-medium">x<span id="hubTransport">1</span></div>
+            <div class="text-slate-500">Waste</div><div class="text-right font-medium"><span id="hubWasteTotal">0</span>/<span id="hubWasteLimit">0</span> t</div>
+            <div class="text-slate-500">Carbon</div><div class="text-right font-medium"><span id="hubCarbon">0</span>/<span id="hubCarbonLimit">100</span>%</div>
+            <div class="text-slate-500">Day</div><div class="text-right font-medium"><span id="hubDay">0</span>/<span id="hubMaxDay">0</span></div>
           </div>
-          <p class="mt-2 text-xs text-slate-600" id="hubDistricts">Districts: –</p>
+          <p class="mt-2 text-xs text-slate-600" id="hubDistricts">Districts: 0</p>
         </div>
 
         <div class="bg-white rounded-xl border border-slate-200 p-3">
           <div class="flex items-center justify-between">
             <p class="text-sm font-semibold">MRF Inventory</p>
-            <p class="text-xs text-slate-500"><span id="hubInvTotal">–</span>/<span id="hubInvCap">–</span> t</p>
+            <p class="text-xs text-slate-500"><span id="hubInvTotal">0</span>/<span id="hubInvCap">0</span> t</p>
           </div>
           <p class="mt-2 text-xs text-slate-600">Showing total only (same layout as Municipality inventory).</p>
         </div>
@@ -145,7 +183,7 @@
     <main class="px-4 md:px-6 pt-2 pb-72">
       <div id="wasteTreatmentFacilityBanner" class="hidden mb-4 rounded-xl border border-emerald-200 bg-emerald-50/90 px-4 py-3 text-sm text-slate-800">
         <span class="font-semibold text-emerald-900">Waste treatment options (F-grade)</span>
-        <span class="text-slate-600"> — configure disposal plans in the Game Panel.</span>
+        <span class="text-slate-600"> - configure disposal plans in the Game Panel.</span>
         <a id="wasteTreatmentBannerLink" href="#" class="ml-2 font-bold text-emerald-800 underline hover:text-emerald-950">Open Game Panel</a>
       </div>
 
@@ -165,10 +203,10 @@
           </div>
           <div class="p-5">
             <div class="hidden">
-              <p id="budgetHKD">–</p>
-              <p id="cityHealth">–%</p>
-              <p id="carbonValue">–%</p>
-              <p><span id="currentDay">–</span>/<span id="maxDay">–</span></p>
+              <p id="budgetHKD">0</p>
+              <p id="cityHealth">0%</p>
+              <p id="carbonValue">0% / 100%</p>
+              <p><span id="currentDay">0</span>/<span id="maxDay">0</span></p>
             </div>
             <div class="w-full h-72 flex items-center justify-center">
               <canvas id="materialsPie" class="w-full h-full"></canvas>
@@ -189,6 +227,23 @@
               <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <p class="text-xs text-slate-500"><span id="materialListTotal">0</span> t total</p>
                 <p class="text-xs text-slate-500"><span id="materialSelectedTotal">0</span> t selected</p>
+              </div>
+              <div class="mb-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <select id="mrfMaterialFilterType" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60">
+                  <option value="">Type: All</option>
+                  <option value="metal">⚙️ Metal</option>
+                  <option value="paper">📄 Paper</option>
+                  <option value="wood">🪵 Wood</option>
+                  <option value="plastic">🧴 Plastic</option>
+                  <option value="glass">🍾 Glass</option>
+                </select>
+                <select id="mrfMaterialFilterQuality" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60">
+                  <option value="">Quality: All</option>
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                </select>
+                <input id="mrfMaterialFilterMinVolume" type="number" min="0" step="1" placeholder="Min Volume (t)" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60" />
               </div>
               <div id="materialListBody" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[480px] overflow-y-auto">
                 <div class="mat-card" data-material-list="metal">
@@ -216,12 +271,8 @@
                   <p class="mt-2 text-sm text-slate-800 js-mat-quality">A 0 · B 0 · C 0</p>
                   <p class="text-sm text-slate-800 js-mat-volume">0 t</p>
                 </div>
-                <div class="mat-card" data-material-list="material6">
-                  <p class="text-lg font-extrabold">📦 Material 6</p>
-                  <p class="mt-2 text-sm text-slate-800 js-mat-quality">A 0 · B 0 · C 0</p>
-                  <p class="text-sm text-slate-800 js-mat-volume">0 t</p>
-                </div>
               </div>
+              <p id="mrfMaterialFilterEmpty" class="hidden mt-2 text-xs text-slate-500">No items match current filters.</p>
             </div>
 
             <div id="wasteListPanel" class="hidden">
@@ -229,11 +280,29 @@
                 <p class="text-xs text-slate-500"><span id="wasteListTotal">0</span> t total</p>
                 <p class="text-xs text-slate-500"><span id="wasteSelectedTotal">0</span> <span id="wasteListSecondaryLabel">t selected</span></p>
               </div>
+              <div class="mb-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <select id="mrfWasteFilterType" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60">
+                  <option value="">Type: All</option>
+                  <option value="metal">⚙️ Metal</option>
+                  <option value="paper">📄 Paper</option>
+                  <option value="wood">🪵 Wood</option>
+                  <option value="plastic">🧴 Plastic</option>
+                  <option value="glass">🍾 Glass</option>
+                </select>
+                <select id="mrfWasteFilterQuality" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60">
+                  <option value="">Quality: All</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="F">F</option>
+                </select>
+                <input id="mrfWasteFilterMinVolume" type="number" min="0" step="1" placeholder="Min Volume (t)" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60" />
+              </div>
               <div id="wasteListBody" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[360px] overflow-y-auto">
                 <div class="col-span-full text-center py-8 text-slate-400 border border-slate-200 rounded-xl">
                   No waste in inventory yet.
                 </div>
               </div>
+              <p id="mrfWasteFilterEmpty" class="hidden mt-2 text-xs text-slate-500">No items match current filters.</p>
               <div class="hidden mt-5 flex justify-center">
                 <button id="wasteSendToBrokerBtn" type="button" class="bg-[#6b994c] hover:bg-[#5b8640] font-bold !text-white text-base px-8 py-2 rounded-xl shadow disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                   Send to Broker
@@ -256,24 +325,24 @@
             <span class="text-xs font-bold text-slate-500">Method</span>
             <select id="wtSubMethodSelect" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-3 py-3 text-base bg-white font-semibold focus:border-[#2f5a47] focus:ring-0"></select>
           </label>
-          <p id="wtPerTonHint" class="text-xs sm:text-sm text-slate-600 sm:pb-2 sm:max-w-xs leading-snug rounded-lg bg-white border border-slate-200 px-2 py-1">—</p>
+          <p id="wtPerTonHint" class="text-xs sm:text-sm text-slate-600 sm:pb-2 sm:max-w-xs leading-snug rounded-lg bg-white border border-slate-200 px-2 py-1">0</p>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-xl bg-slate-50 border border-slate-200 p-3 text-center">
           <div class="rounded-lg border border-slate-200 bg-white py-2">
             <p class="text-[11px] font-bold text-slate-400">🧱 Batch / t</p>
-            <p id="wtPreviewBatchT" class="text-xl font-black text-slate-900 tabular-nums">–</p>
+            <p id="wtPreviewBatchT" class="text-xl font-black text-slate-900 tabular-nums">0</p>
           </div>
           <div class="rounded-lg border border-slate-200 bg-white py-2">
             <p class="text-[11px] font-bold text-slate-400">💰 Cost</p>
-            <p id="wtImpactBudget" class="text-xl font-black text-emerald-900 tabular-nums">–</p>
+            <p id="wtImpactBudget" class="text-xl font-black text-emerald-900 tabular-nums">0</p>
           </div>
           <div class="rounded-lg border border-slate-200 bg-white py-2">
             <p class="text-[11px] font-bold text-slate-400">☁️ CO₂</p>
-            <p id="wtImpactCarbon" class="text-xl font-black text-slate-900 tabular-nums">–</p>
+            <p id="wtImpactCarbon" class="text-xl font-black text-slate-900 tabular-nums">0</p>
           </div>
           <div class="rounded-lg border border-slate-200 bg-white py-2">
             <p class="text-[11px] font-bold text-slate-400">❤️ Health</p>
-            <p id="wtImpactHealth" class="text-xl font-black text-slate-900 tabular-nums">–</p>
+            <p id="wtImpactHealth" class="text-xl font-black text-slate-900 tabular-nums">0</p>
           </div>
         </div>
         <span id="wtImpactWaste" class="sr-only" aria-live="polite"></span>
@@ -324,26 +393,34 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
               <div class="flex justify-between gap-2">
                 <span class="text-xs text-slate-500">💰 Budget impact (est.)</span>
-                <span id="sortingImpactBudget" class="font-mono font-semibold text-emerald-900 text-right">–</span>
+                <span id="sortingImpactBudget" class="font-mono font-semibold text-emerald-900 text-right">0 HKD</span>
               </div>
               <div class="flex justify-between gap-2">
                 <span class="text-xs text-slate-500">❤️ City health (est.)</span>
-                <span id="sortingImpactHealth" class="font-mono font-semibold text-slate-900 text-right">–</span>
+                <span id="sortingImpactHealth" class="font-mono font-semibold text-slate-900 text-right">+0.0%</span>
               </div>
               <div class="flex justify-between gap-2">
                 <span class="text-xs text-slate-500">☁️ CO₂ emissions (est.)</span>
-                <span id="sortingImpactCarbon" class="font-mono font-semibold text-slate-900 text-right">–</span>
+                <span id="sortingImpactCarbon" class="font-mono font-semibold text-slate-900 text-right">+0.0%</span>
               </div>
               <div class="flex justify-between gap-2">
                 <span class="text-xs text-slate-500">🗑️ MRF waste (B/C/F)</span>
-                <span id="sortingImpactWaste" class="font-mono font-semibold text-slate-900 text-right">–</span>
+                <span id="sortingImpactWaste" class="font-mono font-semibold text-slate-900 text-right">0 t</span>
               </div>
             </div>
             <p class="mt-2 text-[11px] text-slate-600">
               Estimates are based on current team state. Actual values apply when you press <strong>Sorting</strong>.
             </p>
           </div>
-          <div class="flex shrink-0 items-center justify-center lg:justify-end lg:self-center">
+          <div class="flex shrink-0 flex-col items-stretch justify-center lg:justify-end lg:self-center gap-2">
+            <div class="flex items-center gap-2">
+              <button type="button" id="sortingSelectAllBtn" class="bg-slate-700 hover:bg-slate-800 text-white font-bold text-sm px-4 py-2 rounded-xl shadow">
+                Select All
+              </button>
+              <button type="button" id="sortingClearAllBtn" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-sm px-4 py-2 rounded-xl shadow border border-slate-300">
+                Clear All
+              </button>
+            </div>
             <button type="button" id="sortingApplyBtn" class="bg-[#2f5a47] hover:bg-[#244635] text-white font-bold px-8 py-2.5 rounded-xl shadow whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
               Sorting
             </button>
@@ -353,9 +430,9 @@
 
       <!-- Recycling Centre: step upgrades C→B and B→A; residue → F waste -->
       <div id="recyclingCentrePanel" class="hidden mt-6 rounded-xl border border-slate-300 bg-white shadow-sm p-5 space-y-4">
-        <div class="text-xs text-slate-600 space-y-1">
+        <div class="recycling-note text-xs text-slate-600 space-y-1">
           <p class="font-semibold text-slate-800 leading-relaxed">
-            <strong>Recycling Centre</strong> now uses a <strong>step upgrade</strong> model: first <strong>C→B</strong>, then <strong>B→A</strong>. Each step creates <strong>F-grade waste</strong> as residue. <strong>All outputs stay in this MRF inventory</strong> (nothing is auto-sent to Broker — use the main Inventory page to ship).
+            <strong>Recycling Centre</strong> now uses a <strong>step upgrade</strong> model: first <strong>C→B</strong>, then <strong>B→A</strong>. Each step creates <strong>F-grade waste</strong> as residue. <strong>All outputs stay in this MRF inventory</strong> (nothing is auto-sent to Broker - use the main Inventory page to ship).
           </p>
           <p class="font-mono text-[11px] text-slate-700 leading-relaxed">
             Per tonne: C→B gives +B 0.50 +F 0.50 · B→A gives +A 0.50 +F 0.50 (mass balance)
@@ -364,31 +441,31 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3" id="recyclingStepInputsHost"></div>
         <div class="flex flex-col lg:flex-row lg:items-stretch gap-4 rounded-xl border border-slate-200 bg-slate-50/90 p-4">
           <div class="flex-1 min-w-0 space-y-2 text-sm text-slate-800">
-            <h3 class="text-sm font-semibold text-slate-800 mb-1">Impact preview (this batch)</h3>
+            <h3 class="text-base font-extrabold text-slate-800 mb-1">Impact Preview (This Batch)</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
-              <div class="flex justify-between gap-2">
-                <span class="text-xs text-slate-500">C→B / B→A tonnes</span>
-                <span id="recyclingPreviewSteps" class="font-mono font-semibold text-slate-900 text-right">0 / 0</span>
+              <div class="recycling-impact-card flex justify-between gap-2 items-center">
+                <span class="recycling-impact-label">🔁 C→B / B→A tonnes</span>
+                <span id="recyclingPreviewSteps" class="recycling-impact-value font-mono text-right">0 / 0</span>
               </div>
-              <div class="flex justify-between gap-2">
-                <span class="text-xs text-slate-500">≈ +A / +B (est.)</span>
-                <span id="recyclingPreviewMat" class="font-mono font-semibold text-slate-900 text-right">–</span>
+              <div class="recycling-impact-card flex justify-between gap-2 items-center">
+                <span class="recycling-impact-label">🧱 +A / +B (est.)</span>
+                <span id="recyclingPreviewMat" class="recycling-impact-value font-mono text-right">0</span>
               </div>
-              <div class="flex justify-between gap-2">
-                <span class="text-xs text-slate-500">≈ +F waste (est.)</span>
-                <span id="recyclingPreviewF" class="font-mono font-semibold text-slate-900 text-right">–</span>
+              <div class="recycling-impact-card flex justify-between gap-2 items-center">
+                <span class="recycling-impact-label">🗑️ +F waste (est.)</span>
+                <span id="recyclingPreviewF" class="recycling-impact-value font-mono text-right">0</span>
               </div>
-              <div class="flex justify-between gap-2">
-                <span class="text-xs text-slate-500">💰 Budget (est.)</span>
-                <span id="recyclingPreviewBudget" class="font-mono font-semibold text-emerald-900 text-right">–</span>
+              <div class="recycling-impact-card flex justify-between gap-2 items-center">
+                <span class="recycling-impact-label">💰 Budget (est.)</span>
+                <span id="recyclingPreviewBudget" class="recycling-impact-value font-mono text-emerald-900 text-right">0</span>
               </div>
-              <div class="flex justify-between gap-2">
-                <span class="text-xs text-slate-500">☁️ CO₂ (est.)</span>
-                <span id="recyclingPreviewCo2" class="font-mono font-semibold text-slate-900 text-right">–</span>
+              <div class="recycling-impact-card flex justify-between gap-2 items-center">
+                <span class="recycling-impact-label">☁️ CO₂ (est.)</span>
+                <span id="recyclingPreviewCo2" class="recycling-impact-value font-mono text-right">0</span>
               </div>
-              <div class="flex justify-between gap-2">
-                <span class="text-xs text-slate-500">❤️ Health (est.)</span>
-                <span id="recyclingPreviewHealth" class="font-mono font-semibold text-slate-900 text-right">–</span>
+              <div class="recycling-impact-card flex justify-between gap-2 items-center">
+                <span class="recycling-impact-label">❤️ Health (est.)</span>
+                <span id="recyclingPreviewHealth" class="recycling-impact-value font-mono text-right">0</span>
               </div>
             </div>
           </div>
@@ -401,14 +478,14 @@
                 Clear All
               </button>
             </div>
-            <button type="button" id="recyclingApplyBtn" class="bg-[#2f5a47] hover:bg-[#244635] text-white font-bold px-8 py-2.5 rounded-xl shadow whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
+            <button type="button" id="recyclingApplyBtn" class="bg-[#2f5a47] hover:bg-[#244635] text-white font-bold px-8 py-3 rounded-xl shadow whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
               Recycle upgrade batch
             </button>
           </div>
         </div>
       </div>
 
-      <div id="mrfBrokerSendSection" class="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-4 rounded-xl border border-slate-300 bg-white shadow-sm p-5">
+      <div id="mrfBrokerSendSection" class="mt-6 mb-10 grid grid-cols-1 lg:grid-cols-12 gap-4 rounded-xl border border-slate-300 bg-white shadow-sm p-5">
         <div class="lg:col-span-8 min-w-0">
           <p class="text-xs font-semibold text-slate-600 mb-1">Selected to send to Broker</p>
           <p class="text-xs text-slate-500 mb-2">Material / Waste - combined before sending</p>
@@ -416,7 +493,13 @@
             No items selected.
           </div>
         </div>
-        <div class="lg:col-span-4 flex items-end justify-end">
+        <div class="lg:col-span-4 flex items-end justify-end gap-2 flex-wrap">
+          <button id="mrfSelectAllSendBtn" type="button" class="w-full sm:w-auto bg-slate-700 hover:bg-slate-800 text-white font-bold text-base px-6 py-2 rounded-xl shadow">
+            Select All
+          </button>
+          <button id="mrfClearAllSendBtn" type="button" class="w-full sm:w-auto bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-base px-6 py-2 rounded-xl shadow border border-slate-300">
+            Clear All
+          </button>
           <button type="button" class="mrf-unified-send-to-broker-btn w-full sm:w-auto bg-[#6b994c] hover:bg-[#5b8640] font-bold text-base px-8 py-2 rounded-xl shadow disabled:opacity-50 disabled:cursor-not-allowed" disabled>
             Send to Broker
           </button>
@@ -446,15 +529,15 @@
               <h3 class="text-sm font-semibold mb-2">Impact preview</h3>
               <div class="grid grid-cols-2 gap-3 text-sm">
                 <div><p class="text-xs text-slate-500">Inventory change</p><p class="font-semibold text-slate-800"><span id="impactInvDelta">0</span> t</p></div>
-                <div><p class="text-xs text-slate-500">After send (est.)</p><p class="font-semibold text-slate-800"><span id="impactInvAfter">–</span>/<span id="impactInvCap">–</span> t</p></div>
+                <div><p class="text-xs text-slate-500">After send (est.)</p><p class="font-semibold text-slate-800"><span id="impactInvAfter">0</span>/<span id="impactInvCap">0</span> t</p></div>
                 <div><p class="text-xs text-slate-500">Budget impact (est.)</p><p class="font-semibold text-emerald-700"><span id="impactBudget">0</span> HKD</p></div>
                 <div><p class="text-xs text-slate-500">CO₂ impact (est.)</p><p class="font-semibold text-slate-700"><span id="impactCO2">0</span>%</p></div>
               </div>
             </div>
           </div>
 
-      <div class="status-strip grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
-        <div class="lg:col-span-1 rounded-xl overflow-hidden border border-slate-300 bg-white shadow-sm">
+      <div class="status-strip flex flex-col lg:flex-row gap-4 items-end">
+        <div class="w-full lg:w-[30%] rounded-xl overflow-hidden border border-slate-300 bg-white shadow-sm">
           <div class="record-bar px-4 py-3 text-white text-2xl font-bold flex items-center gap-2">
             <span>📎</span><span>Record</span>
           </div>
@@ -463,7 +546,7 @@
           </div>
         </div>
 
-        <div class="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+        <div class="w-full lg:flex-1 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
           <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between">
             <span class="text-xl">💰</span>
             <span id="statusBudget" class="font-extrabold text-slate-900">–</span>
@@ -480,7 +563,7 @@
             <span id="statusInventory" class="font-extrabold text-slate-900">–</span>
           </div>
           <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
-            <span class="text-xl">🌳</span>
+            <span class="text-xl">☁️</span>
             <div class="flex-1 h-3 rounded-full bg-slate-200 overflow-hidden border border-black/10">
               <div id="statusCO2Bar" class="h-full bg-red-500" style="width: 0%"></div>
             </div>
@@ -619,11 +702,11 @@
       const hlth = document.getElementById('wtImpactHealth');
       const wst = document.getElementById('wtImpactWaste');
       if (!spec) {
-        if (hintEl) hintEl.textContent = '—';
-        if (batchEl) batchEl.textContent = '–';
-        if (bdg) bdg.textContent = '–';
-        if (carb) carb.textContent = '–';
-        if (hlth) hlth.textContent = '–';
+        if (hintEl) hintEl.textContent = '0';
+        if (batchEl) batchEl.textContent = '0';
+        if (bdg) bdg.textContent = '0';
+        if (carb) carb.textContent = '0';
+        if (hlth) hlth.textContent = '0';
         if (wst) wst.textContent = '';
         const applyBtnBad = document.getElementById('wtApplyBtn');
         if (applyBtnBad) applyBtnBad.disabled = true;
@@ -740,7 +823,7 @@
       const h = document.getElementById('facilityPageTitle');
       if (title && h) {
         h.textContent = title;
-        document.title = 'MRF – ' + title;
+        document.title = 'MRF - ' + title;
       }
       const brokerSec = document.getElementById('mrfBrokerSendSection');
       const sortPan = document.getElementById('sortingCentrePanel');
@@ -753,6 +836,7 @@
       const wtBanner = document.getElementById('wasteTreatmentFacilityBanner');
       const topGrid = document.getElementById('mrfInventoryTopGrid');
       const rcyPan = document.getElementById('recyclingCentrePanel');
+      const wasteQualityFilterWrap = document.getElementById('mrfWasteFilterQuality')?.parentElement || null;
 
       if (FACILITY_MODE === 'sorting') {
         if (brokerSec) brokerSec.classList.add('hidden');
@@ -766,6 +850,7 @@
         if (wasteLbl) wasteLbl.textContent = 't waste (selected lines)';
         if (wtPanel) wtPanel.classList.add('hidden');
         if (wtBanner) wtBanner.classList.add('hidden');
+        if (wasteQualityFilterWrap) wasteQualityFilterWrap.classList.remove('hidden');
         if (topGrid) {
           topGrid.classList.add('lg:grid-cols-2');
           topGrid.classList.remove('lg:grid-cols-1');
@@ -782,6 +867,9 @@
         if (wasteLbl) wasteLbl.textContent = 't selected';
         if (wtBanner) wtBanner.classList.add('hidden');
         if (wtPanel) wtPanel.classList.remove('hidden');
+        if (wasteQualityFilterWrap) wasteQualityFilterWrap.classList.add('hidden');
+        const wasteQualityFilter = document.getElementById('mrfWasteFilterQuality');
+        if (wasteQualityFilter) wasteQualityFilter.value = 'F';
         if (topGrid) {
           topGrid.classList.add('lg:grid-cols-2');
           topGrid.classList.remove('lg:grid-cols-1');
@@ -802,6 +890,7 @@
         if (wasteLbl) wasteLbl.textContent = 't selected';
         if (wtPanel) wtPanel.classList.add('hidden');
         if (wtBanner) wtBanner.classList.add('hidden');
+        if (wasteQualityFilterWrap) wasteQualityFilterWrap.classList.remove('hidden');
         if (topGrid) {
           topGrid.classList.add('lg:grid-cols-2');
           topGrid.classList.remove('lg:grid-cols-1');
@@ -819,6 +908,7 @@
         if (wasteLbl) wasteLbl.textContent = 't selected';
         if (wtPanel) wtPanel.classList.add('hidden');
         if (wtBanner) wtBanner.classList.add('hidden');
+        if (wasteQualityFilterWrap) wasteQualityFilterWrap.classList.remove('hidden');
         if (topGrid) {
           topGrid.classList.add('lg:grid-cols-2');
           topGrid.classList.remove('lg:grid-cols-1');
@@ -974,12 +1064,12 @@
       };
       const totalProcessed = Math.round((totalCToB + totalBToA) * 10) / 10;
       setTxt('recyclingPreviewSteps', `${totalCToB} / ${totalBToA}`);
-      setTxt('recyclingPreviewMat', totalProcessed > 0 ? `+${sumA} A · +${sumB} B` : '–');
-      setTxt('recyclingPreviewF', totalProcessed > 0 ? `+${sumF} t` : '–');
+      setTxt('recyclingPreviewMat', totalProcessed > 0 ? `+${sumA} A · +${sumB} B` : '0');
+      setTxt('recyclingPreviewF', totalProcessed > 0 ? `+${sumF} t` : '0');
       if (totalProcessed <= 0) {
-        setTxt('recyclingPreviewBudget', '–');
-        setTxt('recyclingPreviewCo2', '–');
-        setTxt('recyclingPreviewHealth', '–');
+        setTxt('recyclingPreviewBudget', '0');
+        setTxt('recyclingPreviewCo2', '0');
+        setTxt('recyclingPreviewHealth', '0');
       } else {
         setTxt('recyclingPreviewBudget', `-${Math.round(70 * totalProcessed).toLocaleString('en-HK')} HKD`);
         setTxt('recyclingPreviewCo2', `+${Math.round(0.06 * totalProcessed * 10) / 10}%`);
@@ -1039,15 +1129,19 @@
           const maxB = invTonnes(bStock);
           const label = mat.charAt(0).toUpperCase() + mat.slice(1);
           return `
-            <div class="rounded-xl border border-slate-200 bg-white p-3" data-recycling-step-row="1" data-material="${mat}">
-              <label class="block text-xs font-bold text-slate-700">${iconByMaterial[mat] || '📦'} ${label} · Material C</label>
-              <p class="text-[11px] text-slate-500 mt-0.5">Available: C <span class="font-mono">${maxC}</span> t · B <span class="font-mono">${maxB}</span> t</p>
-              <label class="mt-2 block text-[11px] font-semibold text-slate-600">C→B (t)</label>
-              <input type="number" data-rcy-c-input="1" data-material="${mat}" min="0" max="${Math.floor(maxC)}" step="1" value="0"
-                class="mt-2 w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-right text-base text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60" />
-              <label class="mt-2 block text-[11px] font-semibold text-slate-600">B→A (t)</label>
-              <input type="number" data-rcy-b-input="1" data-material="${mat}" min="0" max="${Math.floor(maxB)}" step="1" value="0"
-                class="mt-1 w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-right text-base text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60" />
+            <div class="recycling-step-card" data-recycling-step-row="1" data-material="${mat}">
+              <label class="recycling-step-title block">${iconByMaterial[mat] || '📦'} ${label} · Material C</label>
+              <p class="recycling-step-stock">Available: C <span class="font-mono font-bold">${maxC}</span> t · B <span class="font-mono font-bold">${maxB}</span> t</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-600">C→B (t)</label>
+                  <input type="number" data-rcy-c-input="1" data-material="${mat}" min="0" max="${Math.floor(maxC)}" step="1" value="0" class="recycling-step-input mt-1" />
+                </div>
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-600">B→A (t)</label>
+                  <input type="number" data-rcy-b-input="1" data-material="${mat}" min="0" max="${Math.floor(maxB)}" step="1" value="0" class="recycling-step-input mt-1" />
+                </div>
+              </div>
             </div>`;
         })
         .join('');
@@ -1231,10 +1325,10 @@
       const wasteEl = document.getElementById('sortingImpactWaste');
       if (!budgetEl || !carbonEl || !healthEl || !wasteEl) return;
       if (!shared) {
-        budgetEl.textContent = '–';
-        carbonEl.textContent = '–';
-        healthEl.textContent = '–';
-        wasteEl.textContent = '–';
+        budgetEl.textContent = '0 HKD';
+        carbonEl.textContent = '+0.0%';
+        healthEl.textContent = '+0.0%';
+        wasteEl.textContent = '0 t';
         return;
       }
       // Derive current batch from UI (same as actual Sorting payload): B/C waste per material.
@@ -1332,6 +1426,129 @@
       renderMaterialSummary(inv);
     }
 
+    function applyMrfMaterialFilters() {
+      const typeFilter = (document.getElementById('mrfMaterialFilterType')?.value || '').toLowerCase();
+      const qualityFilter = (document.getElementById('mrfMaterialFilterQuality')?.value || '').toUpperCase();
+      const minVol = Math.max(0, Math.floor(Number(document.getElementById('mrfMaterialFilterMinVolume')?.value || 0)));
+      const rows = Array.from(document.querySelectorAll('#materialListBody [data-material-card-row="1"]'));
+      let visible = 0;
+      rows.forEach((row) => {
+        const mat = String(row.dataset.material || '').toLowerCase();
+        const vol = invTonnes(Number(row.dataset.volume || 0));
+        const grades = String(row.dataset.grades || '')
+          .split(',')
+          .map((g) => String(g).toUpperCase().trim())
+          .filter(Boolean);
+        const typeOk = !typeFilter || mat === typeFilter;
+        const qualityOk = !qualityFilter || grades.includes(qualityFilter);
+        const volOk = vol >= minVol;
+        const show = typeOk && qualityOk && volOk;
+        row.classList.toggle('hidden', !show);
+        if (show) visible += 1;
+      });
+      const emptyEl = document.getElementById('mrfMaterialFilterEmpty');
+      if (emptyEl) emptyEl.classList.toggle('hidden', visible > 0);
+    }
+
+    function applyMrfWasteFilters() {
+      const typeFilter = (document.getElementById('mrfWasteFilterType')?.value || '').toLowerCase();
+      const qualityFilter =
+        FACILITY_MODE === 'waste-treatment'
+          ? 'F'
+          : (document.getElementById('mrfWasteFilterQuality')?.value || '').toUpperCase();
+      const minVol = Math.max(0, Math.floor(Number(document.getElementById('mrfWasteFilterMinVolume')?.value || 0)));
+      const rows = Array.from(document.querySelectorAll('#wasteListBody [data-waste-card-row="1"]'));
+      let visible = 0;
+      rows.forEach((row) => {
+        const mat = String(row.dataset.material || '').toLowerCase();
+        const grade = String(row.dataset.grade || '').toUpperCase();
+        const vol = invTonnes(Number(row.dataset.volume || 0));
+        const typeOk = !typeFilter || mat === typeFilter;
+        const qualityOk = !qualityFilter || grade === qualityFilter;
+        const volOk = vol >= minVol;
+        const show = typeOk && qualityOk && volOk;
+        row.classList.toggle('hidden', !show);
+        if (show) visible += 1;
+      });
+      const emptyEl = document.getElementById('mrfWasteFilterEmpty');
+      if (emptyEl) emptyEl.classList.toggle('hidden', visible > 0);
+    }
+
+    function selectAllMrfSendRowsForCurrentMode() {
+      const inv = latestState?.roles?.mrf?.inventory || null;
+      if (!inv) return;
+      if (qualityMode === 'materials') {
+        document.querySelectorAll('#materialListBody input[data-material-card-tons="1"]').forEach((input) => {
+          input.value = String(Math.max(0, Math.floor(Number(input.max) || 0)));
+        });
+        updateMaterialSendButtonState(inv);
+      } else {
+        document.querySelectorAll('#wasteListBody input[data-waste-card-tons="1"]').forEach((input) => {
+          input.value = String(Math.max(0, Math.floor(Number(input.max) || 0)));
+        });
+        document.querySelectorAll('#wasteSelectableBody input[type="number"]').forEach((input) => {
+          input.value = String(Math.max(0, Math.floor(Number(input.max) || 0)));
+        });
+        updateWasteSendButtonState(inv);
+      }
+      updateUnifiedSendSelectionSummary(inv);
+      updateImpactPreview();
+    }
+
+    function clearAllMrfSendRowsForCurrentMode() {
+      const inv = latestState?.roles?.mrf?.inventory || null;
+      if (!inv) return;
+      if (qualityMode === 'materials') {
+        document.querySelectorAll('#materialListBody input[data-material-card-tons="1"]').forEach((input) => {
+          input.value = '0';
+        });
+        updateMaterialSendButtonState(inv);
+      } else {
+        document.querySelectorAll('#wasteListBody input[data-waste-card-tons="1"]').forEach((input) => {
+          input.value = '0';
+        });
+        document.querySelectorAll('#wasteSelectableBody input[type="number"]').forEach((input) => {
+          input.value = '0';
+        });
+        updateWasteSendButtonState(inv);
+      }
+      updateUnifiedSendSelectionSummary(inv);
+      updateImpactPreview();
+    }
+
+    function setSortingSelection(checked) {
+      document.querySelectorAll('#wasteListBody input[data-sort-waste-select="1"]').forEach((cb) => {
+        if (cb.disabled) return;
+        cb.checked = checked;
+      });
+      const inv = latestState?.roles?.mrf?.inventory || null;
+      updateWasteSendButtonState(inv);
+      updateSortingImpactPreview(latestState?.shared, inv);
+    }
+
+    function setWasteTreatmentSelection(checked) {
+      document.querySelectorAll('#wasteListBody input[data-wt-f-select="1"]').forEach((cb) => {
+        if (cb.disabled) return;
+        cb.checked = checked;
+      });
+      const inv = latestState?.roles?.mrf?.inventory || null;
+      updateWasteSendButtonState(inv);
+      updateWtImpactPreview();
+    }
+
+    function setRecyclingStepSelection(fillMax) {
+      document
+        .querySelectorAll('#recyclingStepInputsHost input[data-rcy-c-input="1"], #recyclingStepInputsHost input[data-rcy-b-input="1"]')
+        .forEach((input) => {
+          if (fillMax) {
+            input.value = String(Math.max(0, Math.floor(Number(input.max) || 0)));
+          } else {
+            input.value = '0';
+          }
+        });
+      updateRecyclingImpactPreview();
+    }
+
     function renderMaterialList(inv) {
       const tbody = document.getElementById('materialListBody');
       const totalEl = document.getElementById('materialListTotal');
@@ -1347,8 +1564,8 @@
       });
 
       const materials = inv?.materials || {};
-      const order = ['metal', 'paper', 'wood', 'plastic', 'glass', 'material6'];
-      const iconByMaterial = { paper: '📄', plastic: '🧴', metal: '🔩', glass: '🍾', wood: '🪵', material6: '📦' };
+      const order = ['metal', 'paper', 'wood', 'plastic', 'glass'];
+      const iconByMaterial = { paper: '📄', plastic: '🧴', metal: '🔩', glass: '🍾', wood: '🪵' };
       const cards = [];
       let total = 0;
 
@@ -1356,10 +1573,12 @@
         const grades = materials[mat];
         if (!grades) return;
         const gradeRows = [];
+        const presentGrades = [];
         let vol = 0;
         ['A', 'B', 'C'].forEach((g) => {
           const t = invTonnes(grades[g] || 0);
           if (t <= 0) return;
+          presentGrades.push(g);
           vol += t;
           total += t;
           const rowKey = `${mat}:${g}`;
@@ -1399,9 +1618,9 @@
           );
         });
         if (!gradeRows.length) return;
-        const name = mat === 'material6' ? 'Material 6' : (mat.charAt(0).toUpperCase() + mat.slice(1));
+        const name = mat.charAt(0).toUpperCase() + mat.slice(1);
         cards.push(`
-          <div class="mat-card" data-material-card-row="1" data-material="${mat}">
+          <div class="mat-card" data-material-card-row="1" data-material="${mat}" data-volume="${vol}" data-grades="${presentGrades.join(',')}">
             <p class="text-lg font-extrabold">${iconByMaterial[mat] || '📦'} ${name}</p>
             <p class="text-sm text-slate-800">Volume: ${vol} t</p>
             ${gradeRows.join('')}
@@ -1427,6 +1646,7 @@
         });
       }
 
+      applyMrfMaterialFilters();
       updateMaterialSendButtonState(inv);
     }
 
@@ -1465,7 +1685,6 @@
 
     function formatMaterialDisplayName(mat) {
       if (!mat) return '';
-      if (mat === 'material6') return 'Material 6';
       return mat.charAt(0).toUpperCase() + mat.slice(1);
     }
 
@@ -1533,7 +1752,7 @@
       }
       if (FACILITY_MODE === 'waste-treatment') {
         textEls.forEach((el) => {
-          el.textContent = 'No Broker send here — pick a method below, then Treat batch.';
+          el.textContent = 'No Broker send here - pick a method below, then Treat batch.';
         });
         btnEls.forEach((el) => {
           el.disabled = true;
@@ -1543,7 +1762,7 @@
       }
       if (FACILITY_MODE === 'recycling') {
         textEls.forEach((el) => {
-          el.textContent = 'Recycling Centre only — output stays in MRF. Use Inventory (no facility) to send to Broker.';
+          el.textContent = 'Recycling Centre only - output stays in MRF. Use Inventory (no facility) to send to Broker.';
         });
         btnEls.forEach((el) => {
           el.disabled = true;
@@ -1574,7 +1793,7 @@
         .join('<br />');
       const minHint =
         totalT + 1e-9 < MIN_BROKER_SEND_TONNES
-          ? `<br /><span class="text-amber-900 font-semibold">Total ${totalT} t — need at least ${MIN_BROKER_SEND_TONNES} t to send to Broker.</span>`
+          ? `<br /><span class="text-amber-900 font-semibold">Total ${totalT} t - need at least ${MIN_BROKER_SEND_TONNES} t to send to Broker.</span>`
           : '';
       textEls.forEach((el) => { el.innerHTML = lines + minHint; });
       const canSend = brokerSendMeetsMinimum(inv);
@@ -1632,7 +1851,7 @@
       });
 
       const waste = inv?.waste || {};
-      const order = ['metal', 'paper', 'wood', 'plastic', 'glass', 'material6'];
+      const order = ['metal', 'paper', 'wood', 'plastic', 'glass'];
       const cards = [];
       let total = 0;
 
@@ -1650,9 +1869,8 @@
             metal: '🔩',
             glass: '🍾',
             wood: '🪵',
-            material6: '📦'
           };
-          const baseLabel = mat === 'material6' ? 'Material 6' : (mat.charAt(0).toUpperCase() + mat.slice(1));
+          const baseLabel = mat.charAt(0).toUpperCase() + mat.slice(1);
           const matLabel = `${iconByMaterial[mat] || '📦'} ${baseLabel}`;
           const rowKey = `${mat}:${g}`;
           const prev = preserved[rowKey];
@@ -1709,7 +1927,7 @@
                 class="mt-1 w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-right text-base text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
               />`;
           cards.push(`
-            <div class="mat-card" data-waste-card-row="1" data-material="${mat}" data-grade="${g}">
+            <div class="mat-card" data-waste-card-row="1" data-material="${mat}" data-grade="${g}" data-volume="${t}">
               <p class="text-lg font-extrabold">${matLabel}</p>
               <p class="mt-2 text-sm text-slate-800">Quality:
                 <span class="grade-pill ${gradeClass}">${g}</span>
@@ -1759,6 +1977,7 @@
         });
       }
 
+      applyMrfWasteFilters();
       updateWasteSendButtonState(inv);
     }
 
@@ -2043,7 +2262,7 @@
       }
 
       document.getElementById('budgetHKD').textContent = shared.budgetHKD.toLocaleString('en-HK');
-      document.getElementById('cityHealth').textContent = shared.cityHealth + '%';
+      document.getElementById('cityHealth').textContent = `${shared.cityHealth}%`;
       document.getElementById('carbonValue').textContent = `${shared.carbonEmissions?.value ?? '–'}% / ${shared.carbonEmissions?.limit ?? '–'}%`;
       updateDayDisplay({ day: shared.day, maxDay: shared.maxDay });
 
@@ -2119,34 +2338,6 @@
         logEl.textContent = 'No events yet.';
       }
 
-      const statusBudgetEl = document.getElementById('statusBudget');
-      if (statusBudgetEl) statusBudgetEl.textContent = shared.budgetHKD.toLocaleString('en-HK');
-      const statusQualityEl = document.getElementById('statusQuality');
-      if (statusQualityEl) statusQualityEl.textContent = `${shared.cityHealth}%`;
-      const statusHealthEl = document.getElementById('statusHealth');
-      if (statusHealthEl) statusHealthEl.textContent = `${shared.cityHealth}%`;
-      const statusHealthBarEl = document.getElementById('statusHealthBar');
-      if (statusHealthBarEl) {
-        const hp = Math.max(0, Math.min(100, Number(shared.cityHealth) || 0));
-        statusHealthBarEl.style.width = `${hp}%`;
-      }
-      const statusInventoryEl = document.getElementById('statusInventory');
-      if (statusInventoryEl) statusInventoryEl.textContent = `${invTotal}/${cap} t`;
-      const statusCO2El = document.getElementById('statusCO2');
-      const co2v = shared.carbonEmissions?.value;
-      if (statusCO2El) statusCO2El.textContent = `${co2v ?? '–'}%`;
-      const statusCO2BarEl = document.getElementById('statusCO2Bar');
-      if (statusCO2BarEl) {
-        const p = Math.max(0, Math.min(100, Number(co2v) || 0));
-        statusCO2BarEl.style.width = `${p}%`;
-      }
-
-      const buf = (roles && roles.mrf && roles.mrf.bufferLevel) ? roles.mrf.bufferLevel : 'Normal';
-      const tm = shared.transportTimeMultiplier ?? 1;
-      document.getElementById('hubBudget').textContent = shared.budgetHKD.toLocaleString('en-HK');
-      document.getElementById('hubHealth').textContent = shared.cityHealth + '%';
-      document.getElementById('hubBuffer').textContent = buf;
-      document.getElementById('hubTransport').textContent = tm;
       let allInvTotal = 0;
       let allInvCap = 0;
       ['municipality', 'mrf', 'broker'].forEach((k) => {
@@ -2157,10 +2348,38 @@
         Object.values(inv2.materials || {}).forEach((g) => { allInvTotal += (g.A || 0) + (g.B || 0) + (g.C || 0); });
         Object.values(inv2.waste || {}).forEach((g) => { allInvTotal += (g.B || 0) + (g.C || 0) + (g.F || 0); });
       });
+
+      const statusBudgetEl = document.getElementById('statusBudget');
+      if (statusBudgetEl) statusBudgetEl.textContent = shared.budgetHKD.toLocaleString('en-HK');
+      const statusQualityEl = document.getElementById('statusQuality');
+      if (statusQualityEl) statusQualityEl.textContent = `${shared.cityHealth}%`;
+      const statusHealthEl = document.getElementById('statusHealth');
+      if (statusHealthEl) statusHealthEl.textContent = `${Number(shared.cityHealth) || 0}%`;
+      const statusHealthBarEl = document.getElementById('statusHealthBar');
+      if (statusHealthBarEl) {
+        const hp = Math.max(0, Math.min(100, Number(shared.cityHealth) || 0));
+        statusHealthBarEl.style.width = `${hp}%`;
+      }
+      const statusInventoryEl = document.getElementById('statusInventory');
+      if (statusInventoryEl) statusInventoryEl.textContent = `${Math.round(allInvTotal * 10) / 10}/${allInvCap} t`;
+      const statusCO2El = document.getElementById('statusCO2');
+      if (statusCO2El) statusCO2El.textContent = `${shared.carbonEmissions?.value ?? '–'}%`;
+      const statusCO2BarEl = document.getElementById('statusCO2Bar');
+      if (statusCO2BarEl) {
+        const p = Math.max(0, Math.min(100, Number(shared.carbonEmissions?.value) || 0));
+        statusCO2BarEl.style.width = `${p}%`;
+      }
+
+      const buf = (roles && roles.mrf && roles.mrf.bufferLevel) ? roles.mrf.bufferLevel : 'Normal';
+      const tm = shared.transportTimeMultiplier ?? 1;
+      document.getElementById('hubBudget').textContent = shared.budgetHKD.toLocaleString('en-HK');
+      document.getElementById('hubHealth').textContent = `${shared.cityHealth}%`;
+      document.getElementById('hubBuffer').textContent = buf;
+      document.getElementById('hubTransport').textContent = tm;
       document.getElementById('hubWasteTotal').textContent = Math.round(allInvTotal * 10) / 10;
       document.getElementById('hubWasteLimit').textContent = allInvCap;
-      document.getElementById('hubCarbon').textContent = shared.carbonEmissions.value;
-      document.getElementById('hubCarbonLimit').textContent = shared.carbonEmissions.limit;
+      document.getElementById('hubCarbon').textContent = shared.carbonEmissions?.value ?? '–';
+      document.getElementById('hubCarbonLimit').textContent = shared.carbonEmissions?.limit ?? '–';
       document.getElementById('hubDay').textContent = shared.day;
       document.getElementById('hubMaxDay').textContent = shared.maxDay;
 
@@ -2302,8 +2521,38 @@
       });
     });
 
+    document.getElementById('mrfSelectAllSendBtn')?.addEventListener('click', () => {
+      selectAllMrfSendRowsForCurrentMode();
+    });
+    document.getElementById('mrfClearAllSendBtn')?.addEventListener('click', () => {
+      clearAllMrfSendRowsForCurrentMode();
+    });
+    ['mrfMaterialFilterType', 'mrfMaterialFilterQuality', 'mrfMaterialFilterMinVolume'].forEach((id) => {
+      document.getElementById(id)?.addEventListener('input', applyMrfMaterialFilters);
+      document.getElementById(id)?.addEventListener('change', applyMrfMaterialFilters);
+    });
+    ['mrfWasteFilterType', 'mrfWasteFilterQuality', 'mrfWasteFilterMinVolume'].forEach((id) => {
+      document.getElementById(id)?.addEventListener('input', applyMrfWasteFilters);
+      document.getElementById(id)?.addEventListener('change', applyMrfWasteFilters);
+    });
+
     document.getElementById('mrfTableSendBtn')?.addEventListener('click', () => {
       emitMrfUnifiedSend();
+    });
+
+    ['mrfMaterialFilterType', 'mrfMaterialFilterQuality', 'mrfMaterialFilterMinVolume'].forEach((id) => {
+      document.getElementById(id)?.addEventListener('input', applyMrfMaterialFilters);
+      document.getElementById(id)?.addEventListener('change', applyMrfMaterialFilters);
+    });
+    ['mrfWasteFilterType', 'mrfWasteFilterQuality', 'mrfWasteFilterMinVolume'].forEach((id) => {
+      document.getElementById(id)?.addEventListener('input', applyMrfWasteFilters);
+      document.getElementById(id)?.addEventListener('change', applyMrfWasteFilters);
+    });
+    document.getElementById('mrfSelectAllSendBtn')?.addEventListener('click', () => {
+      selectAllMrfSendRowsForCurrentMode();
+    });
+    document.getElementById('mrfClearAllSendBtn')?.addEventListener('click', () => {
+      clearAllMrfSendRowsForCurrentMode();
     });
 
     document.getElementById('sortingApplyBtn')?.addEventListener('click', () => {
@@ -2317,7 +2566,7 @@
         if (!hasChecked) {
           alert('Tick at least one B/C waste line in the Waste List.');
         } else {
-          alert('No B/C waste stock for the selected line(s) — cannot sort. F-grade must go to Waste Treatment.');
+          alert('No B/C waste stock for the selected line(s) - cannot sort. F-grade must go to Waste Treatment.');
         }
         return;
       }
@@ -2345,30 +2594,23 @@
       socket.emit('mrfRecyclingConvert', { role: 'MRF', batch });
     }
     document.getElementById('recyclingApplyBtn')?.addEventListener('click', runRecyclingBatchClick);
-    document.getElementById('recyclingSelectAllBtn')?.addEventListener('click', () => {
-      document.querySelectorAll('#recyclingStepInputsHost input[data-rcy-c-input="1"], #recyclingStepInputsHost input[data-rcy-b-input="1"]').forEach((input) => {
-        const max = Math.max(0, Math.floor(Number(input.max || 0)));
-        input.value = String(max);
-      });
-      updateRecyclingImpactPreview();
+    document.getElementById('sortingSelectAllBtn')?.addEventListener('click', () => {
+      setSortingSelection(true);
     });
-    document.getElementById('recyclingClearAllBtn')?.addEventListener('click', () => {
-      document.querySelectorAll('#recyclingStepInputsHost input[data-rcy-c-input="1"], #recyclingStepInputsHost input[data-rcy-b-input="1"]').forEach((input) => {
-        input.value = '0';
-      });
-      updateRecyclingImpactPreview();
+    document.getElementById('sortingClearAllBtn')?.addEventListener('click', () => {
+      setSortingSelection(false);
     });
     document.getElementById('wtSelectAllBtn')?.addEventListener('click', () => {
-      document.querySelectorAll('#wasteListBody input[data-wt-f-select="1"]').forEach((cb) => {
-        if (!cb.disabled) cb.checked = true;
-      });
-      updateWtImpactPreview();
+      setWasteTreatmentSelection(true);
     });
     document.getElementById('wtClearAllBtn')?.addEventListener('click', () => {
-      document.querySelectorAll('#wasteListBody input[data-wt-f-select="1"]').forEach((cb) => {
-        cb.checked = false;
-      });
-      updateWtImpactPreview();
+      setWasteTreatmentSelection(false);
+    });
+    document.getElementById('recyclingSelectAllBtn')?.addEventListener('click', () => {
+      setRecyclingStepSelection(true);
+    });
+    document.getElementById('recyclingClearAllBtn')?.addEventListener('click', () => {
+      setRecyclingStepSelection(false);
     });
 
     if (socket) {

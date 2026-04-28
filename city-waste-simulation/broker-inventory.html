@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Broker – Cargo Inventory &amp; Shipments</title>
+  <title>Inventory - Broker</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
@@ -53,6 +53,39 @@
     .grade-pill-c { background: #fef3c7; color: #92400e; border-color: #fde68a; }
     .grade-pill-f { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
     .legend-dot { width: 10px; height: 10px; border-radius: 9999px; display: inline-block; flex: 0 0 auto; }
+    .impact-grid {
+      display: grid;
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+      gap: .55rem;
+    }
+    @media (min-width: 768px) {
+      .impact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    .impact-item {
+      display: flex;
+      align-items: flex-start;
+      gap: .6rem;
+      border: 1px solid rgba(148, 163, 184, .35);
+      border-radius: .8rem;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      padding: .55rem .65rem;
+    }
+    .impact-icon {
+      width: 1.6rem;
+      height: 1.6rem;
+      border-radius: 9999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .85rem;
+      line-height: 1;
+      background: #f1f5f9;
+      border: 1px solid rgba(100, 116, 139, .25);
+      flex: 0 0 auto;
+      margin-top: .05rem;
+    }
+    .impact-label { font-size: .72rem; color: #64748b; line-height: 1.2; }
+    .impact-value { font-size: 1.06rem; font-weight: 800; line-height: 1.2; color: #1f2937; margin-top: .1rem; }
   </style>
     <style>
       :root {
@@ -192,11 +225,29 @@
                 <p class="text-xs text-slate-500"><span id="materialListTotal">0</span> t total</p>
                 <p class="text-xs text-slate-500"><span id="materialSelectedTotal">0</span> t selected</p>
               </div>
+              <div class="mb-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <select id="brokerMaterialFilterType" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60">
+                  <option value="">Type: All</option>
+                  <option value="metal">⚙️ Metal</option>
+                  <option value="paper">📄 Paper</option>
+                  <option value="wood">🪵 Wood</option>
+                  <option value="plastic">🧴 Plastic</option>
+                  <option value="glass">🍾 Glass</option>
+                </select>
+                <select id="brokerMaterialFilterQuality" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60">
+                  <option value="">Quality: All</option>
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                </select>
+                <input id="brokerMaterialFilterMinVolume" type="number" min="0" step="1" placeholder="Min Volume (t)" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60" />
+              </div>
               <div id="materialListBody" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[440px] overflow-y-auto">
                 <div class="col-span-full text-center py-8 text-slate-400 border border-slate-200 rounded-xl">
                   No materials in inventory yet.
                 </div>
               </div>
+              <p id="brokerMaterialFilterEmpty" class="hidden mt-2 text-xs text-slate-500">No items match current filters.</p>
             </div>
 
             <div id="wasteListPanel" class="hidden">
@@ -205,11 +256,29 @@
                 <p class="text-xs text-slate-500"><span id="wasteListTotal">0</span> t total</p>
                 <p class="text-xs text-slate-500"><span id="wasteSelectedTotal">0</span> t selected</p>
               </div>
+              <div class="mb-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <select id="brokerWasteFilterType" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60">
+                  <option value="">Type: All</option>
+                  <option value="metal">⚙️ Metal</option>
+                  <option value="paper">📄 Paper</option>
+                  <option value="wood">🪵 Wood</option>
+                  <option value="plastic">🧴 Plastic</option>
+                  <option value="glass">🍾 Glass</option>
+                </select>
+                <select id="brokerWasteFilterQuality" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60">
+                  <option value="">Quality: All</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="F">F</option>
+                </select>
+                <input id="brokerWasteFilterMinVolume" type="number" min="0" step="1" placeholder="Min Volume (t)" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400/60" />
+              </div>
               <div id="wasteListBody" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[440px] overflow-y-auto">
                 <div class="col-span-full text-center py-8 text-slate-400 border border-slate-200 rounded-xl">
                   No waste in inventory yet.
                 </div>
               </div>
+              <p id="brokerWasteFilterEmpty" class="hidden mt-2 text-xs text-slate-500">No items match current filters.</p>
             </div>
           </div>
         </section>
@@ -220,6 +289,14 @@
         <p id="brokerUnifiedSelectionTitle" class="text-xs font-semibold text-slate-600 mb-1">Selected to send</p>
         <p id="brokerUnifiedSelectionSubtitle" class="text-xs text-slate-500 mb-2">Material / Waste — combined before sending</p>
         <div class="broker-unified-selection-text text-sm text-slate-700 font-mono rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 min-h-[2.5rem]">No items selected.</div>
+        <div class="mt-3 flex justify-end gap-2">
+          <button id="brokerSelectAllBtn" type="button" class="w-full sm:w-auto bg-slate-700 hover:bg-slate-800 text-white font-bold text-base px-6 py-2 rounded-xl shadow">
+            Select All
+          </button>
+          <button id="brokerClearAllBtn" type="button" class="w-full sm:w-auto bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-base px-6 py-2 rounded-xl shadow border border-slate-300">
+            Clear All
+          </button>
+        </div>
       </div>
 
       <div id="brokerCollectChooserShared" class="mt-6 rounded-xl border border-slate-300 bg-white shadow-sm p-5">
@@ -287,16 +364,16 @@
             </div>
 
             <div class="mt-3 bg-white rounded-2xl border border-slate-200 p-3">
-              <h3 class="text-sm font-semibold mb-2">Impact preview</h3>
-              <div class="grid grid-cols-2 gap-3 text-sm">
-                <div><p class="text-xs text-slate-500">🗑️ Inventory change</p><p class="font-semibold text-slate-800"><span id="impactInvDelta">0</span> t</p></div>
-                <div><p id="impactAfterLabel" class="text-xs text-slate-500">📦 After send (est.)</p><p class="font-semibold text-slate-800"><span id="impactInvAfter">–</span>/<span id="impactInvCap">–</span> t</p></div>
-                <div><p class="text-xs text-slate-500">💰 Budget impact (est.)</p><p class="font-semibold text-emerald-700"><span id="impactBudget">0</span> HKD</p></div>
-                <div><p class="text-xs text-slate-500">☁️ CO₂ impact (est.)</p><p class="font-semibold text-slate-700"><span id="impactCO2">0</span>%</p></div>
-                <div><p class="text-xs text-slate-500">🚚 Transport status</p><p class="font-semibold text-slate-700"><span id="impactTransportStatus">–</span></p></div>
-                <div><p class="text-xs text-slate-500">📏 Max load this trip</p><p class="font-semibold text-slate-700"><span id="impactMaxLoad">–</span> t</p></div>
-                <div><p class="text-xs text-slate-500">🕒 Delivery time</p><p class="font-semibold text-slate-800"><span id="impactDeliveryDays">–</span> d</p></div>
-                <div><p class="text-xs text-slate-500">↩️ Return time</p><p class="font-semibold text-slate-800"><span id="impactReturnDays">–</span> d</p></div>
+              <h3 class="text-base font-extrabold mb-3 text-slate-800">Impact preview</h3>
+              <div class="impact-grid">
+                <div class="impact-item"><span class="impact-icon">🗑️</span><div><p class="impact-label">Inventory change</p><p class="impact-value"><span id="impactInvDelta">0</span> t</p></div></div>
+                <div class="impact-item"><span class="impact-icon">📦</span><div><p id="impactAfterLabel" class="impact-label">After send (est.)</p><p class="impact-value"><span id="impactInvAfter">–</span>/<span id="impactInvCap">–</span> t</p></div></div>
+                <div class="impact-item"><span class="impact-icon">💰</span><div><p class="impact-label">Budget impact (est.)</p><p class="impact-value text-emerald-700"><span id="impactBudget">0</span> HKD</p></div></div>
+                <div class="impact-item"><span class="impact-icon">☁️</span><div><p class="impact-label">CO₂ impact (est.)</p><p class="impact-value"><span id="impactCO2">0</span>%</p></div></div>
+                <div class="impact-item"><span class="impact-icon">🚚</span><div><p class="impact-label">Transport status</p><p class="impact-value"><span id="impactTransportStatus">–</span></p></div></div>
+                <div class="impact-item"><span class="impact-icon">📏</span><div><p class="impact-label">Max load this trip</p><p class="impact-value"><span id="impactMaxLoad">–</span> t</p></div></div>
+                <div class="impact-item"><span class="impact-icon">🕒</span><div><p class="impact-label">Delivery time</p><p class="impact-value"><span id="impactDeliveryDays">–</span> d</p></div></div>
+                <div class="impact-item"><span class="impact-icon">↩️</span><div><p class="impact-label">Return time</p><p class="impact-value"><span id="impactReturnDays">–</span> d</p></div></div>
               </div>
               <div class="mt-3 pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-end gap-3">
                 <p id="pendingRequestNote" class="hidden text-xs text-slate-600 leading-relaxed flex-1 min-w-0"></p>
@@ -789,6 +866,76 @@
       renderMaterialSummary(summaryInv, isCollectMode && qualityMode === 'waste');
     }
 
+    function applyBrokerMaterialFilters() {
+      const typeFilter = (document.getElementById('brokerMaterialFilterType')?.value || '').toLowerCase();
+      const qualityFilter = (document.getElementById('brokerMaterialFilterQuality')?.value || '').toUpperCase();
+      const minVol = Math.max(0, Math.floor(Number(document.getElementById('brokerMaterialFilterMinVolume')?.value || 0)));
+      const rows = Array.from(document.querySelectorAll('#materialListBody [data-material-card-row="1"]'));
+      let visible = 0;
+      rows.forEach((row) => {
+        const mat = String(row.dataset.material || '').toLowerCase();
+        const grade = String(row.dataset.grade || '').toUpperCase();
+        const vol = Math.max(0, Math.floor(Number(row.dataset.volume || 0)));
+        const show = (!typeFilter || mat === typeFilter) && (!qualityFilter || grade === qualityFilter) && vol >= minVol;
+        row.classList.toggle('hidden', !show);
+        if (show) visible += 1;
+      });
+      const emptyEl = document.getElementById('brokerMaterialFilterEmpty');
+      if (emptyEl) emptyEl.classList.toggle('hidden', visible > 0);
+    }
+
+    function applyBrokerWasteFilters() {
+      const typeFilter = (document.getElementById('brokerWasteFilterType')?.value || '').toLowerCase();
+      const qualityFilter = (document.getElementById('brokerWasteFilterQuality')?.value || '').toUpperCase();
+      const minVol = Math.max(0, Math.floor(Number(document.getElementById('brokerWasteFilterMinVolume')?.value || 0)));
+      const rows = Array.from(document.querySelectorAll('#wasteListBody [data-waste-card-row="1"]'));
+      let visible = 0;
+      rows.forEach((row) => {
+        const mat = String(row.dataset.material || '').toLowerCase();
+        const grade = String(row.dataset.grade || '').toUpperCase();
+        const vol = Math.max(0, Math.floor(Number(row.dataset.volume || 0)));
+        const show = (!typeFilter || mat === typeFilter) && (!qualityFilter || grade === qualityFilter) && vol >= minVol;
+        row.classList.toggle('hidden', !show);
+        if (show) visible += 1;
+      });
+      const emptyEl = document.getElementById('brokerWasteFilterEmpty');
+      if (emptyEl) emptyEl.classList.toggle('hidden', visible > 0);
+    }
+
+    function selectAllBrokerRowsForCurrentMode() {
+      if (qualityMode === 'materials') {
+        document.querySelectorAll('#materialListBody input[data-material-card-tons="1"]').forEach((input) => {
+          input.value = String(Math.max(0, Math.floor(Number(input.max) || 0)));
+        });
+      } else {
+        document.querySelectorAll('#wasteListBody input[data-waste-card-tons="1"]').forEach((input) => {
+          input.value = String(Math.max(0, Math.floor(Number(input.max) || 0)));
+        });
+        document.querySelectorAll('#wasteSelectableBody input[type="number"]').forEach((input) => {
+          input.value = String(Math.max(0, Math.floor(Number(input.max) || 0)));
+        });
+      }
+      updateUnifiedSendSelectionSummary();
+      updateImpactPreview();
+    }
+
+    function clearAllBrokerRowsForCurrentMode() {
+      if (qualityMode === 'materials') {
+        document.querySelectorAll('#materialListBody input[data-material-card-tons="1"]').forEach((input) => {
+          input.value = '0';
+        });
+      } else {
+        document.querySelectorAll('#wasteListBody input[data-waste-card-tons="1"]').forEach((input) => {
+          input.value = '0';
+        });
+        document.querySelectorAll('#wasteSelectableBody input[type="number"]').forEach((input) => {
+          input.value = '0';
+        });
+      }
+      updateUnifiedSendSelectionSummary();
+      updateImpactPreview();
+    }
+
     function renderMaterialList(inv) {
       const tbody = document.getElementById('materialListBody');
       const totalEl = document.getElementById('materialListTotal');
@@ -804,7 +951,7 @@
       });
 
       const mats = inv?.materials || {};
-      const order = ['metal', 'paper', 'wood', 'plastic', 'glass', 'material6'];
+      const order = ['metal', 'paper', 'wood', 'plastic', 'glass'];
       const cards = [];
       let total = 0;
       let selected = 0;
@@ -823,16 +970,15 @@
             metal: '🔩',
             glass: '🍾',
             wood: '🪵',
-            material6: '📦'
           };
-          const baseLabel = mat === 'material6' ? 'Material 6' : (mat.charAt(0).toUpperCase() + mat.slice(1));
+          const baseLabel = mat.charAt(0).toUpperCase() + mat.slice(1);
           const matLabel = `${iconByMaterial[mat] || '📦'} ${baseLabel}`;
           const rowKey = `${mat}:${g}`;
           const prevNum = Math.max(0, Math.floor(Number(preserved[rowKey]) || 0));
           const safePrev = Math.min(prevNum, t);
           selected += safePrev;
           cards.push(`
-            <div class="mat-card" data-material-card-row="1" data-material="${mat}" data-grade="${g}">
+            <div class="mat-card" data-material-card-row="1" data-material="${mat}" data-grade="${g}" data-volume="${t}">
               <p class="text-lg font-extrabold">${matLabel}</p>
               <p class="mt-2 text-sm text-slate-800">Quality:
                 <span class="grade-pill ${gradeClass}">${g}</span>
@@ -873,6 +1019,7 @@
         });
       });
 
+      applyBrokerMaterialFilters();
       updateUnifiedSendSelectionSummary();
     }
 
@@ -967,7 +1114,7 @@
 
       const waste = displayInv?.waste || {};
       const bh = brokerHand?.waste || {};
-      const order = ['metal', 'paper', 'wood', 'plastic', 'glass', 'material6'];
+      const order = ['metal', 'paper', 'wood', 'plastic', 'glass'];
       const cards = [];
       let total = 0;
 
@@ -986,9 +1133,8 @@
             metal: '🔩',
             glass: '🍾',
             wood: '🪵',
-            material6: '📦'
           };
-          const baseLabel = mat === 'material6' ? 'Material 6' : (mat.charAt(0).toUpperCase() + mat.slice(1));
+          const baseLabel = mat.charAt(0).toUpperCase() + mat.slice(1);
           const matLabel = `${iconByMaterial[mat] || '📦'} ${baseLabel}`;
           const rowKey = `${mat}:${g}`;
           const prev = preserved[rowKey];
@@ -1017,7 +1163,7 @@
               />
             `;
           cards.push(`
-            <div class="mat-card" data-waste-card-row="1" data-material="${mat}" data-grade="${g}">
+            <div class="mat-card" data-waste-card-row="1" data-material="${mat}" data-grade="${g}" data-volume="${t}">
               <p class="text-lg font-extrabold">${matLabel}</p>
               <p class="mt-2 text-sm text-slate-800">Quality:
                 <span class="grade-pill ${gradeClass}">${g}</span>
@@ -1047,6 +1193,7 @@
         });
       });
 
+      applyBrokerWasteFilters();
       updateBrokerWasteSelectionTotal();
     }
 
@@ -1358,6 +1505,17 @@
       lastInvTotal = invTotal;
       lastInvCap = cap;
 
+      let allInvTotal = 0;
+      let allInvCap = 0;
+      ['municipality', 'mrf', 'broker'].forEach((k) => {
+        const inv2 = roles && roles[k] ? roles[k].inventory : null;
+        if (!inv2) return;
+        allInvCap += Number(inv2.capacityTonnes || 0);
+        allInvTotal += Math.max(0, Number(inv2.unprocessedWaste || 0));
+        Object.values(inv2.materials || {}).forEach((g) => { allInvTotal += (g.A || 0) + (g.B || 0) + (g.C || 0); });
+        Object.values(inv2.waste || {}).forEach((g) => { allInvTotal += (g.B || 0) + (g.C || 0) + (g.F || 0); });
+      });
+
       const statusBudgetEl = document.getElementById('statusBudget');
       if (statusBudgetEl) statusBudgetEl.textContent = shared.budgetHKD.toLocaleString('en-HK');
       const statusHealthEl = document.getElementById('statusHealth');
@@ -1365,7 +1523,7 @@
       const statusHealthBarEl = document.getElementById('statusHealthBar');
       if (statusHealthBarEl) statusHealthBarEl.style.width = `${Math.max(0, Math.min(100, Number(shared.cityHealth) || 0))}%`;
       const statusInventoryEl = document.getElementById('statusInventory');
-      if (statusInventoryEl) statusInventoryEl.textContent = `${invTotal}/${cap} t`;
+      if (statusInventoryEl) statusInventoryEl.textContent = `${Math.round(allInvTotal * 10) / 10}/${allInvCap} t`;
       const statusCO2El = document.getElementById('statusCO2');
       if (statusCO2El) statusCO2El.textContent = `${shared.carbonEmissions?.value ?? '–'}%`;
       const statusCO2BarEl = document.getElementById('statusCO2Bar');
@@ -1469,16 +1627,6 @@
       document.getElementById('hubHealth').textContent = shared.cityHealth + '%';
       document.getElementById('hubBuffer').textContent = buf;
       document.getElementById('hubTransport').textContent = tm;
-      let allInvTotal = 0;
-      let allInvCap = 0;
-      ['municipality', 'mrf', 'broker'].forEach((k) => {
-        const inv2 = roles && roles[k] ? roles[k].inventory : null;
-        if (!inv2) return;
-        allInvCap += Number(inv2.capacityTonnes || 0);
-        allInvTotal += Math.max(0, Number(inv2.unprocessedWaste || 0));
-        Object.values(inv2.materials || {}).forEach((g) => { allInvTotal += (g.A || 0) + (g.B || 0) + (g.C || 0); });
-        Object.values(inv2.waste || {}).forEach((g) => { allInvTotal += (g.B || 0) + (g.C || 0) + (g.F || 0); });
-      });
       document.getElementById('hubWasteTotal').textContent = Math.round(allInvTotal * 10) / 10;
       document.getElementById('hubWasteLimit').textContent = allInvCap;
       document.getElementById('hubCarbon').textContent = shared.carbonEmissions.value;
@@ -1566,7 +1714,6 @@
 
     function formatMaterialDisplayName(mat) {
       if (!mat) return '';
-      if (mat === 'material6') return 'Material 6';
       return mat.charAt(0).toUpperCase() + mat.slice(1);
     }
 
@@ -1709,6 +1856,22 @@
       if (!validateMaxLoadOrAlert(items, transport)) return;
       socket.emit('brokerSendToMrf', { role: 'Broker', items, ...transport });
     });
+
+    document.getElementById('brokerSelectAllBtn')?.addEventListener('click', () => {
+      selectAllBrokerRowsForCurrentMode();
+    });
+    document.getElementById('brokerClearAllBtn')?.addEventListener('click', () => {
+      clearAllBrokerRowsForCurrentMode();
+    });
+    ['brokerMaterialFilterType', 'brokerMaterialFilterQuality', 'brokerMaterialFilterMinVolume'].forEach((id) => {
+      document.getElementById(id)?.addEventListener('input', applyBrokerMaterialFilters);
+      document.getElementById(id)?.addEventListener('change', applyBrokerMaterialFilters);
+    });
+    ['brokerWasteFilterType', 'brokerWasteFilterQuality', 'brokerWasteFilterMinVolume'].forEach((id) => {
+      document.getElementById(id)?.addEventListener('input', applyBrokerWasteFilters);
+      document.getElementById(id)?.addEventListener('change', applyBrokerWasteFilters);
+    });
+
     socket.on('inventoryTransferResult', (payload) => {
       if (!payload) return;
       if (!payload.ok && payload.error) alert(payload.error);

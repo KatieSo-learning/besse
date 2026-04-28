@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 256" width="512" height="256" fill="none" role="img" aria-label="Recycling Centre feature art">
+  <defs>
+    <linearGradient id="bg" x1="40" y1="18" x2="484" y2="246" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#34D399"/>
+      <stop offset="1" stop-color="#15803D"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#0F172A" flood-opacity=".18"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="512" height="256" rx="22" fill="url(#bg)"/>
+  <circle cx="80" cy="182" r="34" fill="#86EFAC" fill-opacity=".22"/>
+  <circle cx="438" cy="170" r="40" fill="#D1FAE5" fill-opacity=".16"/>
+  <path d="M468 210l10 10l-10 10l-10-10Z" fill="#E8F3EC" fill-opacity=".9"/>
+
+  <!-- Recycling symbol + bin -->
+  <g filter="url(#soft)" stroke="#0B1220" stroke-opacity=".55" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M206 184h100l-10 40H216z" fill="#F5F1E6"/>
+    <path d="M224 120l24 40h-28" fill="none"/>
+    <path d="M304 120l-24 40h28" fill="none"/>
+    <path d="M256 88l24 40h-48z" fill="#F5F1E6"/>
+    <path d="M224 160l-18 0l10 18" stroke="#F5F1E6" stroke-opacity=".85" stroke-width="10"/>
+    <path d="M306 160l18 0l-10 18" stroke="#F5F1E6" stroke-opacity=".85" stroke-width="10"/>
+    <circle cx="330" cy="132" r="6" fill="#2F6F43" fill-opacity=".95" stroke="none"/>
+  </g>
+</svg>

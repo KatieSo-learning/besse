@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>City Waste Simulation – Leaderboard &amp; Game Results</title>
+<title>Leaderboard - All Roles</title>
 <script src="/socket.io/socket.io.js"></script>
   <link rel="stylesheet" href="ui-fonts.css" />
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -140,8 +140,7 @@
   <div class="stats" id="statsGrid"></div>
 
   <div class="lb-actions">
-    <button class="btn btn-sec" type="button" onclick="window.location.href='/'">Leave</button>
-    <button class="btn btn-pri" type="button" id="playAgainBtn">Play Again →</button>
+    <button id="leaveBtn" class="btn btn-sec" type="button">Leave</button>
   </div>
 </div>
 
@@ -154,73 +153,7 @@ let latestState = null;
 let shown = false;
 let scores = null;
 let currentTab = 'overall';
-
-const roleFromUrl = (() => {
-  try {
-    return new URLSearchParams(window.location.search).get('role');
-  } catch {
-    return null;
-  }
-})();
-
-function goBackToRoleHome() {
-  if (roleFromUrl) {
-    window.location.href = 'game.html?role=' + encodeURIComponent(roleFromUrl);
-    return;
-  }
-  window.location.href = '/';
-}
-
-/** Resets server session then routes back to the role main page. */
-function playAgain() {
-  const btn = document.getElementById('playAgainBtn');
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = 'Starting…';
-  }
-  socket.emit('restartGame', { role: roleFromUrl }, (res) => {
-    if (res && res.ok) {
-      // Gate behavior:
-      // - If not all 3 roles clicked yet, stay here and wait.
-      // - When server restarts (allReady), *everyone* redirects to game.html.
-      if (res.allReady) goBackToRoleHome();
-      else if (btn) {
-        btn.textContent = 'Waiting for others…';
-        btn.disabled = true;
-      }
-      return;
-    }
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = 'Play Again →';
-    }
-    alert('Could not restart the game. Check your connection and try again.');
-  });
-}
-
-document.getElementById('playAgainBtn')?.addEventListener('click', playAgain);
-
-socket.on('gameRestarted', (payload) => {
-  if (payload && payload.allReady) {
-    // All roles clicked Play Again: route this client back to its role page.
-    goBackToRoleHome();
-    return;
-  }
-  if (!shown) return;
-  shown = false;
-  document.getElementById('leaderboard')?.classList.remove('show');
-  document.getElementById('overlay')?.classList.remove('show');
-  document.getElementById('waitingState')?.classList.remove('hide');
-  const waitFill = document.getElementById('waitFill');
-  if (waitFill) waitFill.style.width = '0%';
-  fetch('/state')
-    .then((r) => r.json())
-    .then((data) => {
-      latestState = data;
-      updateWaiting(data);
-    })
-    .catch(() => {});
-});
+let leavingToLobby = false;
 
 const ROLE_COLORS = {
   municipality: '#5c6b4f',
@@ -228,21 +161,60 @@ const ROLE_COLORS = {
   broker: '#2d3a28'
 };
 
+function isTerminalByMetrics(shared) {
+  if (!shared) return false;
+  return (
+    Number(shared.cityHealth) <= 0 ||
+    Number(shared.budgetHKD) <= 0 ||
+    Number(shared?.waste?.totalTonnes) >= Number(shared?.waste?.capacityTonnes) ||
+    Number(shared?.carbonEmissions?.value) >= Number(shared?.carbonEmissions?.limit) ||
+    Number(shared.day) >= Number(shared.maxDay)
+  );
+}
+
+function inferGameOverReason(state) {
+  const s = state && state.shared ? state.shared : null;
+  if (!s) return 'Game ended';
+  if (Number(s.cityHealth) <= 0) return 'City health reached 0%';
+  if (Number(s.budgetHKD) <= 0) return 'Budget depleted';
+  if (Number(s?.waste?.totalTonnes) >= Number(s?.waste?.capacityTonnes)) return 'Waste capacity full';
+  if (Number(s?.carbonEmissions?.value) >= Number(s?.carbonEmissions?.limit)) return 'Carbon limit reached';
+  if (Number(s.day) >= Number(s.maxDay)) return 'Well Done';
+  return 'Game ended';
+}
+
+function inferWinFromState(state) {
+  const s = state && state.shared ? state.shared : null;
+  if (!s) return false;
+  return (
+    Number(s.day) >= Number(s.maxDay) &&
+    Number(s.cityHealth) > 0 &&
+    Number(s.budgetHKD) > 0 &&
+    Number(s?.waste?.totalTonnes) < Number(s?.waste?.capacityTonnes) &&
+    Number(s?.carbonEmissions?.value) < Number(s?.carbonEmissions?.limit)
+  );
+}
+
 // ── Listen for live state ──
 socket.on('gameStateUpdate', (state) => {
   latestState = state;
   updateWaiting(state);
 
-  // Detect max day reached (backup if gameOver event missed)
-  if (!shown && state.shared && state.shared.day >= state.shared.maxDay) {
-    triggerLeaderboard('Simulation complete — Day ' + state.shared.maxDay + ' reached!', state);
+  // Authoritative fallback: show leaderboard whenever state is terminal.
+  if (!shown && state && state.shared && (state.shared.gameOver || isTerminalByMetrics(state.shared))) {
+    triggerLeaderboard(inferGameOverReason(state), state, inferWinFromState(state));
   }
 });
 
 // ── Listen for game over ──
 socket.on('gameOver', (data) => {
   if (!shown) {
-    triggerLeaderboard(data.reason, data.state, data.isWin);
+    const s = data && data.state ? data.state : latestState;
+    triggerLeaderboard(
+      (data && data.reason) || inferGameOverReason(s),
+      s,
+      data && typeof data.isWin === 'boolean' ? data.isWin : inferWinFromState(s)
+    );
   }
 });
 
@@ -257,21 +229,8 @@ fetch('/state')
 
     updateWaiting(data);
 
-    const isOver =
-      s.cityHealth <= 0 ||
-      s.budgetHKD <= 0 ||
-      s.waste.totalTonnes >= s.waste.capacityTonnes ||
-      s.carbonEmissions.value >= s.carbonEmissions.limit ||
-      s.day >= s.maxDay;
-
-    if (isOver) {
-      let reason = 'Game ended';
-      if (s.cityHealth <= 0) reason = 'City health reached 0%';
-      else if (s.budgetHKD <= 0) reason = 'Budget depleted';
-      else if (s.waste.totalTonnes >= s.waste.capacityTonnes) reason = 'Waste capacity full';
-      else if (s.carbonEmissions.value >= s.carbonEmissions.limit) reason = 'Carbon limit reached';
-      else if (s.day >= s.maxDay) reason = 'Simulation complete — Day ' + s.maxDay;
-      triggerLeaderboard(reason, data);
+    if (s.gameOver || isTerminalByMetrics(s)) {
+      triggerLeaderboard(inferGameOverReason(data), data, inferWinFromState(data));
     }
   })
   .catch(() => {});
@@ -399,12 +358,14 @@ function computeScores(state) {
 // ══════════════════════════════════════
 function triggerLeaderboard(reason, state, isWin) {
   if (shown) return;
+  const safeState = (state && state.shared) ? state : latestState;
+  if (!safeState || !safeState.shared) return;
   shown = true;
-  scores = computeScores(state);
+  scores = computeScores(safeState);
   scores.reason = reason;
   const win = typeof isWin === 'boolean'
     ? isWin
-    : /simulation complete|day\s*180/i.test(String(reason || ''));
+    : inferWinFromState(safeState);
 
   // Hide waiting, show overlay + panel
   document.getElementById('waitingState').classList.add('hide');
@@ -413,7 +374,8 @@ function triggerLeaderboard(reason, state, isWin) {
   // Populate header
   document.getElementById('lbSub').textContent = 'Day ' + scores.raw.day + ' / ' + scores.raw.maxDay;
   document.getElementById('lbReason').textContent = reason;
-  document.getElementById('lbBadge').textContent = win ? '🏆 Well done!' : '🏆 Game Over';
+  const finishedByDays = Number(safeState.shared.day) >= Number(safeState.shared.maxDay);
+  document.getElementById('lbBadge').textContent = finishedByDays ? '🏆 Well Done' : '🏁 Game Over';
 
   // City grade
   renderCityGrade(scores.city.score);
@@ -427,6 +389,48 @@ function triggerLeaderboard(reason, state, isWin) {
   // Show panel
   setTimeout(() => document.getElementById('leaderboard').classList.add('show'), 100);
 }
+
+function goLobbyHome() {
+  window.location.href = '/?autoResetLobby=1';
+}
+
+function resolveRoleForRestart() {
+  try {
+    const fromQuery = new URLSearchParams(window.location.search).get('role');
+    if (fromQuery) return fromQuery;
+  } catch (_) {}
+  try {
+    const fromStorage = localStorage.getItem('besseLastRole');
+    if (fromStorage) return fromStorage;
+  } catch (_) {}
+  return null;
+}
+
+function leaveAndAutoReset() {
+  if (leavingToLobby) return;
+  leavingToLobby = true;
+  const leaveBtn = document.getElementById('leaveBtn');
+  if (leaveBtn) {
+    leaveBtn.disabled = true;
+    leaveBtn.textContent = 'Leaving...';
+  }
+
+  // Fallback: if restart events/ack are delayed, still return to lobby.
+  const fallbackTimer = setTimeout(() => {
+    goLobbyHome();
+  }, 1800);
+
+  socket.emit('restartGame', { role: resolveRoleForRestart(), force: true }, (res) => {
+    if (!res || !res.ok) {
+      clearTimeout(fallbackTimer);
+      goLobbyHome();
+    }
+  });
+}
+
+socket.on('gameRestarted', () => {
+  if (leavingToLobby) goLobbyHome();
+});
 
 // ══════════════════════════════════════
 // ── City Grade ──
@@ -541,6 +545,8 @@ function renderPodium(tab) {
   setTimeout(() => document.getElementById('pod0')?.classList.add('show'), 400);
   setTimeout(() => document.getElementById('pod2')?.classList.add('show'), 550);
 }
+
+document.getElementById('leaveBtn')?.addEventListener('click', leaveAndAutoReset);
 </script>
 </body>
 </html>

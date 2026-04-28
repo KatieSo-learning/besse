@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>City Waste Simulation – Choose Your Role</title>
+  <title>Role Selection - All Roles</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <link rel="stylesheet" href="ui-fonts.css" />
@@ -94,6 +94,20 @@
     .role-title{
       color: var(--ink);
       letter-spacing:.5px;
+    }
+    .role-image-wrap{
+      width: 100%;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(26,47,37,.12);
+      margin-bottom: 1rem;
+      background: #f5f7f2;
+    }
+    .role-image{
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      display: block;
     }
 
     .dot-list li{
@@ -217,7 +231,7 @@
     <div class="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
       <div></div>
 
-      <h1 class="text-3xl md:text-4xl font-extrabold tracking-widest text-center">ABC City</h1>
+      <h1 class="text-3xl md:text-4xl font-extrabold tracking-widest text-center relative left-12 md:left-14">BESSE City Waste Simulation</h1>
 
       <div class="flex items-center gap-3">
         <span id="playerCountBadge"
@@ -235,7 +249,6 @@
       <!-- Two separate header panels: videos vs. role selection -->
       <div class="grid grid-cols-1 gap-4 md:gap-5">
         <div class="stage-head">
-          <p class="text-emerald-100 text-sm md:text-base font-semibold">Please watch the videos before starting the game.</p>
           <div class="flex flex-wrap justify-center gap-3 mt-4">
             <a href="https://youtu.be/1K9-JfVFxfk"
                target="_blank" rel="noopener noreferrer"
@@ -263,11 +276,14 @@
           <article onclick="selectRole(this, 'Municipality')" id="card-Municipality"
                    class="role-card p-6 md:p-7">
             <div class="taken-badge">TAKEN</div>
+            <div class="role-image-wrap">
+              <img src="role-municipality.svg" alt="Municipality role illustration" class="role-image" />
+            </div>
             <h3 class="role-title text-2xl md:text-3xl font-extrabold mb-4 md:mb-6">Municipality</h3>
             <ul class="dot-list space-y-3 text-sm leading-relaxed text-gray-800">
-              <li>You collect waste from Residential, Commercial, and Industrial districts.</li>
-              <li>You balance city metrics: budget, city health, and carbon emissions.</li>
-              <li>You complete city projects using Grade A/B materials to boost city health.</li>
+              <li>Manage Residential, Commercial, and Industrial districts.</li>
+              <li>Use Inventory and Marketplace for waste/material flow.</li>
+              <li>Complete City Projects while balancing budget, health, and carbon.</li>
             </ul>
           </article>
 
@@ -275,11 +291,14 @@
           <article onclick="selectRole(this, 'MRF')" id="card-MRF"
                    class="role-card p-6 md:p-7">
             <div class="taken-badge">TAKEN</div>
+            <div class="role-image-wrap">
+              <img src="role-mrf.svg" alt="MRF role illustration" class="role-image" />
+            </div>
             <h3 class="role-title text-2xl md:text-3xl font-extrabold mb-4 md:mb-6">MRF</h3>
             <ul class="dot-list space-y-3 text-sm leading-relaxed text-gray-800">
-              <li>You process and sort waste into usable materials (A/B/C grades).</li>
-              <li>You run Sorting, Recycling, and Waste Treatment to reduce low-grade waste.</li>
-              <li>You decide what to send to Broker while controlling processing costs and impact.</li>
+              <li>Run Inventory, Sorting, Recycling, and Waste Treatment.</li>
+              <li>Process waste/material streams into usable outputs.</li>
+              <li>Send to Broker while controlling cost and emissions.</li>
             </ul>
           </article>
 
@@ -287,11 +306,14 @@
           <article onclick="selectRole(this, 'Broker')" id="card-Broker"
                    class="role-card p-6 md:p-7">
             <div class="taken-badge">TAKEN</div>
+            <div class="role-image-wrap">
+              <img src="role-broker.svg" alt="Broker role illustration" class="role-image" />
+            </div>
             <h3 class="role-title text-2xl md:text-3xl font-extrabold mb-4 md:mb-6">Broker</h3>
             <ul class="dot-list space-y-3 text-sm leading-relaxed text-gray-800">
-              <li>You move materials and waste between Municipality and MRF.</li>
-              <li>You manage transport choices (truck/port/airport), speed, capacity, and cost.</li>
-              <li>You trade in the marketplace to support team flow and avoid bottlenecks.</li>
+              <li>Coordinate logistics between Municipality and MRF.</li>
+              <li>Operate Airport, Truck Park, and Port routes.</li>
+              <li>Manage inventory flow to prevent transport bottlenecks.</li>
             </ul>
           </article>
         </div>
@@ -305,11 +327,6 @@
               <option value="beginner" selected>Beginner</option>
             </select>
           </div>
-          <button onclick="resetLobby()"
-                  class="btn btn-ink pill px-6 py-3 font-bold text-sm md:text-base">
-            Reset
-          </button>
-
           <button id="continueBtn" onclick="confirmSelection()" disabled
                   class="btn btn-main pill px-7 py-3 font-extrabold text-sm md:text-base btn-disabled flex items-center gap-2">
             <span>CONTINUE</span>
@@ -331,6 +348,11 @@
     socket.on('connect', requestLobbySeat);
     if (socket.connected) requestLobbySeat();
     if (typeof besseAttachRestartUI === 'function') besseAttachRestartUI(socket);
+    // Always reset role locks whenever users enter the lobby page.
+    // The new round starts clean; roles are only locked again after pressing Continue.
+    (function autoResetLobbyOnEntry() {
+      socket.emit('resetLobby', {}, () => {});
+    })();
 
     let mySelectedRole = null;    // role the player clicked (not yet confirmed)
     let myConfirmedRole = null;   // role locked after continue
@@ -447,6 +469,10 @@
     socket.on('gameReady', (data) => {
       alert(data.message || 'All roles selected. Starting…');
       const role = myConfirmedRole || '';
+      if (role === 'Municipality') {
+        window.location.href = 'municipality-hub.html?role=' + encodeURIComponent(role);
+        return;
+      }
       window.location.href = 'game.html?role=' + encodeURIComponent(role);
     });
 

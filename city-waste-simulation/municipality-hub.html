@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Municipality – City Hub &amp; Navigation | City Waste Simulation</title>
+  <title>Hub - Municipality</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <link rel="stylesheet" href="ui-fonts.css" />
@@ -13,7 +13,7 @@
       .topbar { background: var(--ink-2); }
       .panel { background: #a8b995; }
       .panel-head { background: var(--ink); }
-      .record-bar { background: linear-gradient(90deg, #16a34a 0%, #047857 100%); }
+      .record-bar { background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%); }
       .cardShadow { box-shadow: var(--shadow-1); }
   </style>
   <style>
@@ -38,10 +38,20 @@
       .card, .role-card { background: var(--card) !important; }
       .btn-ink { background: var(--ink) !important; color:#fff !important; }
       .btn-main { background:#fff !important; color:#111827 !important; border: 2px solid #e9e5d6 !important; }
-      .record-bar { background: linear-gradient(90deg, #16a34a 0%, #047857 100%) !important; }
+      .record-bar { background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%) !important; }
       .status-normal { background: linear-gradient(135deg, #059669 0%, #047857 100%) !important; }
       .status-full { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; }
       .status-overflowing { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important; }
+      .status-strip {
+        position: fixed;
+        bottom: 10px;
+        left: 24px;
+        right: 24px;
+        z-index: 9990;
+      }
+      @media (max-width: 768px) {
+        .status-strip { left: 12px; right: 12px; }
+      }
 
       /* Match event log title style with game.html */
       .subhead{
@@ -49,24 +59,83 @@
         letter-spacing:.05em;
         color: var(--ink);
       }
+      .feature-btn{
+        background: linear-gradient(180deg, #ffffff 0%, #f7faf9 100%);
+        border: 1px solid rgba(47,111,67,.25);
+        box-shadow: 0 8px 18px rgba(15,23,42,.08);
+        transition: transform .2s ease, box-shadow .2s ease;
+        overflow: hidden;
+      }
+      .feature-btn:hover{
+        transform: translateY(-2px);
+        box-shadow: 0 14px 24px rgba(15,23,42,.12);
+      }
+      .feature-btn:focus-visible{
+        outline: 3px solid rgba(47,111,67,.35);
+        outline-offset: 3px;
+      }
+      .feature-art{
+        height: 76px;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size: 1.8rem;
+        color:#fff;
+        font-weight: 800;
+        letter-spacing: .03em;
+        overflow: hidden;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-size: cover;
+      }
+      /* Illustration banners (consistent style across tiles) */
+      .art-inventory{
+        background-image: url('assets/feature-inventory.svg');
+        background-color: #1d4ed8;
+      }
+      .art-marketplace{
+        background-image: url('assets/feature-marketplace.svg');
+        background-color: #0284c7;
+      }
+      .art-residential{
+        background-image: url('assets/feature-residential.svg');
+        background-color: #15803d;
+      }
+      .art-commercial{
+        background-image: url('assets/feature-commercial.svg');
+        background-color: #d97706;
+      }
+      .art-industrial{
+        background-image: url('assets/feature-industrial.svg');
+        background-color: #4b5563;
+      }
+      .art-project{
+        background-image: url('assets/feature-project.svg');
+        background-color: #6d28d9;
+      }
+      .sev-good { color: #15803d; }
+      .sev-warn { color: #b45309; }
+      .sev-bad { color: #b91c1c; }
     </style>
     <!-- GREEN-THEME-OVERRIDE -->
 </head>
 <body class="min-h-screen text-slate-800">
   <div class="mx-auto px-0">
     <header class="app-header w-full position: fixed z-index:9999">
-      <div class="topbar px-6 py-3 text-white shadow flex items-center justify-between">
-      <div class="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+      <div class="topbar px-4 py-3 text-white shadow flex items-center justify-between gap-2 relative">
+      <div class="flex items-center gap-2 min-w-0 shrink-0">
         <!-- <button onclick="window.location.href='index.html'" class="bg-white text-slate-800 hover:bg-slate-100 rounded-full w-10 h-10 text-lg font-bold leading-none shrink-0">←</button> -->
         <div class="hidden md:flex items-center rounded-full bg-[#f1f1ea] text-slate-700 border border-black/15 px-4 py-2 text-sm font-extrabold tracking-wide">
           <span id="clockText">10:00 a.m.</span>
           <span class="mx-2">|</span>
           <span id="dateText">01 November 2025</span>
         </div>
-        <span id="headerDayChip" class="text-[11px] sm:text-xs text-white font-bold whitespace-nowrap shrink-0" title="Game day progress">Day – / –</span>
+        <span id="headerDayChip" class="text-xs md:text-sm text-white-100 font-bold whitespace-nowrap" title="Game day progress">Day – / –</span>
       </div>
-      <div class="text-center">
-        <h1 class="text-3xl md:text-5xl font-extrabold tracking-wide">Municipality - Game View</h1>
+      <div class="text-center absolute left-1/2 -translate-x-1/2 pointer-events-none">
+        <h1 id="gameTitle" class="text-2xl md:text-3xl font-extrabold tracking-widest">Municipality - Game View</h1>
       </div>
       <div class="flex items-center gap-2">
         <button
@@ -82,13 +151,8 @@
       </div>
     </header>
 
-    <main class="px-4 pt-20 pb-8 md:px-6">
+    <main class="px-4 pt-20 pb-72 md:px-6">
       <div class="panel rounded-[22px] p-4 md:p-6 cardShadow">
-        <div class="panel-head rounded-2xl px-6 py-6 text-white text-center mb-6">
-          <h2 class="text-2xl md:text-3xl font-extrabold tracking-widest">GAME PANEL</h2>
-          <p class="text-100 mt-1 text-sm md:text-base">Team state, your inventory and actions</p>
-        </div>
-
           <script src="player-menu.js"></script>
 
         <section id="summaryPanel" class="grid gap-6 md:grid-cols-2 mb-6">
@@ -104,14 +168,33 @@
               </a>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2"><span>Budget (HKD)</span><span id="budgetHKD" class="font-semibold">–</span></div>
-              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2"><span>City Health</span><span class="font-semibold"><span id="cityHealth">–</span>%</span></div>
-              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2"><span>Buffer Level</span><span id="bufferLevel" class="font-semibold">–</span></div>
-              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2"><span>Transport Time</span><span class="font-semibold">x<span id="transportMultiplier">–</span></span></div>
-              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2"><span>Waste</span><span class="font-semibold"><span id="wasteTotal">–</span> t / <span id="wasteLimit">–</span> t</span></div>
-              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2"><span>Carbon</span><span class="font-semibold"><span id="carbonValue">–</span>% / <span id="carbonLimit">–</span>%</span></div>
-              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2 sm:col-span-2"><span>Day</span><span class="font-semibold"><span id="currentDay">–</span> / <span id="maxDay">–</span></span></div>
+            <div class="space-y-2 text-sm">
+              <div class="hidden rounded-xl border border-slate-200 px-4 py-3 flex items-center gap-3 bg-white">
+                <span class="text-lg">💰</span>
+                <span class="font-semibold text-slate-700">Budget (HKD)</span>
+                <span id="budgetHKD" class="ml-auto font-bold text-slate-900">–</span>
+              </div>
+              <div class="hidden rounded-xl border border-slate-200 px-4 py-3 flex items-center gap-3 bg-white">
+                <span class="text-lg">❤️</span>
+                <span class="font-semibold text-slate-700 min-w-[88px]">City Health</span>
+                <div class="flex-1 h-2 rounded-full bg-slate-200 overflow-hidden">
+                  <div id="cityHealthBarFill" class="h-full bg-rose-400" style="width:0%"></div>
+                </div>
+                <span class="font-bold text-slate-900 w-20 text-right"><span id="cityHealth">–</span>%</span>
+              </div>
+              <div class="hidden rounded-xl border border-slate-200 px-4 py-3 flex items-center gap-3 bg-white">
+                <span class="text-lg">☁️</span>
+                <span class="font-semibold text-slate-700 min-w-[88px]">Carbon</span>
+                <div class="flex-1 h-2 rounded-full bg-slate-200 overflow-hidden">
+                  <div id="carbonBarFill" class="h-full bg-emerald-500" style="width:0%"></div>
+                </div>
+                <span class="font-bold text-slate-900 w-28 text-right"><span id="carbonValue">–</span>% / <span id="carbonLimit">–</span>%</span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2"><span>Buffer Level</span><span id="bufferLevel" class="font-semibold">–</span></div>
+                <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2"><span>Transport Time</span><span id="transportTimeValue" class="font-semibold">x<span id="transportMultiplier">–</span></span></div>
+              </div>
+              <div class="rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-2 sm:col-span-2 hidden"><span>Day</span><span class="font-semibold"><span id="currentDay">–</span> / <span id="maxDay">–</span></span></div>
             </div>
 
             <div id="districtsLines" class="hidden mt-3 space-y-1 text-xs">
@@ -122,66 +205,126 @@
             <button type="button" id="districtsSummaryBtn" class="hidden mt-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-800 border border-slate-200 hover:bg-slate-50">View details</button>
           </div>
 
-          <div id="myInventoryPanel" class="bg-white rounded-2xl p-5 border border-slate-200 cardShadow">
-            <div class="mb-4 flex items-center justify-between gap-3">
-              <h2 class="text-xl font-extrabold">My Inventory – <span id="myInventoryRoleName">Municipality</span></h2>
-              <div id="myInventoryCapBadge" class="text-2xl font-extrabold text-slate-700">0/150 t</div>
+          <div id="myInventoryPanel" class="bg-white rounded-2xl p-6 border border-slate-200 cardShadow space-y-3">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="subhead text-lg">My Inventory</h3>
+              <div id="myInventoryCapBadge" class="text-xl font-extrabold text-slate-700">0/150 t</div>
             </div>
-            <div class="rounded-xl border border-slate-200 overflow-hidden">
-              <div class="grid grid-cols-[1fr_120px_1.6fr] bg-slate-50 text-slate-600 text-xs font-semibold px-4 py-2">
-                <div>Type</div><div class="text-right pr-6">Total (t)</div><div class="text-left pl-4">Details</div>
-              </div>
-              <div class="px-4 py-4 text-sm text-slate-700 space-y-2" id="myInventoryRows">
-                <div class="grid grid-cols-[1fr_120px_1.6fr] gap-2 border-b border-slate-200/70 pb-2">
-                  <div>Material</div>
-                  <div class="text-right pr-6" id="myInventoryMaterialTotal">0</div>
-                  <div class="text-slate-600 pl-4" id="myInventoryMaterialDetails">A:0, B:0, C:0</div>
-                </div>
-                <div class="grid grid-cols-[1fr_120px_1.6fr] gap-2">
-                  <div>Waste</div>
-                  <div class="text-right pr-6" id="myInventoryWasteTotal">0</div>
-                  <div class="text-slate-600 pl-4" id="myInventoryWasteDetails">B:0, C:0, F:0</div>
-                </div>
-              </div>
+            <div class="overflow-x-auto">
+              <table class="text-xs w-full">
+                <thead class="text-slate-500">
+                  <tr class="border-b border-slate-200/60">
+                    <th class="text-left py-1 pr-3">Type</th>
+                    <th class="text-right py-1 pr-6 w-24">Total (t)</th>
+                    <th class="text-left py-1 pl-4">Details</th>
+                  </tr>
+                </thead>
+                <tbody class="text-sm text-slate-700" id="myInventoryRows">
+                  <tr class="border-b border-slate-200/70">
+                    <td class="py-2">Material</td>
+                    <td class="text-right pr-6" id="myInventoryMaterialTotal">0</td>
+                    <td class="text-slate-600 pl-4" id="myInventoryMaterialDetails">A:0, B:0, C:0</td>
+                  </tr>
+                  <tr>
+                    <td class="pt-2">Waste</td>
+                    <td class="text-right pr-6 pt-2" id="myInventoryWasteTotal">0</td>
+                    <td class="text-slate-600 pl-4 pt-2" id="myInventoryWasteDetails">B:0, C:0, F:0</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </section>
 
         <section class="grid gap-6 md:grid-cols-2 mb-6">
-          <button class="w-full bg-slate-50  rounded-2xl p-5 text-left border border-slate-200 cardShadow" onclick="navigate('municipality-inventory.html')">
+          <button class="feature-btn w-full rounded-2xl p-5 text-left cardShadow" onclick="navigate('municipality-inventory.html')">
+            <div class="feature-art art-inventory" aria-label="Inventory"></div>
             <h3 class="text-xl font-extrabold mb-2">Inventory</h3>
             <p class="text-sm text-slate-600">Inspect and track municipal inventory.</p>
+            <div class="mt-3">
+              <span id="inventoryIncomingStatus" class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold bg-slate-100 text-slate-700 border-slate-200">Incoming: No incoming</span>
+            </div>
           </button>
-          <button class="w-full bg-slate-50 hover:bg-white rounded-2xl p-5 text-left border border-slate-200 cardShadow" onclick="navigate('municipality-marketplace.html')">
+          <button class="feature-btn w-full rounded-2xl p-5 text-left cardShadow" onclick="navigate('municipality-marketplace.html')">
+            <div class="feature-art art-marketplace" aria-label="Marketplace"></div>
             <h3 class="text-xl font-extrabold mb-2">Marketplace</h3>
             <p class="text-sm text-slate-600">Buy and sell materials in the market.</p>
           </button>
-          <button class="w-full bg-slate-50 hover:bg-white rounded-2xl p-5 text-left border border-slate-200 cardShadow" onclick="navigate('municipality-residential.html')">
+          <button class="feature-btn w-full rounded-2xl p-5 text-left cardShadow" onclick="navigate('municipality-residential.html')">
+            <div class="feature-art art-residential" aria-label="Residential"></div>
             <h3 class="text-xl font-extrabold mb-2">Residential</h3>
             <p class="text-sm text-slate-600">Focus on residential areas and impacts.</p>
+            <div class="mt-3">
+              <span id="districtStatusResidential" class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold bg-slate-100 text-slate-700 border-slate-200">Waste: -</span>
+            </div>
           </button>
-          <button class="w-full bg-slate-50 hover:bg-white rounded-2xl p-5 text-left border border-slate-200 cardShadow" onclick="navigate('municipality-commercial.html')">
+          <button class="feature-btn w-full rounded-2xl p-5 text-left cardShadow" onclick="navigate('municipality-commercial.html')">
+            <div class="feature-art art-commercial" aria-label="Commercial"></div>
             <h3 class="text-xl font-extrabold mb-2">Commercial</h3>
             <p class="text-sm text-slate-600">Monitor commercial activity and waste.</p>
+            <div class="mt-3">
+              <span id="districtStatusCommercial" class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold bg-slate-100 text-slate-700 border-slate-200">Waste: -</span>
+            </div>
           </button>
-          <button class="w-full bg-slate-50 hover:bg-white rounded-2xl p-5 text-left border border-slate-200 cardShadow" onclick="navigate('municipality-industrial.html')">
+          <button class="feature-btn w-full rounded-2xl p-5 text-left cardShadow" onclick="navigate('municipality-industrial.html')">
+            <div class="feature-art art-industrial" aria-label="Industrial"></div>
             <h3 class="text-xl font-extrabold mb-2">Industrial</h3>
             <p class="text-sm text-slate-600">Review industrial zones and emissions.</p>
+            <div class="mt-3">
+              <span id="districtStatusIndustrial" class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold bg-slate-100 text-slate-700 border-slate-200">Waste: -</span>
+            </div>
           </button>
-          <button class="w-full bg-slate-50 hover:bg-white rounded-2xl p-5 text-left border border-slate-200 cardShadow" onclick="navigate('municipality-projects.html')">
+          <button class="feature-btn w-full rounded-2xl p-5 text-left cardShadow" onclick="navigate('municipality-projects.html')">
+            <div class="feature-art art-project" aria-label="City Project">
+            </div>
             <h3 class="text-xl font-extrabold mb-2">City Project</h3>
             <p class="text-sm text-slate-600">Plan and manage city-wide projects.</p>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <span id="projectStatusSoon" class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold bg-amber-100 text-amber-700 border-amber-200">Soon delay: -</span>
+              <span id="projectStatusDelayed" class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold bg-red-100 text-red-700 border-red-200">Delayed: -</span>
+            </div>
           </button>
         </section>
 
-        <section>
-          <h3 class="subhead text-base mb-2">Event Log</h3>
-          <div id="hubEventLog" class="bg-white rounded-2xl border border-slate-200 p-4 text-[12px] font-mono max-h-64 overflow-y-auto shadow-sm">
-            No events yet.
-          </div>
-        </section>
       </div>
     </main>
+  </div>
+  <div id="bottomStatusStrip" class="status-strip">
+    <div class="flex flex-col lg:flex-row gap-4 items-end">
+      <div class="w-full lg:w-[30%] rounded-2xl border border-slate-300 shadow-sm overflow-hidden">
+        <div class="record-bar px-4 py-3 text-white text-2xl font-bold flex items-center gap-2">
+          <span>📎</span><span>Record</span>
+        </div>
+        <div id="recordLog" class="bg-white px-4 py-3 max-h-32 overflow-y-auto text-sm text-slate-800 leading-relaxed">
+          No events yet.
+        </div>
+      </div>
+      <div class="w-full lg:flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+        <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
+          <span class="text-xl">💰</span>
+          <span class="text-slate-500"></span>
+          <span id="statusBudget" class="font-extrabold text-slate-900">–</span>
+        </div>
+        <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
+          <span class="text-xl">❤️</span>
+          <div class="flex-1 h-3 rounded-full bg-slate-200 overflow-hidden border border-black/10">
+            <div id="statusHealthBar" class="h-full bg-red-400" style="width: 0%"></div>
+          </div>
+          <span id="statusHealth" class="font-extrabold text-slate-900 whitespace-nowrap">–</span>
+        </div>
+        <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
+          <span class="text-xl">🗑️</span>
+          <span id="statusInventory" class="font-extrabold text-slate-900">–</span>
+        </div>
+        <div class="rounded-full bg-white border border-black/10 px-4 py-2 flex items-center justify-between gap-2">
+          <span class="text-xl">☁️</span>
+          <div class="flex-1 h-3 rounded-full bg-slate-200 overflow-hidden border border-black/10">
+            <div id="statusCO2Bar" class="h-full bg-red-500" style="width: 0%"></div>
+          </div>
+          <span id="statusCO2" class="font-extrabold text-slate-900 whitespace-nowrap">–</span>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- District status popup -->
@@ -201,6 +344,9 @@
   <script>
     const params = new URLSearchParams(window.location.search);
     const role = params.get('role') || 'Municipality';
+    let leaderboardRedirected = false;
+    let lastMunicipalityIncomingCount = 0;
+    let lastMunicipalityDeliveredDay = null;
 
     (function setupDashboardNav() {
       const el = document.getElementById('dashboardNavBtn');
@@ -215,6 +361,19 @@
     function navigate(path) {
       const url = new URL(path, window.location.origin);
       url.searchParams.set('role', role);
+      const dest = url.toString();
+      if (window.self !== window.top) {
+        window.top.location.href = dest;
+      } else {
+        window.location.href = dest;
+      }
+    }
+
+    function goLeaderboard() {
+      if (leaderboardRedirected) return;
+      leaderboardRedirected = true;
+      const url = new URL('leaderboard.html', window.location.origin);
+      if (role) url.searchParams.set('role', role);
       const dest = url.toString();
       if (window.self !== window.top) {
         window.top.location.href = dest;
@@ -270,7 +429,7 @@
       const roleObj = roles[roleKey];
       if (!roleObj || !roleObj.inventory) return;
 
-      nameSpan.textContent = roleObj.roleName || 'Municipality';
+      nameSpan.textContent = 'Municipality';
       const inv = roleObj.inventory;
 
       let matA = 0; let matB = 0; let matC = 0;
@@ -304,14 +463,43 @@
 
       document.getElementById('budgetHKD').textContent = shared.budgetHKD.toLocaleString('en-HK');
       document.getElementById('cityHealth').textContent = shared.cityHealth;
-      document.getElementById('bufferLevel').textContent =
-        (roles && roles.municipality && roles.municipality.bufferLevel) ? roles.municipality.bufferLevel : 'Normal';
-      document.getElementById('transportMultiplier').textContent = shared.transportTimeMultiplier ?? 1;
+      const bufferLevel = (roles && roles.municipality && roles.municipality.bufferLevel) ? roles.municipality.bufferLevel : 'Normal';
+      const transportMultiplier = Number(shared.transportTimeMultiplier ?? 1);
+      document.getElementById('bufferLevel').textContent = bufferLevel;
+      document.getElementById('transportMultiplier').textContent = transportMultiplier;
+      {
+        const blEl = document.getElementById('bufferLevel');
+        const ttEl = document.getElementById('transportTimeValue');
+        const sevClassByBuffer =
+          bufferLevel === 'Overflowing' ? 'sev-bad' :
+          bufferLevel === 'Full' ? 'sev-warn' :
+          'sev-good';
+        if (blEl) {
+          blEl.classList.remove('sev-good', 'sev-warn', 'sev-bad');
+          blEl.classList.add(sevClassByBuffer);
+        }
+        const sevClassByTransport =
+          transportMultiplier >= 3 ? 'sev-bad' :
+          transportMultiplier >= 2 ? 'sev-warn' :
+          'sev-good';
+        if (ttEl) {
+          ttEl.classList.remove('sev-good', 'sev-warn', 'sev-bad');
+          ttEl.classList.add(sevClassByTransport);
+        }
+      }
       const inventoryWaste = getAllRolesInventoryStats(roles);
-      document.getElementById('wasteTotal').textContent = inventoryWaste.total;
-      document.getElementById('wasteLimit').textContent = inventoryWaste.capacity;
       document.getElementById('carbonValue').textContent = shared.carbonEmissions?.value ?? '–';
       document.getElementById('carbonLimit').textContent = shared.carbonEmissions?.limit ?? '–';
+      {
+        const healthFill = document.getElementById('cityHealthBarFill');
+        const carbonFill = document.getElementById('carbonBarFill');
+        const healthPct = Math.max(0, Math.min(100, Number(shared.cityHealth) || 0));
+        const carbonPct = Number(shared.carbonEmissions?.limit) > 0
+          ? Math.max(0, Math.min(100, (Number(shared.carbonEmissions?.value) || 0) / Number(shared.carbonEmissions?.limit) * 100))
+          : 0;
+        if (healthFill) healthFill.style.width = `${healthPct}%`;
+        if (carbonFill) carbonFill.style.width = `${carbonPct}%`;
+      }
       updateDayDisplay({ day: shared.day, maxDay: shared.maxDay });
 
       const dsBtn = document.getElementById('districtsSummaryBtn');
@@ -331,6 +519,78 @@
             return `<div class="${it.cls}"><span class="font-semibold">${it.label}:</span> ${it.total} t <span class="text-slate-500">(${it.status})</span></div>`;
           }).join('');
         }
+
+        const districtStatusEls = {
+          residential: document.getElementById('districtStatusResidential'),
+          commercial: document.getElementById('districtStatusCommercial'),
+          industrial: document.getElementById('districtStatusIndustrial')
+        };
+        items.forEach((it) => {
+          const el = districtStatusEls[it.key];
+          if (!el) return;
+          const badgeClass = it.status === 'Overflowing'
+            ? 'bg-red-100 text-red-700 border-red-200'
+            : it.status === 'Full'
+              ? 'bg-amber-100 text-amber-700 border-amber-200'
+              : 'bg-emerald-100 text-emerald-700 border-emerald-200';
+          el.className = `inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeClass}`;
+          el.textContent = `Waste: ${it.status} (${it.total} t)`;
+        });
+      }
+
+      const soonEl = document.getElementById('projectStatusSoon');
+      const delayedEl = document.getElementById('projectStatusDelayed');
+      if (soonEl && delayedEl) {
+        const projects = Object.values(shared.projects || {});
+        const day = Number(shared.day || 0);
+        const active = projects.filter((p) => p && !p.completedDay && p.deadlineDay != null);
+        const delayed = active.filter((p) => day > Number(p.deadlineDay));
+        const soon = active.filter((p) => {
+          const diff = Number(p.deadlineDay) - day;
+          return diff >= 0 && diff <= 2;
+        });
+
+        soonEl.textContent = `Soon delay: ${soon.length}`;
+        delayedEl.textContent = `Delayed: ${delayed.length}`;
+
+        const soonNames = soon
+          .map((p) => String(p.name || 'project'))
+          .slice(0, 2)
+          .join(', ');
+        const delayedNames = delayed
+          .map((p) => String(p.name || 'project'))
+          .slice(0, 2)
+          .join(', ');
+        soonEl.title = soon.length ? `Soon delay: ${soonNames}${soon.length > 2 ? '...' : ''}` : 'No project near deadline';
+        delayedEl.title = delayed.length ? `Delayed: ${delayedNames}${delayed.length > 2 ? '...' : ''}` : 'No delayed project';
+      }
+
+      const incomingStatusEl = document.getElementById('inventoryIncomingStatus');
+      if (incomingStatusEl) {
+        const pending = Array.isArray(shared.pendingDeliveries) ? shared.pendingDeliveries : [];
+        const incoming = pending.filter((p) => p && p.targetRole === 'municipality');
+        const incomingCount = incoming.length;
+        const justDelivered = incomingCount === 0 && lastMunicipalityIncomingCount > 0;
+        const currentDay = Number(shared.day || 0);
+        if (justDelivered) {
+          lastMunicipalityDeliveredDay = currentDay;
+        }
+        const deliveredByEventLog = Array.isArray(shared.eventLog) && shared.eventLog.some((e) => {
+          const msg = String((e && e.message) || '');
+          return /arriv|deliver/i.test(msg) && /municipality/i.test(msg) && Number(e.day) === currentDay;
+        });
+
+        if (incomingCount > 0) {
+          incomingStatusEl.className = 'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold bg-amber-100 text-amber-700 border-amber-200';
+          incomingStatusEl.textContent = `Incoming: In Transit (${incomingCount})`;
+        } else if (lastMunicipalityDeliveredDay === currentDay || deliveredByEventLog) {
+          incomingStatusEl.className = 'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold bg-emerald-100 text-emerald-700 border-emerald-200';
+          incomingStatusEl.textContent = 'Incoming: Delivered';
+        } else {
+          incomingStatusEl.className = 'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold bg-slate-100 text-slate-700 border-slate-200';
+          incomingStatusEl.textContent = 'Incoming: No incoming';
+        }
+        lastMunicipalityIncomingCount = incomingCount;
       }
 
       renderMyInventory(roles);
@@ -345,6 +605,41 @@
         } else {
           logEl.textContent = 'No events yet.';
         }
+      }
+      const recEl = document.getElementById('recordLog');
+      if (recEl) {
+        recEl.innerHTML = '';
+        const list = shared.eventLog || [];
+        if (!list.length) {
+          recEl.textContent = 'No events yet.';
+        } else {
+          list.slice(-6).reverse().forEach((e) => {
+            const p = document.createElement('p');
+            p.className = 'mb-1';
+            p.textContent = `[Day ${e.day}] ${e.message}`;
+            recEl.appendChild(p);
+          });
+        }
+      }
+      const statusBudgetEl = document.getElementById('statusBudget');
+      if (statusBudgetEl) statusBudgetEl.textContent = shared.budgetHKD.toLocaleString('en-HK');
+      const statusHealthEl = document.getElementById('statusHealth');
+      if (statusHealthEl) statusHealthEl.textContent = `${shared.cityHealth}%`;
+      const statusHealthBarEl = document.getElementById('statusHealthBar');
+      if (statusHealthBarEl) {
+        const hp = Math.max(0, Math.min(100, Number(shared.cityHealth || 0)));
+        statusHealthBarEl.style.width = `${hp}%`;
+      }
+      const statusInventoryEl = document.getElementById('statusInventory');
+      if (statusInventoryEl) statusInventoryEl.textContent = `${inventoryWaste.total}/${inventoryWaste.capacity} t`;
+      const statusCO2El = document.getElementById('statusCO2');
+      if (statusCO2El) statusCO2El.textContent = `${shared.carbonEmissions?.value ?? 0}%`;
+      const statusCO2BarEl = document.getElementById('statusCO2Bar');
+      if (statusCO2BarEl) {
+        const cp = Number(shared.carbonEmissions?.limit) > 0
+          ? Math.max(0, Math.min(100, (Number(shared.carbonEmissions?.value || 0) / Number(shared.carbonEmissions?.limit)) * 100))
+          : 0;
+        statusCO2BarEl.style.width = `${cp}%`;
       }
 
       // Header role + title
@@ -368,6 +663,17 @@
     
       // Keep latest shared for popup
       window.__latestShared = shared;
+
+      // Fallback: if round is already won (e.g. event timing mismatch), still enter leaderboard.
+      const isWinByState =
+        Number(shared.day) >= Number(shared.maxDay) &&
+        Number(shared.cityHealth) > 0 &&
+        Number(shared.budgetHKD) > 0 &&
+        Number(shared?.waste?.totalTonnes) < Number(shared?.waste?.capacityTonnes) &&
+        Number(shared?.carbonEmissions?.value) < Number(shared?.carbonEmissions?.limit);
+      if (shared.gameOver && isWinByState) {
+        setTimeout(goLeaderboard, 150);
+      }
     }
 
     socket.on('gameStateUpdate', renderGameState);
@@ -377,6 +683,9 @@
     socket.on('gameOver', (payload) => {
       if (payload && payload.state) {
         renderGameState(payload.state);
+      }
+      if (payload && payload.isWin) {
+        setTimeout(goLeaderboard, 150);
       }
     });
 

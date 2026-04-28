@@ -858,7 +858,7 @@ const WASTE_TREATMENT_METHOD_SPECS = {
   }
 };
 
-const WASTE_TREATMENT_MATERIAL_KEYS = [...MATERIALS, 'material6'];
+const WASTE_TREATMENT_MATERIAL_KEYS = [...MATERIALS];
 
 function applyMrfWasteTreatment(inv, category, subMethod, batch) {
   if (!inv || !batch || typeof batch !== 'object') return { ok: false, error: 'Invalid treatment batch.' };
@@ -868,7 +868,6 @@ function applyMrfWasteTreatment(inv, category, subMethod, batch) {
   if (!spec) return { ok: false, error: 'Unknown treatment category / sub-method.' };
 
   ensureInventoryWaste(inv);
-  if (!inv.waste.material6) inv.waste.material6 = { B: 0, C: 0, F: 0 };
   const lines = [];
   let totalT = 0;
 
@@ -3165,6 +3164,7 @@ io.on('connection', (socket) => {
   socket.on('restartGame', (_data, ack) => {
     const player = players.find((p) => p.id === socket.id);
     const reqRole = _data && _data.role;
+    const forceRestart = !!(_data && _data.force);
     // When players navigate between pages, the socket id changes and server-side `player.role`
     // may be null. Rely on the role sent from the client for the restart gate.
     const role = reqRole || (player && player.role);
@@ -3175,8 +3175,11 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // If the game isn't actually over (gate not active), keep old behavior.
-    if (!isRestartGateActive) {
+    // For explicit force restart (e.g. leaderboard Leave), restart immediately.
+    // This bypasses the 3-role ready gate and returns everyone to a clean lobby state.
+    if (forceRestart || !isRestartGateActive) {
+      isRestartGateActive = false;
+      restartReadyRoles.clear();
       restartGameSession();
       io.emit('gameRestarted', {
         message: 'Game restarted successfully.',
