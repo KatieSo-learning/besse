@@ -213,6 +213,23 @@ const TRANSPORT_MODE_BASE = {
   Airport: { deliveryDays: 1, returnDays: 1, cap: 5, co2PerTrip: 500, qty: 1, costPerTrip: 400 },
   Port: { deliveryDays: 4, returnDays: 4, cap: 100, co2PerTrip: 75, qty: 1, costPerTrip: 25 }
 };
+
+function getTransportModeBaseByDifficulty() {
+  const diff = getCurrentDifficultyKey();
+  const truckCo2PerTrip = diff === 'beginner' ? 50 : 80;
+  const airportCo2PerTrip = diff === 'beginner' ? 100 : 150;
+  return {
+    ...TRANSPORT_MODE_BASE,
+    Truck: {
+      ...TRANSPORT_MODE_BASE.Truck,
+      co2PerTrip: truckCo2PerTrip
+    },
+    Airport: {
+      ...TRANSPORT_MODE_BASE.Airport,
+      co2PerTrip: airportCo2PerTrip
+    }
+  };
+}
 const TRANSPORT_UPGRADE_TABLE = {
   speed: {
     // mult chosen so ceil(baseDays*mult) drops for Truck (3d) after the first purchase (Lv.1→2):
@@ -1210,7 +1227,8 @@ function normalizeTransportMeta(data) {
 }
 
 function computeBrokerTransportConfig(broker, transportType) {
-  const base = TRANSPORT_MODE_BASE[transportType] || TRANSPORT_MODE_BASE.Truck;
+  const transportBase = getTransportModeBaseByDifficulty();
+  const base = transportBase[transportType] || transportBase.Truck;
   // Same upgrade track (speed / capacity / green / fleet) applies to Truck, Airport, and Port
   // so inventory transfers and previews stay consistent across modes.
   const ups = (broker && broker.transportation && broker.transportation.upgrades) || {};
