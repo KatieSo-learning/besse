@@ -245,35 +245,35 @@
       </div>
 
       <!-- facility=waste-treatment: compact panel below stock (few words, big actions) -->
-      <div id="wasteTreatmentFacilityPanel" class="hidden mt-6 rounded-2xl border-2 border-[#2f5a47]/25 bg-white shadow-md p-4 sm:p-5 space-y-4">
+      <div id="wasteTreatmentFacilityPanel" class="hidden mt-6 rounded-2xl border-2 border-[#2f5a47]/25 bg-white shadow-md p-5 sm:p-6 space-y-5">
         <div class="flex flex-col gap-1">
-          <h2 class="text-xl font-black text-slate-900">Treat F-grade waste</h2>
-          <p class="text-sm text-slate-600"><span class="font-bold text-[#2f5a47]">①</span> Tick F lines <span class="mx-1 text-slate-300">→</span> <span class="font-bold text-[#2f5a47]">②</span> Pick route + method <span class="mx-1 text-slate-300">→</span> <span class="font-bold text-[#2f5a47]">③</span> Go</p>
+          <h2 class="text-2xl font-black text-slate-900">🔥 Treat F-grade Waste</h2>
+          <p class="text-sm sm:text-base text-slate-600"><span class="font-bold text-[#2f5a47]">①</span> Tick F lines <span class="mx-1 text-slate-300">→</span> <span class="font-bold text-[#2f5a47]">②</span> Pick route + method <span class="mx-1 text-slate-300">→</span> <span class="font-bold text-[#2f5a47]">③</span> Treat batch</p>
         </div>
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-2" id="wtCategoryButtons"></div>
-        <div class="flex flex-col sm:flex-row gap-3 sm:items-end">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3" id="wtCategoryButtons"></div>
+        <div class="flex flex-col sm:flex-row gap-3 sm:items-end rounded-xl border border-slate-200 bg-slate-50/70 p-3">
           <label class="flex-1 min-w-0">
             <span class="text-xs font-bold text-slate-500">Method</span>
-            <select id="wtSubMethodSelect" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white font-semibold focus:border-[#2f5a47] focus:ring-0"></select>
+            <select id="wtSubMethodSelect" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-3 py-3 text-base bg-white font-semibold focus:border-[#2f5a47] focus:ring-0"></select>
           </label>
-          <p id="wtPerTonHint" class="text-xs text-slate-500 sm:pb-2 sm:max-w-xs leading-snug">—</p>
+          <p id="wtPerTonHint" class="text-xs sm:text-sm text-slate-600 sm:pb-2 sm:max-w-xs leading-snug rounded-lg bg-white border border-slate-200 px-2 py-1">—</p>
         </div>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-xl bg-slate-50 border border-slate-200 p-3 text-center">
-          <div>
-            <p class="text-[10px] font-bold text-slate-400">Batch /t</p>
-            <p id="wtPreviewBatchT" class="text-lg font-black text-slate-900 tabular-nums">–</p>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-xl bg-slate-50 border border-slate-200 p-3 text-center">
+          <div class="rounded-lg border border-slate-200 bg-white py-2">
+            <p class="text-[11px] font-bold text-slate-400">🧱 Batch / t</p>
+            <p id="wtPreviewBatchT" class="text-xl font-black text-slate-900 tabular-nums">–</p>
           </div>
-          <div>
-            <p class="text-[10px] font-bold text-slate-400">Cost</p>
-            <p id="wtImpactBudget" class="text-lg font-black text-emerald-900 tabular-nums">–</p>
+          <div class="rounded-lg border border-slate-200 bg-white py-2">
+            <p class="text-[11px] font-bold text-slate-400">💰 Cost</p>
+            <p id="wtImpactBudget" class="text-xl font-black text-emerald-900 tabular-nums">–</p>
           </div>
-          <div>
-            <p class="text-[10px] font-bold text-slate-400">CO₂</p>
-            <p id="wtImpactCarbon" class="text-lg font-black text-slate-900 tabular-nums">–</p>
+          <div class="rounded-lg border border-slate-200 bg-white py-2">
+            <p class="text-[11px] font-bold text-slate-400">☁️ CO₂</p>
+            <p id="wtImpactCarbon" class="text-xl font-black text-slate-900 tabular-nums">–</p>
           </div>
-          <div>
-            <p class="text-[10px] font-bold text-slate-400">Health</p>
-            <p id="wtImpactHealth" class="text-lg font-black text-slate-900 tabular-nums">–</p>
+          <div class="rounded-lg border border-slate-200 bg-white py-2">
+            <p class="text-[11px] font-bold text-slate-400">❤️ Health</p>
+            <p id="wtImpactHealth" class="text-xl font-black text-slate-900 tabular-nums">–</p>
           </div>
         </div>
         <span id="wtImpactWaste" class="sr-only" aria-live="polite"></span>
@@ -294,8 +294,16 @@
             </table>
           </div>
         </details>
-        <div class="flex justify-end pt-1">
-          <button type="button" id="wtApplyBtn" class="bg-[#2f5a47] hover:bg-[#244635] text-white font-black text-base px-10 py-3 rounded-2xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">Treat batch</button>
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 pt-1">
+          <div class="flex items-center gap-2 sm:ml-auto">
+            <button type="button" id="wtSelectAllBtn" class="bg-slate-700 hover:bg-slate-800 text-white font-bold text-sm px-5 py-2.5 rounded-xl shadow">
+              Select All
+            </button>
+            <button type="button" id="wtClearAllBtn" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-sm px-5 py-2.5 rounded-xl shadow border border-slate-300">
+              Clear All
+            </button>
+          </div>
+          <button type="button" id="wtApplyBtn" class="bg-[#2f5a47] hover:bg-[#244635] text-white font-black text-base px-10 py-3.5 rounded-2xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">Treat batch</button>
         </div>
       </div>
 
@@ -353,7 +361,7 @@
             Per tonne: C→B gives +B 0.50 +F 0.50 · B→A gives +A 0.50 +F 0.50 (mass balance)
           </p>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" id="recyclingStepInputsHost"></div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3" id="recyclingStepInputsHost"></div>
         <div class="flex flex-col lg:flex-row lg:items-stretch gap-4 rounded-xl border border-slate-200 bg-slate-50/90 p-4">
           <div class="flex-1 min-w-0 space-y-2 text-sm text-slate-800">
             <h3 class="text-sm font-semibold text-slate-800 mb-1">Impact preview (this batch)</h3>
@@ -384,7 +392,15 @@
               </div>
             </div>
           </div>
-          <div class="flex shrink-0 items-center justify-center lg:justify-end lg:self-center gap-2">
+          <div class="flex shrink-0 flex-col items-stretch justify-center lg:justify-end lg:self-center gap-2 lg:min-w-[260px]">
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" id="recyclingSelectAllBtn" class="bg-slate-700 hover:bg-slate-800 text-white font-bold text-sm px-4 py-2.5 rounded-xl shadow">
+                Select All
+              </button>
+              <button type="button" id="recyclingClearAllBtn" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-sm px-4 py-2.5 rounded-xl shadow border border-slate-300">
+                Clear All
+              </button>
+            </div>
             <button type="button" id="recyclingApplyBtn" class="bg-[#2f5a47] hover:bg-[#244635] text-white font-bold px-8 py-2.5 rounded-xl shadow whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
               Recycle upgrade batch
             </button>
@@ -639,7 +655,7 @@
         catHost.innerHTML = Object.entries(WASTE_TREATMENT_TREE)
           .map(
             ([key, def]) => `
-          <button type="button" data-wt-cat="${key}" class="wt-cat-btn rounded-xl border-2 px-2 py-3 text-sm font-black transition-colors ${
+          <button type="button" data-wt-cat="${key}" class="wt-cat-btn rounded-xl border-2 px-3 py-3.5 text-sm font-black transition-colors ${
             key === wtSelectedCategory ? 'border-[#2f5a47] bg-emerald-50 shadow-inner' : 'border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.98]'
           }">
             <span class="block text-center leading-tight">${def.label}</span>
@@ -651,7 +667,7 @@
             wtSelectedCategory = btn.getAttribute('data-wt-cat') || 'thermal';
             catHost.querySelectorAll('.wt-cat-btn').forEach((b) => {
               const on = b.getAttribute('data-wt-cat') === wtSelectedCategory;
-              b.className = `wt-cat-btn rounded-xl border-2 px-2 py-3 text-sm font-black transition-colors ${
+              b.className = `wt-cat-btn rounded-xl border-2 px-3 py-3.5 text-sm font-black transition-colors ${
                 on ? 'border-[#2f5a47] bg-emerald-50 shadow-inner' : 'border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.98]'
               }`;
             });
@@ -2329,6 +2345,31 @@
       socket.emit('mrfRecyclingConvert', { role: 'MRF', batch });
     }
     document.getElementById('recyclingApplyBtn')?.addEventListener('click', runRecyclingBatchClick);
+    document.getElementById('recyclingSelectAllBtn')?.addEventListener('click', () => {
+      document.querySelectorAll('#recyclingStepInputsHost input[data-rcy-c-input="1"], #recyclingStepInputsHost input[data-rcy-b-input="1"]').forEach((input) => {
+        const max = Math.max(0, Math.floor(Number(input.max || 0)));
+        input.value = String(max);
+      });
+      updateRecyclingImpactPreview();
+    });
+    document.getElementById('recyclingClearAllBtn')?.addEventListener('click', () => {
+      document.querySelectorAll('#recyclingStepInputsHost input[data-rcy-c-input="1"], #recyclingStepInputsHost input[data-rcy-b-input="1"]').forEach((input) => {
+        input.value = '0';
+      });
+      updateRecyclingImpactPreview();
+    });
+    document.getElementById('wtSelectAllBtn')?.addEventListener('click', () => {
+      document.querySelectorAll('#wasteListBody input[data-wt-f-select="1"]').forEach((cb) => {
+        if (!cb.disabled) cb.checked = true;
+      });
+      updateWtImpactPreview();
+    });
+    document.getElementById('wtClearAllBtn')?.addEventListener('click', () => {
+      document.querySelectorAll('#wasteListBody input[data-wt-f-select="1"]').forEach((cb) => {
+        cb.checked = false;
+      });
+      updateWtImpactPreview();
+    });
 
     if (socket) {
       socket.on('inventoryTransferResult', (payload) => {

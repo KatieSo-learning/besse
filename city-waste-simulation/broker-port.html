@@ -125,29 +125,18 @@
         <section class="dashed-panel rounded-xl p-4">
           <h2 class="text-2xl md:text-2xl font-extrabold tracking-wide text-slate-900 text-center mb-4">Port Fleet</h2>
           <div class="flex flex-col gap-4 flex-1">
-            <div class="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center h-48">
-              <div class="w-full h-full max-w-xs max-h-40 border border-slate-300 bg-slate-200 flex flex-col items-center justify-center gap-2">
-                <svg class="w-16 h-16 text-[#2f5a47]" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <path d="M18 40H46C47.1046 40 48 39.1046 48 38V32H16V38C16 39.1046 16.8954 40 18 40Z" fill="currentColor" opacity="0.22"/>
-                  <path d="M10 42C14 38 22 34 32 34C42 34 50 38 54 42V46H10V42Z" fill="currentColor" opacity="0.28"/>
-                  <path d="M30 34V20H34V34" fill="currentColor" opacity="0.35"/>
-                  <path d="M34 20L44 24H34V20Z" fill="currentColor" opacity="0.25"/>
-                  <path d="M14 47H50" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-                  <circle cx="24" cy="46" r="3" fill="white" opacity="0.9"/>
-                  <circle cx="40" cy="46" r="3" fill="white" opacity="0.9"/>
-                </svg>
-                <span class="text-xs text-slate-500 tracking-wide uppercase">Port Fleet</span>
-              </div>
+            <div class="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center h-48 overflow-hidden">
+              <img src="assets/feature-port.svg" alt="Port Fleet" class="w-full h-full object-cover rounded-xl border border-slate-300" />
             </div>
             <div class="space-y-2 text-xs text-slate-700">
               <div class="flex items-center justify-between">
-                <span class="font-semibold">Active</span>
+                <span class="font-semibold">✅ Active</span>
                 <div id="activeTruckIcons" class="flex gap-1 text-lg">
                   <span>🚢</span><span>🚢</span><span>🚢</span><span>🚢</span><span>🚢</span>
                 </div>
               </div>
               <div class="flex items-center justify-between">
-                <span class="font-semibold">In Use</span>
+                <span class="font-semibold">🛠️ In Use</span>
                 <div id="inUseTruckIcons" class="flex gap-1 text-lg">
                   <span class="opacity-30">🚢</span><span class="opacity-30">🚢</span><span class="opacity-30">🚢</span><span class="opacity-30">🚢</span><span class="opacity-30">🚢</span>
                 </div>
@@ -157,7 +146,7 @@
         </section>
 
         <section class="lg:col-span-2 dashed-panel rounded-xl p-4 relative">
-          <h2 class="text-2xl md:text-2xl font-extrabold tracking-wide text-slate-900 text-center mb-4">Upgrade</h2>
+          <h2 class="text-2xl md:text-2xl font-extrabold tracking-wide text-slate-900 text-center mb-4">⬆️ Upgrade</h2>
           <button
             type="button"
             class="absolute right-4 top-4 w-12 h-12 rounded-full bg-amber-300 hover:bg-amber-200 text-slate-900 font-extrabold border border-black/10 shadow"

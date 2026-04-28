@@ -121,32 +121,18 @@
         <section class="dashed-panel rounded-xl p-4">
           <h2 class="text-2xl md:text-2xl font-extrabold tracking-wide text-slate-900 text-center mb-4">Truck Fleet</h2>
           <div class="flex flex-col gap-4 flex-1">
-            <div class="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center h-48">
-              <div class="w-full h-full max-w-xs max-h-40 border border-slate-300 bg-slate-200 flex flex-col items-center justify-center gap-2">
-                <svg class="w-16 h-16 text-[#2f5a47]" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <path d="M18 26C18 22.686 20.686 20 24 20H42C45.314 20 48 22.686 48 26V34H18V26Z" fill="currentColor" opacity="0.18"/>
-                  <rect x="14" y="24" width="34" height="22" rx="4" fill="currentColor" opacity="0.22"/>
-                  <rect x="38" y="18" width="12" height="14" rx="3" fill="currentColor" opacity="0.35"/>
-                  <path d="M14 34H48" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-                  <circle cx="24" cy="48" r="6" fill="currentColor" opacity="0.28"/>
-                  <circle cx="24" cy="48" r="3" fill="white" opacity="0.9"/>
-                  <circle cx="44" cy="48" r="6" fill="currentColor" opacity="0.28"/>
-                  <circle cx="44" cy="48" r="3" fill="white" opacity="0.9"/>
-                  <path d="M28 28H40" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-                  <path d="M24 40H38" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
-                </svg>
-                <span class="text-xs text-slate-500 tracking-wide uppercase">Truck Fleet</span>
-              </div>
+            <div class="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center h-48 overflow-hidden">
+              <img src="assets/feature-truck.svg" alt="Truck Fleet" class="w-full h-full object-cover rounded-xl border border-slate-300" />
             </div>
             <div class="space-y-2 text-xs text-slate-700">
               <div class="flex items-center justify-between">
-                <span class="font-semibold">Active</span>
+                <span class="font-semibold">✅ Active</span>
                 <div id="activeTruckIcons" class="flex gap-1 text-lg">
                   <span>🚚</span><span>🚚</span><span>🚚</span><span>🚚</span><span>🚚</span>
                 </div>
               </div>
               <div class="flex items-center justify-between">
-                <span class="font-semibold">In Use</span>
+                <span class="font-semibold">🛠️ In Use</span>
                 <div id="inUseTruckIcons" class="flex gap-1 text-lg">
                   <span class="opacity-30">🚚</span><span class="opacity-30">🚚</span><span class="opacity-30">🚚</span><span class="opacity-30">🚚</span><span class="opacity-30">🚚</span>
                 </div>
@@ -156,7 +142,7 @@
         </section>
 
         <section class="lg:col-span-2 dashed-panel rounded-xl p-4 relative">
-          <h2 class="text-2xl md:text-2xl font-extrabold tracking-wide text-slate-900 text-center mb-4">Upgrade</h2>
+          <h2 class="text-2xl md:text-2xl font-extrabold tracking-wide text-slate-900 text-center mb-4">⬆️ Upgrade</h2>
           <button
             type="button"
             class="absolute right-4 top-4 w-12 h-12 rounded-full bg-amber-300 hover:bg-amber-200 text-slate-900 font-extrabold border border-black/10 shadow"
