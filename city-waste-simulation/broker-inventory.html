@@ -662,6 +662,26 @@
       Airport: { deliveryDays: 1, returnDays: 1, cap: 5, co2PerTrip: 500, qty: 1, costPerTrip: 400 },
       Port: { deliveryDays: 4, returnDays: 4, cap: 100, co2PerTrip: 75, qty: 1, costPerTrip: 25 }
     };
+    function getCurrentDifficulty() {
+      const raw = String((((latestState || {}).shared || {}).difficulty || 'normal')).toLowerCase();
+      return raw === 'beginner' ? 'beginner' : 'normal';
+    }
+    function getTransportBaseByDifficulty() {
+      const difficulty = getCurrentDifficulty();
+      const truckCo2PerTrip = difficulty === 'beginner' ? 50 : 80;
+      const airportCo2PerTrip = difficulty === 'beginner' ? 100 : 150;
+      return {
+        ...TRANSPORT_BASE,
+        Truck: {
+          ...TRANSPORT_BASE.Truck,
+          co2PerTrip: truckCo2PerTrip
+        },
+        Airport: {
+          ...TRANSPORT_BASE.Airport,
+          co2PerTrip: airportCo2PerTrip
+        }
+      };
+    }
     const UPGRADE_MULT = {
       speed: { 0: 1, 1: 0.85, 2: 0.65, 3: 0.48, 4: 0.34, 5: 0.25 },
       capacity: { 0: 1, 1: 1.2, 2: 1.45, 3: 1.75, 4: 2.1, 5: 2.5 },
@@ -670,7 +690,8 @@
     };
 
     function getTransportConfig(type) {
-      const base = TRANSPORT_BASE[type] || TRANSPORT_BASE.Truck;
+      const transportBase = getTransportBaseByDifficulty();
+      const base = transportBase[type] || transportBase.Truck;
       const u = getTransportUpgrades(latestState);
       const speedMult = UPGRADE_MULT.speed[u.speed] || 1;
       const capMult = UPGRADE_MULT.capacity[u.capacity] || 1;
@@ -903,15 +924,24 @@
     }
 
     function selectAllBrokerRowsForCurrentMode() {
+      const isVisible = (el) => {
+        if (!el) return false;
+        if (el.classList && el.classList.contains('hidden')) return false;
+        const hiddenParent = el.closest('.hidden');
+        return !hiddenParent;
+      };
       if (qualityMode === 'materials') {
         document.querySelectorAll('#materialListBody input[data-material-card-tons="1"]').forEach((input) => {
+          if (!isVisible(input)) return;
           input.value = String(Math.max(0, Math.floor(Number(input.max) || 0)));
         });
       } else {
         document.querySelectorAll('#wasteListBody input[data-waste-card-tons="1"]').forEach((input) => {
+          if (!isVisible(input)) return;
           input.value = String(Math.max(0, Math.floor(Number(input.max) || 0)));
         });
         document.querySelectorAll('#wasteSelectableBody input[type="number"]').forEach((input) => {
+          if (!isVisible(input)) return;
           input.value = String(Math.max(0, Math.floor(Number(input.max) || 0)));
         });
       }

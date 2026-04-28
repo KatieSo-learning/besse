@@ -1477,16 +1477,24 @@
     function selectAllMrfSendRowsForCurrentMode() {
       const inv = latestState?.roles?.mrf?.inventory || null;
       if (!inv) return;
+      const isVisible = (el) => {
+        if (!el) return false;
+        if (el.classList && el.classList.contains('hidden')) return false;
+        return !el.closest('.hidden');
+      };
       if (qualityMode === 'materials') {
         document.querySelectorAll('#materialListBody input[data-material-card-tons="1"]').forEach((input) => {
+          if (!isVisible(input)) return;
           input.value = String(Math.max(0, Math.floor(Number(input.max) || 0)));
         });
         updateMaterialSendButtonState(inv);
       } else {
         document.querySelectorAll('#wasteListBody input[data-waste-card-tons="1"]').forEach((input) => {
+          if (!isVisible(input)) return;
           input.value = String(Math.max(0, Math.floor(Number(input.max) || 0)));
         });
         document.querySelectorAll('#wasteSelectableBody input[type="number"]').forEach((input) => {
+          if (!isVisible(input)) return;
           input.value = String(Math.max(0, Math.floor(Number(input.max) || 0)));
         });
         updateWasteSendButtonState(inv);
@@ -1519,6 +1527,7 @@
     function setSortingSelection(checked) {
       document.querySelectorAll('#wasteListBody input[data-sort-waste-select="1"]').forEach((cb) => {
         if (cb.disabled) return;
+        if (cb.classList?.contains('hidden') || cb.closest('.hidden')) return;
         cb.checked = checked;
       });
       const inv = latestState?.roles?.mrf?.inventory || null;
@@ -1529,6 +1538,7 @@
     function setWasteTreatmentSelection(checked) {
       document.querySelectorAll('#wasteListBody input[data-wt-f-select="1"]').forEach((cb) => {
         if (cb.disabled) return;
+        if (cb.classList?.contains('hidden') || cb.closest('.hidden')) return;
         cb.checked = checked;
       });
       const inv = latestState?.roles?.mrf?.inventory || null;
