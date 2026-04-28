@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hub - Municipality</title>
+  <title>Game View - Municipality</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <link rel="stylesheet" href="ui-fonts.css" />
@@ -135,7 +135,7 @@
         <span id="headerDayChip" class="text-xs md:text-sm text-white-100 font-bold whitespace-nowrap" title="Game day progress">Day – / –</span>
       </div>
       <div class="text-center absolute left-1/2 -translate-x-1/2 pointer-events-none">
-        <h1 id="gameTitle" class="text-2xl md:text-3xl font-extrabold tracking-widest">Municipality - Game View</h1>
+        <h1 id="gameTitle" class="text-2xl md:text-3xl font-extrabold tracking-widest">Game View Municipality</h1>
       </div>
       <div class="flex items-center gap-2">
         <button
@@ -645,7 +645,7 @@
       // Header role + title
     (function updatePageTitleForRole() {
       const titleEl = document.getElementById('gameTitle');
-      if (titleEl && myRole) titleEl.textContent = `${myRole} – Game View`;
+      if (titleEl && myRole) titleEl.textContent = `Game View ${myRole}`;
       const roleBadge = document.getElementById('myRoleBadge');
       if (roleBadge) {
         roleBadge.querySelector('span').textContent = myRole || 'Unknown';

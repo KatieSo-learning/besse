@@ -565,6 +565,7 @@
     (function updatePageTitleForRole() {
       const titleEl = document.getElementById('gameTitle');
       if (titleEl && myRole) titleEl.textContent = `${myRole} – Game View`;
+      if (myRole) document.title = `Game View - ${myRole}`;
       const roleBadge = document.getElementById('myRoleBadge');
       if (roleBadge) {
         roleBadge.querySelector('span').textContent = myRole || 'Unknown';

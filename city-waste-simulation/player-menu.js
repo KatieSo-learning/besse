@@ -358,12 +358,12 @@
       const style = document.createElement('style');
       style.id = 'besseGameOverStyle';
       style.textContent = `
-        #besseGameOverRestartBtn{
+        #besseGameOverLeaveBtn{
           background:#2f5a47 !important;
           color:#ffffff !important;
           -webkit-text-fill-color:#ffffff !important;
         }
-        #besseGameOverRestartBtn:hover{
+        #besseGameOverLeaveBtn:hover{
           background:#244635 !important;
         }
       `;
@@ -383,7 +383,7 @@
       <div class="max-w-md w-full rounded-2xl border-2 border-[#2f5a47] bg-white shadow-2xl p-6 text-center">
         <h2 id="besseGameOverTitle" class="text-2xl font-extrabold tracking-wide text-[#1a2f25] mb-2">Well done!</h2>
         <p id="besseGameOverReason" class="text-slate-700 mb-6 text-sm leading-relaxed min-h-[1.25rem]"></p>
-        <button type="button" id="besseGameOverRestartBtn" class="w-full rounded-xl bg-[#2f5a47] text-white font-bold py-3 px-4 shadow hover:bg-[#244635] disabled:opacity-50 disabled:cursor-not-allowed border border-black/10">
+        <button type="button" id="besseGameOverLeaveBtn" class="w-full rounded-xl bg-[#2f5a47] text-white font-bold py-3 px-4 shadow hover:bg-[#244635] disabled:opacity-50 disabled:cursor-not-allowed border border-black/10">
           Restart
         </button>
       </div>`;
@@ -395,7 +395,7 @@
     ensureGameOverModal();
     const titleEl = document.getElementById('besseGameOverTitle');
     const reasonEl = document.getElementById('besseGameOverReason');
-    const btn = document.getElementById('besseGameOverRestartBtn');
+    const btn = document.getElementById('besseGameOverLeaveBtn');
     const overlay = document.getElementById('besseGameOverOverlay');
     const isWin = /simulation complete|day\s*\d+/i.test(String(reason || ''));
     if (titleEl) titleEl.textContent = isWin ? 'Well done!' : 'Game Over';
@@ -460,33 +460,21 @@
     if (legacyFloat) legacyFloat.classList.add('hidden');
 
     ensureGameOverModal();
-    const restartBtn = document.getElementById('besseGameOverRestartBtn');
+    const leaveBtn = document.getElementById('besseGameOverLeaveBtn');
     const legacyGameBtn = document.getElementById('restartGameBtn');
     if (legacyGameBtn) legacyGameBtn.classList.add('hidden');
 
-    function doRestart() {
-      const btn = document.getElementById('besseGameOverRestartBtn');
+    function doLeave() {
+      const btn = document.getElementById('besseGameOverLeaveBtn');
       if (!btn) return;
       btn.disabled = true;
-      btn.textContent = 'Restarting…';
-      let role = null;
-      try {
-        role = new URLSearchParams(window.location.search).get('role');
-      } catch {
-        role = null;
-      }
-      socket.emit('restartGame', { role }, (res) => {
-        if (!res || !res.ok) {
-          btn.disabled = false;
-          btn.textContent = 'Restart';
-          alert('Restart failed. Please try again.');
-        }
-      });
+      btn.textContent = 'Restarting...';
+      goToLobbyHome();
     }
 
-    if (restartBtn && !restartBtn.__besseRestartWired) {
-      restartBtn.__besseRestartWired = true;
-      restartBtn.addEventListener('click', doRestart);
+    if (leaveBtn && !leaveBtn.__besseLeaveWired) {
+      leaveBtn.__besseLeaveWired = true;
+      leaveBtn.addEventListener('click', doLeave);
     }
 
     socket.on('gameOver', (payload) => {
@@ -535,11 +523,11 @@
       }
       return;
       const r = payload && payload.reason ? String(payload.reason) : '';
-      const requestAutoRestart = () => {
-        if (socket.__besseAutoRestartRequested) return;
-        socket.__besseAutoRestartRequested = true;
+      const requestAutoLeave = () => {
+        if (socket.__besseAutoLeaveRequested) return;
+        socket.__besseAutoLeaveRequested = true;
         setTimeout(() => {
-          doRestart();
+          doLeave();
         }, 900);
       };
 
@@ -550,12 +538,12 @@
         .then((data) => {
           if (data && data.shared && data.shared.gameOver === false) return;
           showGameOverModal(r);
-          requestAutoRestart();
+          requestAutoLeave();
         })
         .catch(() => {
           // If state fetch fails, fall back to existing behavior.
           showGameOverModal(r);
-          requestAutoRestart();
+          requestAutoLeave();
         });
     });
 
@@ -563,7 +551,7 @@
       // Suppress any delayed "gameOver" packets for a short window.
       // (All clients will get gameRestarted when the gate completes, but older queued events may arrive after.)
       socket.__besseSuppressGameOverUntil = Date.now() + 5000;
-      socket.__besseAutoRestartRequested = false;
+      socket.__besseAutoLeaveRequested = false;
       hideGameOverModal();
       window.dispatchEvent(new CustomEvent('besseGameRestarted'));
       // Round reset complete -> return everyone to lobby.
